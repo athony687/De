@@ -297,14 +297,6 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <label for="spd">ノーツ速度</label><output id="spdOut" for="spd">7.0</output>
         <input type="range" id="spd" min="1" max="10" step="0.25" value="7">
       </div>
-      <fieldset class="opt">
-        <legend>判定の広さ</legend>
-        <div class="segs">
-          <input type="radio" name="judge" id="j_normal" value="normal"><label for="j_normal">ふつう<small>±50ms</small></label>
-          <input type="radio" name="judge" id="j_wide" value="wide"><label for="j_wide">ひろい<small>±80ms</small></label>
-          <input type="radio" name="judge" id="j_easy" value="easy"><label for="j_easy">やさしい<small>±110ms</small></label>
-        </div>
-      </fieldset>
       <label class="check" for="auto"><input type="checkbox" id="auto">オートプレイでお手本を見る</label>
       <button type="submit" class="play" id="playBtn">PLAY</button>
       <p class="best" id="bestTxt"></p>
@@ -333,7 +325,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           </li>
           <li>「＋ simai譜面を追加」から、simai形式の譜面テキスト（maidata.txt も可）を貼り付けて遊べます。音源ファイルは任意で、なければガイド音で再生します。</li>
           <li>練習モードでは、画面下のバーで好きな位置へ移動、2小節ずつの巻き戻し・早送り、直前のミス地点へ戻る、A〜B区間のくり返し、再生速度の変更ができます。ミスした位置はバーに赤い線で残ります。音源を使っているときは、スローにすると音程も下がります。</li>
-          <li>判定の広さ「ひろい」は PERFECT ±80ms・GREAT ±140ms・GOOD ±200ms。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチはさらに広めで、指をすべらせて範囲に入れても取れます。</li>
+          <li>判定幅は PERFECT ±80ms・GREAT ±140ms・GOOD ±200ms。スライドは矢印に沿ってなぞってください（リングのすぐ外側をなぞってもOK）。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチはさらに広めで、指をすべらせて範囲に入れても取れます。</li>
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正」で調整します（＋にすると譜面が遅れます）。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
         </ul>
@@ -454,14 +446,14 @@ const JUDGE_PRESETS = {
 };
 let W_P = .07, W_G = .125, W_D = .18, T_P = .09, T_G = .15, T_D = .22, SL_P = .3, SL_G = .5, SL_M = .6;
 // スライドの経路からどれだけ離れていてもなぞった扱いにするか（リング半径=1）
-const SLIDE_TOL = { normal: .36, wide: .44, easy: .52 };
+const SLIDE_TOL = { normal: .26, wide: .28, easy: .32 };
 let SL_TOL = .44;
 function applyJudge(name) {
   const p = JUDGE_PRESETS[name] || JUDGE_PRESETS.wide;
   [W_P, W_G, W_D] = p.tap; [T_P, T_G, T_D] = p.touch; [SL_P, SL_G, SL_M] = p.slide;
   SL_TOL = SLIDE_TOL[name] || SLIDE_TOL.wide;
 }
-const TR = .4;                                    // タッチの当たり判定半径（リング=1）
+const TR = .5;                                    // タッチの当たり判定半径（リング=1）
 const PSEUDO = .015;                              // 疑似EACH（`）のずれ幅
 const J_NAME = ['PERFECT', 'GREAT', 'GOOD', 'MISS'];
 const J_PT = [1, .8, .5, 0];
@@ -1070,17 +1062,18 @@ function readInput() {
   for (const p of ptrs.values()) {
     const nx = (p.x - cx) / R, ny = (p.y - cy) / R, r = regionAt(nx, ny);
     P.push([nx, ny]);
+    if (p.moved) S.push([nx, ny]);     // スライドに使うのは、実際に動かしている指だけ
     if (r < 0) continue;
     if (r < 8) h[r] = true; else if (r < 16) h[r - 8] = true;
   }
   for (const k of keys) { h[k] = true; S.push(...keyPts(k)); }
   if (centerKey) S.push([0, 0]);
-  S.push(...P, ...trail);
+  S.push(...trail);
   trail.length = 0;
   return { h, P, S };
 }
 // スライド：経路に沿ってどこまでなぞれたか（許容幅 SL_TOL、先読み SL_LOOK）
-const SL_LOOK = 1.25;
+const SL_LOOK = .4;             // 一度に進めるのは経路の少し先まで（離れたボタンを押しても飛ばない）
 // 指の点 p が経路上の点 (sx, sy) をなぞったことになるか。
 // リング付近の経路は、リングの外側（ボタンのあたり）をなぞっても角度が合っていれば認める
 function slideNear(p, sx, sy, tol2) {
@@ -1089,7 +1082,7 @@ function slideNear(p, sx, sy, tol2) {
   const rs = Math.hypot(sx, sy);
   if (rs < .8) return false;
   const rf = Math.hypot(p[0], p[1]);
-  if (rf < rs - .45 || rf > rs + 1.4) return false;
+  if (rf < rs - .3 || rf > rs + .55) return false;
   let da = Math.atan2(p[1], p[0]) - Math.atan2(sy, sx); da = Math.atan2(Math.sin(da), Math.cos(da));
   return Math.abs(da) * rs < SL_TOL;
 }
@@ -1108,7 +1101,7 @@ function advanceSlide(n, S) {
   }
 }
 function touchHeld(n, P) {
-  for (const p of P) if (Math.hypot(p[0] - n.pos[0], p[1] - n.pos[1]) < .34) return true;
+  for (const p of P) if (Math.hypot(p[0] - n.pos[0], p[1] - n.pos[1]) < .45) return true;
   return isCenter(n.pos) ? centerKey : keys.has(nearestLane(n.pos));
 }
 const press = (l, pf) => { if (l >= 0 && l < 8) lastPress[l] = pf; };
@@ -1148,10 +1141,10 @@ const distTo = (p, x, y) => Math.hypot(p[0] - x, p[1] - y);
 function hitTouchGroup(first, t, near) {
   for (const n of scanCands(t, n => isTouch(n) && Math.abs(n.t - first.t) < .02 && near(n))) applyHit(n, t);
 }
-// 押した位置で受け付けるボタン。境目の近くなら隣のボタンも受け付ける（各ボタン ±34° くらい）
-const LANE_SLACK = .2;
+// 押した位置で受け付けるボタン。境目の近くなら隣のボタンも受け付ける（各ボタン ±42° くらい）
+const LANE_SLACK = .34;
 function lanesNear(nx, ny) {
-  if (Math.hypot(nx, ny) < .28) return [];
+  if (Math.hypot(nx, ny) < .14) return [];
   const a = Math.atan2(ny, nx), k = laneOfAngle(a);
   let off = a - laneAng(k); off = Math.atan2(Math.sin(off), Math.cos(off));
   const out = [k];
@@ -1167,7 +1160,7 @@ function hitPointer(nx, ny, t) {
   if (tap && tch) pick = Math.hypot(nx, ny) < .62 ? tch : (Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch);
   if (!pick) return;
   applyHit(pick, t);
-  if (isTouch(pick)) hitTouchGroup(pick, t, n => distTo(n.pos, nx, ny) < .6);
+  if (isTouch(pick)) hitTouchGroup(pick, t, n => distTo(n.pos, nx, ny) < .7);
 }
 function hitKey(lane, t) {
   const tap = scanCands(t, n => isHead(n) && n.lane === lane)[0];
@@ -1258,9 +1251,8 @@ function update(now, pf) {
     }
     if (now < n.t - W_D) continue;
     advanceSlide(n, S);
-    if (n.prog >= n.len - .22) { fin(n); const d = now - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
-    // 時間切れでも、4分の3以上なぞれていれば GOOD にする
-    else if (now > n.s1 + SL_M) { fin(n); judge(n.prog >= n.len * .75 ? 2 : 3, NaN, ex, ey, col, 'slide', n); }
+    if (n.prog >= n.len - .12) { fin(n); const d = now - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
+    else if (now > n.s1 + SL_M) { fin(n); judge(3, NaN, ex, ey, col, 'slide', n); }
   }
   while (r.first < notes.length && notes[r.first].fin) r.first++;
   r.held = h;
@@ -1575,7 +1567,7 @@ async function startPlay() {
   try { await resumed; } catch (e) {}
   stopTrack(false); killBus(bus); bus = makeBus();
   playing = ch;
-  applyJudge(settings.judge);
+  applyJudge('wide');
   run = newRun(ch.song, { auto: settings.auto, practice: settings.practice });
   run.rate = settings.practice ? clamp(+settings.prate || .75, .5, 1) : 1;
   let lead = .6;
@@ -1866,7 +1858,6 @@ function syncForm() {
   spdIn.value = settings.nspd; ofsIn.value = settings.ofs; autoIn.checked = !!settings.auto; guideIn.checked = settings.guide !== false;
   $('#nagashi').checked = settings.nagashi !== false;
   ($('#m_' + (settings.practice ? 'prac' : 'play'))).checked = true;
-  ($('#j_' + settings.judge) || $('#j_wide')).checked = true;
   $('#prate').value = settings.prate;
   $('#prateField').hidden = !settings.practice;
   $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
@@ -1877,7 +1868,6 @@ document.querySelectorAll('input[name=pmode]').forEach(el => el.addEventListener
   $('#prateField').hidden = !settings.practice;
   $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
 }));
-document.querySelectorAll('input[name=judge]').forEach(el => el.addEventListener('change', () => { settings.judge = el.value; saveSettings(); }));
 $('#prate').addEventListener('input', () => { settings.prate = +$('#prate').value; outs(); saveSettings(); });
 spdIn.addEventListener('input', () => { settings.nspd = +spdIn.value; outs(); saveSettings(); if (run && run.demo) run.app = approachOf(settings.nspd); });
 ofsIn.addEventListener('input', () => { settings.ofs = +ofsIn.value; outs(); saveSettings(); });
@@ -1974,11 +1964,10 @@ cv.addEventListener('pointerdown', e => {
   freshRect();
   const x = e.clientX - ar.left, y = e.clientY - ar.top, nx = (x - cx) / R, ny = (y - cy) / R;
   const rg = regionAt(nx, ny);
-  ptrs.set(e.pointerId, { x, y, lane: rg >= 0 && rg < 8 ? rg : -1 });
+  ptrs.set(e.pointerId, { x, y, x0: x, y0: y, moved: false, lane: rg >= 0 && rg < 8 ? rg : -1 });
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   tapMarks.push({ x: nx, y: ny, t: performance.now() }); if (tapMarks.length > 12) tapMarks.shift();
   if (rg < 0) return;
-  trail.push([nx, ny]);
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
   hitPointer(nx, ny, songAt(evTime(e)));
@@ -2019,7 +2008,10 @@ cv.addEventListener('pointermove', e => {
       slideIntoTouch(p.x, p.y, x, y, t);
       slideAcrossLanes(p, p.x, p.y, x, y, t, true);
     } else if (mode === 'play' && run) slideAcrossLanes(p, p.x, p.y, x, y, 0, false);
-    traverse(p.x, p.y, x, y); p.x = x; p.y = y;
+    // タップしただけの指はスライドに数えない。少し動かしてから（押した所から）なぞりとして記録する
+    if (!p.moved && Math.hypot(x - p.x0, y - p.y0) > R * .12) { p.moved = true; traverse(p.x0, p.y0, x, y); }
+    else if (p.moved) traverse(p.x, p.y, x, y);
+    p.x = x; p.y = y;
   }
 });
 const up = e => { ptrs.delete(e.pointerId); };
