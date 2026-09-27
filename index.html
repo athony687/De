@@ -1,0 +1,2110 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ring Beat">
+<meta name="theme-color" content="#0b0814">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<style>
+:root{padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)}
+[hidden]{display:none!important}
+html,body{overscroll-behavior:none}
+</style>
+<title>Ring Beat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;700;800&family=Unbounded:wght@600;900&display=swap">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#0b0814;
+  --panel:rgba(21,14,40,.88);
+  --panel-2:rgba(255,255,255,.045);
+  --ink:#f5f0ff;
+  --muted:#a59ec8;
+  --line:rgba(196,178,255,.18);
+  --pink:#ff3d9a;
+  --gold:#ffc53d;
+  --cyan:#3fd6ff;
+  --violet:#8d7dff;
+  --orange:#ff8a2a;
+  --mint:#6ef2a6;
+  --gray:#8d88a8;
+  --display:"Unbounded","M PLUS Rounded 1c",system-ui,sans-serif;
+  --body:"M PLUS Rounded 1c","Hiragino Maru Gothic ProN","Hiragino Sans","Noto Sans JP",system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{height:100%;overflow:hidden;background:var(--bg)}
+body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none}
+#app{position:relative;height:100%;overflow:hidden;background:var(--bg)}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.title-fs{position:absolute;top:12px;right:16px;z-index:2}
+.toast{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);
+  padding:10px 14px;border-radius:12px;background:var(--panel);border:1px solid var(--line);font-size:12px;font-weight:700;
+  color:var(--ink);text-align:center;pointer-events:none;z-index:20}
+
+/* ---------- overlays ---------- */
+.overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding-inline:16px;padding-block:16px;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+.overlay.center{justify-content:center;background:rgba(8,5,16,.62)}
+.overlay.center > .card{margin-block:auto}
+.brand{text-align:center;display:flex;flex-direction:column;gap:6px;flex:none}
+.eyebrow{margin:0;font:700 11px/1.4 var(--body);letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+.logo{margin:0;font-family:var(--display);font-weight:900;font-size:clamp(36px,11vw,72px);line-height:.95;letter-spacing:-.02em;text-wrap:balance}
+.logo span{background:linear-gradient(95deg,var(--pink) 10%,var(--gold) 90%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.stage{flex:1 1 auto;min-height:150px;width:100%}
+
+.card{width:min(440px,100%);flex:none;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;
+  display:flex;flex-direction:column;gap:14px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  box-shadow:0 24px 64px rgba(0,0,0,.5)}
+.card.narrow{width:min(300px,100%);align-items:stretch}
+
+/* song list */
+.songs{display:flex;flex-direction:column;gap:8px;border:0;margin:0;padding:0;min-width:0}
+.songrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 10px;border-radius:14px;
+  border:1px solid var(--line);background:var(--panel-2);transition:border-color .15s,background .15s}
+.songrow.sel{border-color:var(--pink);background:rgba(255,61,154,.1)}
+.songrow input[type=radio]{position:absolute;opacity:0;pointer-events:none}
+.songmain{flex:1 1 210px;min-width:0;display:flex;align-items:center;gap:10px;cursor:pointer}
+.songrow input:focus-visible + .songmain{outline:2px solid var(--gold);outline-offset:4px;border-radius:8px}
+.jk{--h:320;width:40px;height:40px;border-radius:10px;flex:none;
+  background:radial-gradient(circle,#0b0814 0 30%,transparent 31%),
+             radial-gradient(circle,transparent 0 42%,rgba(245,240,255,.9) 43% 47%,transparent 48%),
+             conic-gradient(from 22deg,hsl(var(--h) 90% 62%),hsl(calc(var(--h) + 70) 90% 60%),hsl(calc(var(--h) + 170) 90% 62%),hsl(var(--h) 90% 62%));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.st{min-width:0;display:flex;flex-direction:column;gap:2px}
+.st b{font:600 14px/1.25 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.st .lv{font-weight:800;letter-spacing:.04em}
+.acts{display:flex;gap:6px;margin-left:auto}
+.mini{appearance:none;position:relative;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:transparent;
+  color:var(--ink);font:700 11px var(--body);padding:6px 9px;border-radius:8px;cursor:pointer;overflow:hidden}
+.mini input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.mini.warn{border-color:var(--pink);color:var(--pink)}
+.mini:focus-within{outline:2px solid var(--gold);outline-offset:2px}
+
+.field{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:13px;font-weight:700}
+.field input[type=range]{grid-column:1/-1;width:100%;margin:0;accent-color:var(--pink);height:26px}
+.field output{font:600 12px var(--display);color:var(--gold);font-variant-numeric:tabular-nums}
+.checks{display:flex;flex-direction:column;gap:10px}
+.check{display:flex;gap:10px;align-items:center;font-size:13px;font-weight:700;cursor:pointer}
+.check input{width:18px;height:18px;margin:0;accent-color:var(--pink);flex:none}
+.check small{color:var(--muted);font-weight:500}
+
+.play{appearance:none;border:0;border-radius:14px;padding:15px 18px;cursor:pointer;
+  font:900 18px/1 var(--display);letter-spacing:.1em;color:#fff;
+  background:linear-gradient(135deg,#ff3d9a,#ff6b5a);box-shadow:0 10px 28px rgba(255,61,154,.35);
+  transition:transform .08s,box-shadow .15s}
+.play:hover{box-shadow:0 12px 34px rgba(255,61,154,.5)}
+.play:active{transform:translateY(1px) scale(.99)}
+.ghost{appearance:none;border:1px solid var(--line);border-radius:12px;padding:12px 16px;cursor:pointer;
+  background:transparent;color:var(--ink);font:700 14px var(--body)}
+.ghost:hover{background:var(--panel-2)}
+.addbtn{border-style:dashed;color:var(--muted)}
+.addbtn:hover{color:var(--ink)}
+button:focus-visible,summary:focus-visible,.check input:focus-visible,.field input:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+button,label,summary,input[type=range]{touch-action:manipulation}
+
+.best{margin:0;font-size:12px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+details{font-size:13px;color:var(--muted);line-height:1.65}
+summary{cursor:pointer;color:var(--ink);font-weight:800;list-style-position:inside}
+details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:2px}
+.legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.sw{display:inline-block;width:14px;height:14px;flex:none}
+.sw.tap{border-radius:50%;border:3px solid var(--pink)}
+.sw.each{border-radius:50%;border:3px solid var(--gold)}
+.sw.brk{border-radius:50%;border:3px solid var(--orange)}
+.sw.hold{width:10px;height:18px;border:3px solid var(--pink);border-radius:4px;clip-path:polygon(50% 0,100% 22%,100% 78%,50% 100%,0 78%,0 22%)}
+.sw.slide{background:var(--cyan);clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
+.sw.touch{background:var(--violet);clip-path:polygon(50% 42%,30% 0,70% 0,50% 42%,58% 50%,100% 30%,100% 70%,58% 50%,50% 58%,70% 100%,30% 100%,50% 58%,42% 50%,0 70%,0 30%,42% 50%)}
+.kb{display:flex;gap:12px;align-items:center;margin-top:10px}
+.kb p{margin:0}
+.keys{display:grid;grid-template-columns:repeat(3,26px);gap:4px;flex:none}
+.keys span{height:26px;display:grid;place-items:center;border:1px solid var(--line);border-radius:6px;
+  font:600 11px var(--display);color:var(--ink);background:var(--panel-2)}
+.keys .hub{border-color:var(--violet);color:var(--violet)}
+
+/* import */
+.imp{width:min(560px,100%)}
+.imp h2{margin:0;font:900 18px/1.3 var(--display);letter-spacing:.03em}
+.imp .lead{margin:0;font-size:12px;line-height:1.6;color:var(--muted)}
+.fieldrow{display:grid;grid-template-columns:1.6fr 1fr;gap:10px}
+.tf{display:flex;flex-direction:column;gap:6px;font-size:12px;font-weight:700;color:var(--muted);min-width:0}
+.tf input,.tf textarea{font:500 16px var(--body);color:var(--ink);background:rgba(0,0,0,.28);border:1px solid var(--line);
+  border-radius:10px;padding:9px 12px;-webkit-user-select:text;user-select:text;width:100%;min-width:0}
+.tf textarea{font:500 13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;min-height:150px;resize:vertical}
+.tf input:focus,.tf textarea:focus{outline:2px solid var(--gold);outline-offset:1px}
+.filerow{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.filebtn{position:relative;overflow:hidden;display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:9px 14px}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.filebtn:focus-within{outline:2px solid var(--gold);outline-offset:2px}
+.fname{font-size:12px;color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.msg{margin:0;font-size:12px;font-weight:700;line-height:1.6;color:var(--muted);font-variant-numeric:tabular-nums}
+.msg.ok{color:var(--mint)}
+.msg.err{color:#ff8a6b}
+
+/* ---------- HUD ---------- */
+.hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:12px 16px;pointer-events:none}
+.icon-btn{pointer-events:auto;width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:12px;
+  border:1px solid var(--line);background:rgba(21,14,40,.7);color:var(--ink);cursor:pointer}
+.hud-song{display:flex;flex-direction:column;min-width:0}
+.hud-song strong{font:600 13px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hud-song span{font:700 11px/1.4 var(--body);letter-spacing:.12em;color:var(--muted);white-space:nowrap}
+.hud-acc{margin-left:auto;font:900 22px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.hud-acc small{font-size:12px;margin-left:2px;color:var(--muted)}
+.prog{position:absolute;left:16px;right:16px;bottom:12px;height:3px;border-radius:3px;background:rgba(196,178,255,.14);overflow:hidden;pointer-events:none}
+.prog i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--gold));transform-origin:left center;transform:scaleX(0)}
+
+/* ---------- pause / result ---------- */
+.ptitle{margin:0 0 4px;text-align:center;font:900 26px var(--display);letter-spacing:.12em}
+.result{gap:16px}
+.rankrow{display:flex;align-items:center;gap:18px}
+.rank{font:900 76px/1 var(--display);letter-spacing:-.04em;min-width:1.2em;text-align:center;color:var(--ink)}
+.rank.r-s{background:linear-gradient(180deg,#fff3c4,var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.rank.r-a{color:var(--pink)}
+.rank.r-b{color:var(--cyan)}
+.rank.r-c{color:var(--mint)}
+.rank.r-d{color:var(--gray)}
+.rankinfo{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.acc{font:900 30px/1 var(--display);font-variant-numeric:tabular-nums}
+.badge{font:900 11px/1 var(--display);letter-spacing:.12em;padding:6px 10px;border-radius:999px;color:#1a1000;background:var(--gold)}
+.badge.fc{background:var(--cyan);color:#001a22}
+.badge.auto{background:var(--panel-2);color:var(--muted);border:1px solid var(--line)}
+.counts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0}
+.counts div{display:flex;justify-content:space-between;align-items:baseline;padding:9px 12px;border-radius:10px;background:var(--panel-2)}
+.counts dt{font:600 11px var(--display);letter-spacing:.06em}
+.counts dd{margin:0;font:900 17px var(--display);font-variant-numeric:tabular-nums}
+.jp{color:var(--gold)}.jg{color:#ff5aa8}.jd{color:var(--mint)}.jm{color:var(--gray)}
+.meta{margin:0;display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;font-size:12px;font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums}
+.meta b{color:var(--ink);font-family:var(--display);font-weight:600}
+.btnrow{display:grid;grid-template-columns:1.4fr 1fr;gap:10px}
+
+/* segmented choices (mode / judge width) */
+.opt{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;border:0;margin:0;padding:0;min-width:0}
+.opt legend{padding:0;margin-bottom:6px}
+.segs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
+.segs input{position:absolute;opacity:0;pointer-events:none}
+.segs label{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 6px;border-radius:10px;border:1px solid var(--line);
+  background:var(--panel-2);cursor:pointer;text-align:center;font-size:13px;font-weight:800;transition:border-color .15s,background .15s}
+.segs label small{font-size:10px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.segs input:checked + label{border-color:var(--pink);background:rgba(255,61,154,.13)}
+.segs input:focus-visible + label{outline:2px solid var(--gold);outline-offset:2px}
+.more{border-top:1px solid var(--line);padding-top:12px}
+.more > div{display:flex;flex-direction:column;gap:14px;margin-top:12px}
+
+/* practice bar */
+.practice{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:8px;
+  padding:10px 16px calc(12px + env(safe-area-inset-bottom, 0px));background:linear-gradient(180deg,rgba(11,8,20,0),rgba(11,8,20,.92) 28%);touch-action:manipulation}
+.ptrack{position:relative;height:28px;display:flex;align-items:center}
+.ptrack input{position:relative;z-index:2;width:100%;margin:0;accent-color:var(--gold);background:transparent;height:28px}
+.pmarks,.ploop{position:absolute;left:0;right:0;top:50%;height:14px;transform:translateY(-50%);pointer-events:none}
+.pmarks i{position:absolute;top:0;width:2px;height:14px;margin-left:-1px;background:#ff5a6e;border-radius:1px;opacity:.85}
+.ploop{left:auto;right:auto;background:rgba(63,214,255,.22);border-left:2px solid var(--cyan);border-right:2px solid var(--cyan);border-radius:3px}
+.prow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.pb{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:40px;height:36px;padding:0 10px;
+  border-radius:10px;border:1px solid var(--line);background:rgba(21,14,40,.8);color:var(--ink);font:800 12px var(--body);cursor:pointer;white-space:nowrap}
+.pb.on{border-color:var(--cyan);color:var(--cyan)}
+.pb:disabled{opacity:.4;cursor:default}
+.pb:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.prate{font:900 13px var(--display);min-width:3.6em;text-align:center;font-variant-numeric:tabular-nums;color:var(--gold)}
+.ptime{margin-left:auto;font:600 11px var(--display);color:var(--muted);font-variant-numeric:tabular-nums}
+.pgap{flex:0 0 6px}
+
+@media (max-width:460px){ .fieldrow{grid-template-columns:1fr} }
+@media (min-width:900px) and (min-aspect-ratio:5/4){
+  .overlay.title{display:grid;grid-template-columns:minmax(0,1fr) 440px;grid-template-rows:auto minmax(0,1fr);
+    column-gap:40px;row-gap:8px;padding-inline:40px;padding-block:28px;align-items:center}
+  .title .brand{grid-column:1;grid-row:1}
+  .title .stage{grid-column:1;grid-row:2;height:100%}
+  .title .card{grid-column:2;grid-row:1 / span 2;align-self:center}
+}
+@media (prefers-reduced-motion:reduce){
+  .play,.songrow{transition:none}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <canvas id="cv" role="img" aria-label="円形リズムゲームのプレイ画面"></canvas>
+
+  <div id="hud" class="hud" hidden>
+    <button id="pauseBtn" class="icon-btn" type="button" aria-label="一時停止">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
+    </button>
+    <div class="hud-song"><strong id="hudTitle">Neon Circuit</strong><span id="hudDiff">BASIC</span></div>
+    <div class="hud-acc"><span id="hudAcc">100.00</span><small>%</small></div>
+    <button id="fsBtn" class="icon-btn fs-btn" type="button" aria-label="全画面表示"></button>
+  </div>
+  <p id="toast" class="toast" role="status" hidden></p>
+  <div id="prog" class="prog" hidden><i id="progBar"></i></div>
+
+  <div id="practice" class="practice" hidden aria-label="練習コントロール">
+    <div class="ptrack">
+      <div class="ploop" id="pLoop" hidden></div>
+      <div class="pmarks" id="pMarks"></div>
+      <input type="range" id="pSeek" min="0" max="100" step="0.01" value="0" aria-label="再生位置">
+    </div>
+    <div class="prow">
+      <button type="button" class="pb" id="pBack" aria-label="2小節もどる">◀◀ 2小節</button>
+      <button type="button" class="pb" id="pPlay" aria-label="一時停止">❚❚</button>
+      <button type="button" class="pb" id="pFwd" aria-label="2小節すすむ">2小節 ▶▶</button>
+      <button type="button" class="pb" id="pMiss" disabled>↺ ミス地点</button>
+      <span class="ptime" id="pTime">0:00 / 0:00</span>
+    </div>
+    <div class="prow">
+      <button type="button" class="pb" id="pA" aria-label="ループ開始位置を今の位置にする">A</button>
+      <button type="button" class="pb" id="pB" aria-label="ループ終了位置を今の位置にする">B</button>
+      <button type="button" class="pb" id="pClr" disabled>ループ解除</button>
+      <span class="pgap"></span>
+      <button type="button" class="pb" id="pSlow" aria-label="遅くする">−</button>
+      <span class="prate" id="pRate">0.75x</span>
+      <button type="button" class="pb" id="pFast" aria-label="速くする">＋</button>
+    </div>
+  </div>
+
+  <section id="titleOv" class="overlay title" aria-label="曲選択">
+    <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
+    <header class="brand">
+      <p class="eyebrow">8方向・円形リズムゲーム プロトタイプ</p>
+      <h1 class="logo">RING <span>BEAT</span></h1>
+    </header>
+    <div id="stage" class="stage" aria-hidden="true"></div>
+    <form id="setup" class="card" autocomplete="off">
+      <fieldset class="songs" id="songList"><legend class="sr">曲と難易度</legend></fieldset>
+      <button type="button" class="ghost addbtn" id="addChartBtn">＋ simai譜面を追加</button>
+      <fieldset class="opt">
+        <legend>モード</legend>
+        <div class="segs">
+          <input type="radio" name="pmode" id="m_play" value="play"><label for="m_play">通常<small>記録が残る</small></label>
+          <input type="radio" name="pmode" id="m_prac" value="practice"><label for="m_prac">練習<small>スロー・巻き戻し</small></label>
+        </div>
+      </fieldset>
+      <div class="field" id="prateField">
+        <label for="prate">再生速度（練習）</label><output id="prateOut" for="prate">0.75x</output>
+        <input type="range" id="prate" min="0.5" max="1" step="0.05" value="0.75">
+      </div>
+      <div class="field">
+        <label for="spd">ノーツ速度</label><output id="spdOut" for="spd">7.0</output>
+        <input type="range" id="spd" min="1" max="10" step="0.25" value="7">
+      </div>
+      <fieldset class="opt">
+        <legend>判定の広さ</legend>
+        <div class="segs">
+          <input type="radio" name="judge" id="j_normal" value="normal"><label for="j_normal">ふつう<small>±50ms</small></label>
+          <input type="radio" name="judge" id="j_wide" value="wide"><label for="j_wide">ひろい<small>±80ms</small></label>
+          <input type="radio" name="judge" id="j_easy" value="easy"><label for="j_easy">やさしい<small>±110ms</small></label>
+        </div>
+      </fieldset>
+      <label class="check" for="auto"><input type="checkbox" id="auto">オートプレイでお手本を見る</label>
+      <button type="submit" class="play" id="playBtn">PLAY</button>
+      <p class="best" id="bestTxt"></p>
+      <details class="more">
+        <summary>詳細設定</summary>
+        <div>
+          <div class="field">
+            <label for="ofs">タイミング補正</label><output id="ofsOut" for="ofs">±0 ms</output>
+            <input type="range" id="ofs" min="-200" max="200" step="10" value="0">
+          </div>
+          <label class="check" for="guide"><input type="checkbox" id="guide" checked><span>ガイド音 <small>読み込んだ譜面でノーツの位置に音を鳴らす</small></span></label>
+          <label class="check" for="nagashi"><input type="checkbox" id="nagashi" checked><span>流し <small>リングに沿って指をすべらせ、入ったボタンのノーツも叩いた判定にする</small></span></label>
+        </div>
+      </details>
+      <details>
+        <summary>遊び方</summary>
+        <ul>
+          <li>中央から外へ流れてくるノーツが白いリングに重なった瞬間、その方向をタップします。指を離さずにリングの外側をすべらせて次のボタンに入っても叩いた判定になります（流し）。</li>
+          <li class="legend">
+            <span><i class="sw tap"></i>タップ</span>
+            <span><i class="sw each"></i>同時押し（金色）</span>
+            <span><i class="sw brk"></i>ブレイク（オレンジ）</span>
+            <span><i class="sw hold"></i>ホールド（終わりまで押し続ける）</span>
+            <span><i class="sw slide"></i>スライド（☆をタップ → 矢印に沿ってなぞる）</span>
+            <span><i class="sw touch"></i>タッチ（4つの三角が集まった点をタップ）</span>
+          </li>
+          <li>「＋ simai譜面を追加」から、simai形式の譜面テキスト（maidata.txt も可）を貼り付けて遊べます。音源ファイルは任意で、なければガイド音で再生します。</li>
+          <li>練習モードでは、画面下のバーで好きな位置へ移動、2小節ずつの巻き戻し・早送り、直前のミス地点へ戻る、A〜B区間のくり返し、再生速度の変更ができます。ミスした位置はバーに赤い線で残ります。音源を使っているときは、スローにすると音程も下がります。</li>
+          <li>判定の広さ「ひろい」は PERFECT ±80ms・GREAT ±140ms・GOOD ±200ms。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチはさらに広めで、指をすべらせて範囲に入れても取れます。</li>
+          <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正」で調整します（＋にすると譜面が遅れます）。</li>
+          <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
+        </ul>
+        <div class="kb">
+          <div class="keys" aria-hidden="true"><span>Q</span><span>W</span><span>E</span><span>A</span><span class="hub">S</span><span>D</span><span>Z</span><span>X</span><span>C</span></div>
+          <p>キーボードではこの配置がリングの8方向に対応し、S が中央です。Esc か Space で一時停止、F で全画面。練習モードでは ← → で巻き戻し・早送り、↑ ↓ で速度変更。</p>
+        </div>
+      </details>
+    </form>
+  </section>
+
+  <section id="importOv" class="overlay center" hidden aria-label="simai譜面を追加">
+    <form id="impForm" class="card imp" autocomplete="off">
+      <h2>simai譜面を追加</h2>
+      <p class="lead">simai形式の譜面テキストを貼り付けるか、テキストファイルを選んでください。maidata.txt なら全難易度をまとめて追加します。譜面はこのブラウザにだけ保存されます。</p>
+      <div class="fieldrow">
+        <label class="tf" for="impTitle">曲名<input id="impTitle" type="text" placeholder="曲名"></label>
+        <label class="tf" for="impLabel">難易度の表示<input id="impLabel" type="text" placeholder="MASTER"></label>
+      </div>
+      <div class="filerow">
+        <label class="ghost filebtn">テキストファイルを選ぶ<input id="impFile" type="file" accept=".txt,text/plain"></label>
+        <span class="fname" id="impFileName"></span>
+      </div>
+      <label class="tf" for="impText">譜面（simai）<textarea id="impText" spellcheck="false" placeholder="(201){8}3,5,4,6,5h[4:1],,6,,4,4,…"></textarea></label>
+      <p class="msg" id="impMsg" role="status">譜面を貼り付けると、ノーツ数と長さをここに表示します。</p>
+      <div class="fieldrow">
+        <div class="tf"><span>音源ファイル（任意）</span>
+          <div class="filerow">
+            <label class="ghost filebtn">音源を選ぶ<input id="impAudio" type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a"></label>
+            <span class="fname" id="impAudioName">なし</span>
+          </div>
+        </div>
+        <label class="tf" for="impFirst">first（秒）<input id="impFirst" type="number" step="0.01" inputmode="decimal" value="0"></label>
+      </div>
+      <div class="btnrow">
+        <button type="submit" class="play" id="impOk">追加する</button>
+        <button type="button" class="ghost" id="impCancel">キャンセル</button>
+      </div>
+    </form>
+  </section>
+
+  <section id="pauseOv" class="overlay center" hidden aria-label="一時停止中">
+    <div class="card narrow">
+      <h2 class="ptitle">PAUSE</h2>
+      <button type="button" class="play" id="resumeBtn">つづける</button>
+      <button type="button" class="ghost" id="restartBtn">最初から</button>
+      <button type="button" class="ghost" id="quitBtn">曲選択へ</button>
+    </div>
+  </section>
+
+  <section id="resultOv" class="overlay center" hidden aria-label="リザルト">
+    <div class="card result">
+      <p class="eyebrow" id="resSong">Neon Circuit · BASIC</p>
+      <div class="rankrow">
+        <div id="resRank" class="rank">S</div>
+        <div class="rankinfo">
+          <div id="resAcc" class="acc">0.00%</div>
+          <div id="resBadge" class="badge" hidden></div>
+        </div>
+      </div>
+      <dl class="counts">
+        <div><dt class="jp">PERFECT</dt><dd id="cP">0</dd></div>
+        <div><dt class="jg">GREAT</dt><dd id="cG">0</dd></div>
+        <div><dt class="jd">GOOD</dt><dd id="cD">0</dd></div>
+        <div><dt class="jm">MISS</dt><dd id="cM">0</dd></div>
+      </dl>
+      <p class="meta"><span>MAX COMBO <b id="resCombo">0</b></span><span>FAST <b id="resFast">0</b> / LATE <b id="resLate">0</b></span></p>
+      <p class="best" id="resBest"></p>
+      <div class="btnrow">
+        <button type="button" class="play" id="retryBtn">もう一度</button>
+        <button type="button" class="ghost" id="backBtn">曲選択へ</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* 起動時の不具合を画面に出す（古い書き方で書いて、どのブラウザでも必ず動くようにしている） */
+(function () {
+  function show(msg) {
+    var d = document.getElementById('bootErr');
+    if (!d) {
+      d = document.createElement('div'); d.id = 'bootErr';
+      d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:99;padding:10px 12px;border-radius:10px;' +
+        'background:#3a0d1c;color:#ffd7e4;border:1px solid #ff3d9a;font:12px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap;' +
+        '-webkit-user-select:text;user-select:text;max-height:40%;overflow:auto';
+      (document.body || document.documentElement).appendChild(d);
+    }
+    d.textContent = (d.textContent ? d.textContent + '\n' : 'うまく起動できませんでした。この画面のスクショを送ってください。\n') + msg;
+  }
+  window.__rbShowError = show;
+  window.addEventListener('error', function (e) { show((e.message || 'error') + ' (line ' + (e.lineno || '?') + ')'); });
+  window.addEventListener('unhandledrejection', function (e) { show('promise: ' + (e.reason && e.reason.message ? e.reason.message : e.reason)); });
+})();
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const app = $('#app'), cv = $('#cv'), g = cv.getContext('2d');
+const stageEl = $('#stage'), titleOv = $('#titleOv'), pauseOv = $('#pauseOv'), resultOv = $('#resultOv'), importOv = $('#importOv');
+const hudEl = $('#hud'), progEl = $('#prog'), progBar = $('#progBar'), hudAcc = $('#hudAcc'), hudDiff = $('#hudDiff'), hudTitle = $('#hudTitle');
+const spdIn = $('#spd'), ofsIn = $('#ofs'), autoIn = $('#auto'), guideIn = $('#guide'), spdOut = $('#spdOut'), ofsOut = $('#ofsOut');
+const songList = $('#songList');
+const DISP = 'Unbounded, "M PLUS Rounded 1c", system-ui, sans-serif';
+const BODY = '"M PLUS Rounded 1c", "Hiragino Sans", system-ui, sans-serif';
+
+/* ================= constants ================= */
+const TAU = Math.PI * 2, Q = Math.PI / 4, D2R = Math.PI / 180;
+const laneAng = k => (-67.5 + 45 * k) * D2R;   // lane 0 = ボタン1（1時方向）、時計回り
+const mod8 = k => ((k % 8) + 8) % 8;
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+// 判定幅（秒）。「判定の広さ」の設定で切り替える
+const JUDGE_PRESETS = {
+  normal: { tap: [.05, .10, .15],  touch: [.08, .13, .20], slide: [.25, .45, .55] },
+  wide:   { tap: [.08, .14, .20],  touch: [.10, .16, .24], slide: [.30, .50, .60] },
+  easy:   { tap: [.11, .18, .26],  touch: [.13, .21, .29], slide: [.40, .60, .70] },
+};
+let W_P = .07, W_G = .125, W_D = .18, T_P = .09, T_G = .15, T_D = .22, SL_P = .3, SL_G = .5, SL_M = .6;
+// スライドの経路からどれだけ離れていてもなぞった扱いにするか（リング半径=1）
+const SLIDE_TOL = { normal: .36, wide: .44, easy: .52 };
+let SL_TOL = .44;
+function applyJudge(name) {
+  const p = JUDGE_PRESETS[name] || JUDGE_PRESETS.wide;
+  [W_P, W_G, W_D] = p.tap; [T_P, T_G, T_D] = p.touch; [SL_P, SL_G, SL_M] = p.slide;
+  SL_TOL = SLIDE_TOL[name] || SLIDE_TOL.wide;
+}
+const TR = .4;                                    // タッチの当たり判定半径（リング=1）
+const PSEUDO = .015;                              // 疑似EACH（`）のずれ幅
+const J_NAME = ['PERFECT', 'GREAT', 'GOOD', 'MISS'];
+const J_PT = [1, .8, .5, 0];
+const J_COL = ['#ffc53d', '#ff5aa8', '#6ef2a6', '#8d88a8'];
+const C = {
+  tap:   { main: '#ff3d9a', dark: '#5a0a33', rgb: '255,61,154' },
+  each:  { main: '#ffc53d', dark: '#5c4000', rgb: '255,197,61' },
+  brk:   { main: '#ff8a2a', dark: '#5c2600', rgb: '255,138,42' },
+  slide: { main: '#3fd6ff', dark: '#07435a', rgb: '63,214,255' },
+  touch: { main: '#8d7dff', dark: '#221a5a', rgb: '141,125,255' },
+};
+const KEYMAP = { KeyE:0, KeyD:1, KeyC:2, KeyX:3, KeyZ:4, KeyA:5, KeyQ:6, KeyW:7,
+                 Numpad9:0, Numpad6:1, Numpad3:2, Numpad2:3, Numpad1:4, Numpad4:5, Numpad7:6, Numpad8:7 };
+const CENTER_KEYS = { KeyS: 1, Numpad5: 1 };
+const KEYLBL = ['E', 'D', 'C', 'X', 'Z', 'A', 'Q', 'W'];
+const LV_NAMES = { 1: 'EASY', 2: 'BASIC', 3: 'ADVANCED', 4: 'EXPERT', 5: 'MASTER', 6: 'Re:MASTER', 7: 'ORIGINAL' };
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const finePointer = matchMedia('(pointer: fine)').matches;
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ================= sensor areas / positions =================
+   判定エリア：A0-7 = 外側 / B0-7 = 内側 / C = 中央（半径はリング=1の割合） */
+const REG_C = 16;
+function laneOfAngle(a) { let rel = a - laneAng(0); rel = ((rel % TAU) + TAU) % TAU; return Math.floor((rel + Math.PI / 8) / Q) % 8; }
+function regionAt(nx, ny) {
+  const d = Math.hypot(nx, ny);
+  if (d > 4) return -1;          // リングの外側は画面の端まで受け付ける
+  if (d < .28) return REG_C;
+  const k = laneOfAngle(Math.atan2(ny, nx));
+  return d < .62 ? 8 + k : k;
+}
+const lanePt = (k, r = 1) => { const a = laneAng(k); return [Math.cos(a) * r, Math.sin(a) * r]; };
+const degPt = (deg, r) => [Math.cos(deg * D2R) * r, Math.sin(deg * D2R) * r];
+function touchPosOf(area, k) {
+  switch (area) {
+    case 'A': return lanePt(k - 1, .85);
+    case 'B': return lanePt(k - 1, .48);
+    case 'D': return degPt(-90 + 45 * (k - 1), .88);
+    case 'E': return degPt(-90 + 45 * (k - 1), .64);
+    default: return [0, 0];
+  }
+}
+const isCenter = p => Math.hypot(p[0], p[1]) < .28;
+const nearestLane = p => laneOfAngle(Math.atan2(p[1], p[0]));
+
+/* ================= slide geometry ================= */
+function cumOf(pts) { const c = [0]; for (let i = 1; i < pts.length; i++) c.push(c[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return c; }
+function pathAt(n, f) {
+  const L = clamp(f, 0, 1) * n.len, cum = n.cum, pts = n.pts;
+  let i = 0; while (i < cum.length - 2 && cum[i + 1] < L) i++;
+  const seg = (cum[i + 1] - cum[i]) || 1, t = clamp((L - cum[i]) / seg, 0, 1);
+  const [x0, y0] = pts[i], [x1, y1] = pts[i + 1];
+  return [x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, Math.atan2(y1 - y0, x1 - x0)];
+}
+function arcPts(from, dir, steps, r = 1) {
+  const out = [], a0 = laneAng(from), n = Math.max(1, steps) * 10;
+  for (let i = 1; i <= n; i++) { const a = a0 + dir * steps * Q * i / n; out.push([Math.cos(a) * r, Math.sin(a) * r]); }
+  return out;
+}
+const TOP_HALF = new Set([0, 1, 6, 7]);   // ボタン 1,2,7,8
+function segPoints(s) {
+  const { shape, from, to } = s;
+  switch (shape) {
+    case 'arc': return arcPts(from, s.dir, s.steps);
+    case '^': { const d = mod8(to - from); if (d === 0) return arcPts(from, 1, 8); return d <= 4 ? arcPts(from, 1, d) : arcPts(from, -1, 8 - d); }
+    case '>': case '<': {
+      let dir = TOP_HALF.has(from) ? 1 : -1; if (shape === '<') dir = -dir;
+      let st = dir > 0 ? mod8(to - from) : mod8(from - to); if (st === 0) st = 8;
+      return arcPts(from, dir, st);
+    }
+    case 'v': return [[0, 0], lanePt(to)];
+    case 'V': return [lanePt(s.mid), lanePt(to)];
+    case 'p': case 'q': case 'pp': case 'qq': {
+      const dir = shape[0] === 'q' ? 1 : -1, r = shape.length === 2 ? .62 : .42, dl = Math.acos(r);
+      const a1 = laneAng(from) + dir * dl, a2 = laneAng(to) - dir * dl;
+      let span = dir > 0 ? ((a2 - a1) % TAU + TAU) % TAU : -(((a1 - a2) % TAU + TAU) % TAU);
+      if (Math.abs(span) < .15) span += dir * TAU;
+      const n = Math.max(8, Math.ceil(Math.abs(span) / .1)), out = [];
+      for (let i = 0; i <= n; i++) { const a = a1 + span * i / n; out.push([Math.cos(a) * r, Math.sin(a) * r]); }
+      out.push(lanePt(to)); return out;
+    }
+    case 's': case 'z': {
+      const S = lanePt(from), E = lanePt(to); let ux = E[0] - S[0], uy = E[1] - S[1]; const L = Math.hypot(ux, uy) || 1; ux /= L; uy /= L;
+      const nx = -uy, ny = ux, sg = shape === 's' ? 1 : -1;
+      return [[nx * .42 * sg - ux * .08, ny * .42 * sg - uy * .08], [-nx * .42 * sg + ux * .08, -ny * .42 * sg + uy * .08], E];
+    }
+    default: return [lanePt(to)];   // '-' と 'w'
+  }
+}
+function chevrons(p, mapL) {
+  const out = [], sp = .085;
+  for (let L = sp * .9; L < p.len - .04; L += sp) { const [x, y, ang] = pathAt(p, L / p.len); out.push({ x, y, ang, L: mapL(L) }); }
+  return out;
+}
+function makeSlide(lane, segs, t, s0, s1, brk) {
+  const raw = [lanePt(lane)];
+  let fanTo = null;
+  for (const s of segs) { raw.push(...segPoints(s)); if (s.shape === 'w') fanTo = s.to; }
+  const pts = [raw[0]];
+  for (let i = 1; i < raw.length; i++) { const p = pts[pts.length - 1]; if (Math.hypot(raw[i][0] - p[0], raw[i][1] - p[1]) > 1e-6) pts.push(raw[i]); }
+  if (pts.length < 2) pts.push([pts[0][0] * .98, pts[0][1] * .98]);
+  const n = { type: 'slide', lane, t, s0, s1, brk: !!brk, pts, cum: cumOf(pts) };
+  n.len = n.cum[n.cum.length - 1];
+  // 経路上の点を細かく並べておく（なぞった距離の判定に使う）
+  n.ss = .03; n.K = Math.ceil(n.len / n.ss);
+  n.samp = new Float32Array((n.K + 1) * 2);
+  for (let i = 0; i <= n.K; i++) { const [x, y] = pathAt(n, Math.min(1, i * n.ss / n.len)); n.samp[i * 2] = x; n.samp[i * 2 + 1] = y; }
+  n.chev = chevrons(n, L => L);
+  if (fanTo !== null) {
+    for (const o of [-1, 1]) {
+      const f = { pts: [lanePt(lane), lanePt(mod8(fanTo + o))] }; f.cum = cumOf(f.pts); f.len = f.cum[1];
+      n.chev.push(...chevrons(f, L => L / f.len * n.len));
+    }
+  }
+  n.end = pts[pts.length - 1];
+  return n;
+}
+
+/* ================= simai parser ================= */
+function lenOf(spec, bpm) {
+  if (!spec) return null;
+  if (spec.includes('##')) { const [w, d] = spec.split('##'); return { wait: parseFloat(w), dur: parseFloat(d) }; }
+  let b = bpm, s = spec;
+  if (s.includes('#')) {
+    const k = s.indexOf('#'), x = s.slice(0, k), y = s.slice(k + 1);
+    if (x === '') return { dur: parseFloat(y) };
+    b = parseFloat(x); s = y;
+    if (!s.includes(':')) return { bpmW: b, dur: parseFloat(s) };
+  }
+  const [a, c] = s.split(':').map(Number);
+  if (!a || isNaN(c)) return null;
+  return { bpmW: b, dur: 240 / b / a * c };
+}
+function parseSimai(src) {
+  const notes = [], timing = [];
+  let unknown = 0, ended = false;
+  const text = src.replace(/\|\|[^\n]*/g, '').split(/\r?\n/)
+    .filter(l => { const s = l.trim(); return s && (s === 'E' || /[,(){}]/.test(s)); })
+    .join('').replace(/\s+/g, '');
+  let bpm = 120, bpm0 = null, div = 4, stepSec = null, t = 0, buf = '';
+  const SH = '-^<>vpqszVw';
+
+  const touchTok = (tok, tt, b) => {
+    const area = tok[0]; let i = 1, k = 0;
+    if (/[1-8]/.test(tok[1] || '')) { k = +tok[1]; i = 2; }
+    if (area !== 'C' && !k) { unknown++; return; }
+    let hold = false, fw = false, brk = false, len = null;
+    for (; i < tok.length; i++) {
+      const ch = tok[i];
+      if (ch === 'f') fw = true; else if (ch === 'h') hold = true; else if (ch === 'b') brk = true;
+      else if (ch === '[') { const j = tok.indexOf(']', i); len = tok.slice(i + 1, j < 0 ? tok.length : j); i = j < 0 ? tok.length : j; }
+    }
+    const pos = touchPosOf(area, k);
+    if (hold) { const L = lenOf(len, b); notes.push({ type: 'thold', pos, t: tt, dur: L ? L.dur : 0, fw, brk }); }
+    else notes.push({ type: 'touch', pos, t: tt, fw, brk });
+  };
+  const slideSpec = (sp, lane, tt, b) => {
+    let i = 0, cur = lane, brk = false; const segs = [];
+    while (i < sp.length) {
+      const ch = sp[i];
+      if (ch === 'b') { brk = true; i++; continue; }
+      if ('x$@?!'.includes(ch)) { i++; continue; }
+      if (ch === '[') { const j = sp.indexOf(']', i); if (segs.length) segs[segs.length - 1].len = sp.slice(i + 1, j < 0 ? sp.length : j); i = j < 0 ? sp.length : j + 1; continue; }
+      if (!SH.includes(ch)) { unknown++; i++; continue; }
+      let shape = ch; i++;
+      if ((ch === 'p' || ch === 'q') && sp[i] === ch) { shape = ch + ch; i++; }
+      let mid = null;
+      if (shape === 'V') { mid = +sp[i] - 1; i++; }
+      const to = +sp[i] - 1; i++;
+      if (!(to >= 0 && to < 8) || (shape === 'V' && !(mid >= 0 && mid < 8))) return null;
+      segs.push({ shape, from: cur, mid, to, len: null }); cur = to;
+    }
+    if (!segs.length) return null;
+    const lens = segs.map(s => s.len ? lenOf(s.len, b) : null), firstL = lens.find(x => x);
+    let wait = 60 / b;
+    if (firstL) { if (firstL.wait !== undefined) wait = firstL.wait; else if (firstL.bpmW) wait = 60 / firstL.bpmW; }
+    let dur;
+    if (segs.length > 1 && lens.every(x => x)) dur = lens.reduce((a, x) => a + x.dur, 0);
+    else { const lastL = [...lens].reverse().find(x => x); dur = lastL ? lastL.dur : 240 / b / 8; }
+    return makeSlide(lane, segs, tt, tt + wait, tt + wait + Math.max(dur, .05), brk);
+  };
+  const buttonTok = (tok, tt, b) => {
+    const lane = +tok[0] - 1;
+    let i = 1, brk = false, ex = false, star = false, hold = false, noTap = false, hl = null;
+    while (i < tok.length && !SH.includes(tok[i])) {
+      const ch = tok[i];
+      if (ch === 'b') brk = true; else if (ch === 'x') ex = true; else if (ch === '$') star = true;
+      else if (ch === 'h') hold = true; else if (ch === '?' || ch === '!') noTap = true;
+      else if (ch === '[') { const j = tok.indexOf(']', i); hl = tok.slice(i + 1, j < 0 ? tok.length : j); i = j < 0 ? tok.length : j; }
+      i++;
+    }
+    if (i >= tok.length) {
+      if (hold) { const L = lenOf(hl, b); notes.push({ type: 'hold', lane, t: tt, dur: L ? L.dur : 0, brk, ex }); }
+      else notes.push({ type: 'tap', lane, t: tt, brk, ex, star });
+      return;
+    }
+    let any = false;
+    tok.slice(i).split('*').forEach(sp => { const s = slideSpec(sp, lane, tt, b); if (s) { notes.push(s); any = true; } });
+    if (!noTap) notes.push({ type: 'tap', lane, t: tt, brk, ex, star: true });
+    if (!any) unknown++;
+  };
+  const token = (tok, tt, b) => {
+    if (!tok || ended) return;
+    if (tok === 'E') { ended = true; return; }
+    if (/^[1-8]{2,}$/.test(tok)) { for (const ch of tok) notes.push({ type: 'tap', lane: +ch - 1, t: tt }); return; }
+    if (/[A-E]/.test(tok[0])) return touchTok(tok, tt, b);
+    if (/[1-8]/.test(tok[0])) return buttonTok(tok, tt, b);
+    unknown++;
+  };
+  const flush = () => {
+    if (!buf) return;
+    const str = buf; buf = '';
+    str.split('`').forEach((p, k) => p.split('/').forEach(tok => token(tok, t + k * PSEUDO, bpm)));
+  };
+  for (let i = 0; i < text.length && !ended;) {
+    const c = text[i];
+    if (c === '(') { const j = text.indexOf(')', i); if (j < 0) break; const v = parseFloat(text.slice(i + 1, j)); if (v > 0) { bpm = v; if (bpm0 === null) bpm0 = v; timing.push({ t, bpm }); } i = j + 1; continue; }
+    if (c === '{') { const j = text.indexOf('}', i); if (j < 0) break; const v = text.slice(i + 1, j); if (v[0] === '#') stepSec = parseFloat(v.slice(1)); else { const d = parseFloat(v); if (d > 0) { div = d; stepSec = null; } } i = j + 1; continue; }
+    if (c === '<' && text.startsWith('<HS', i)) { const j = text.indexOf('>', i); i = j < 0 ? text.length : j + 1; continue; }
+    if (c === '[') { const j = text.indexOf(']', i); const e = j < 0 ? text.length : j + 1; buf += text.slice(i, e); i = e; continue; }
+    if (c === ',') { flush(); t += stepSec !== null ? stepSec : 240 / bpm / div; i++; continue; }
+    buf += c; i++;
+  }
+  flush();
+  return { notes, timing, bpm: bpm0 || 120, unknown };
+}
+function finalize(notes, tail = 2) {
+  notes.sort((a, b) => a.t - b.t || ((a.lane == null) ? -1 : a.lane) - ((b.lane == null) ? -1 : b.lane));
+  const markEach = list => {
+    for (let i = 0; i < list.length;) {
+      let j = i; while (j < list.length && Math.abs(list[j].t - list[i].t) < 1e-4) j++;
+      for (let k = i; k < j; k++) list[k].each = j - i > 1;
+      i = j;
+    }
+  };
+  markEach(notes.filter(n => n.type !== 'slide'));
+  markEach(notes.filter(n => n.type === 'slide'));
+  let end = 0;
+  for (const n of notes) end = Math.max(end, n.t + (n.dur || 0), n.s1 || 0);
+  return { notes, units: notes.length, endT: end + tail };
+}
+function parseChart(text) {
+  const p = parseSimai(text), f = finalize(p.notes);
+  return { ...f, bpm: p.bpm, timing: p.timing, unknown: p.unknown, mus: [] };
+}
+function detectMeta(text) {
+  const meta = { title: '', label: '', first: 0, charts: null };
+  if (/&inote_\d+=/.test(text)) {
+    const f = {};
+    ('\n' + text).split(/\r?\n&/).slice(1).forEach(p => { const k = p.indexOf('='); if (k > 0) f[p.slice(0, k).trim()] = p.slice(k + 1); });
+    meta.title = (f.title || '').trim();
+    meta.first = parseFloat(f.first) || 0;
+    meta.charts = Object.keys(f).filter(k => /^inote_\d+$/.test(k)).map(k => {
+      const n = +k.slice(6);
+      return { label: LV_NAMES[n] || ('譜面' + n), lv: (f['lv_' + n] || '').trim(), text: f[k] };
+    }).filter(c => c.text.trim());
+  } else {
+    const first = text.split(/\r?\n/).map(s => s.trim()).find(s => s);
+    if (first && /^[A-Za-z][A-Za-z: ]*$/.test(first) && first !== 'E') meta.label = first;
+  }
+  return meta;
+}
+
+/* ================= audio ================= */
+let AC = null, bus = null, noiseBuf = null, track = null;
+function initAudio() {
+  if (AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+  const len = Math.floor(AC.sampleRate * 3);
+  noiseBuf = AC.createBuffer(1, len, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  try { const b = AC.createBuffer(1, 1, AC.sampleRate), s = AC.createBufferSource(); s.buffer = b; s.connect(AC.destination); s.start(0); } catch (e) {}
+}
+function makeBus() {
+  const comp = AC.createDynamicsCompressor();
+  comp.threshold.value = -14; comp.ratio.value = 4;
+  const gn = AC.createGain(); gn.gain.value = .75;
+  gn.connect(comp); comp.connect(AC.destination);
+  return { gn, comp };
+}
+function killBus(b) {
+  if (!b || !AC) return;
+  try { b.gn.gain.setTargetAtTime(0, AC.currentTime, .02); } catch (e) {}
+  setTimeout(() => { try { b.gn.disconnect(); b.comp.disconnect(); } catch (e) {} }, 250);
+}
+// 曲の songPos 秒の位置から、AC 時刻 at に rate 倍速で音源を鳴らし始める（first = 音源の頭から譜面0秒までの秒数）
+function playTrack(buf, first, songPos, at, rate) {
+  const src = AC.createBufferSource(), gn = AC.createGain();
+  src.buffer = buf; src.playbackRate.value = rate; gn.gain.value = .9; src.connect(gn); gn.connect(AC.destination);
+  const now = AC.currentTime;
+  let off = songPos + first, when = at;
+  if (off < 0) { when = at + (-off) / rate; off = 0; }
+  if (when < now) { off += (now - when) * rate; when = now; }
+  if (off < buf.duration) src.start(when, off);
+  track = { src, gn };
+}
+function stopTrack(fade) {
+  if (!track || !AC) return;
+  const { src, gn } = track, now = AC.currentTime; track = null;
+  try { gn.gain.setTargetAtTime(0, now, fade ? .5 : .02); src.stop(now + (fade ? 2 : .1)); } catch (e) {}
+}
+async function decodeFile(file) {
+  initAudio();
+  const ab = await file.arrayBuffer();
+  return await new Promise((res, rej) => { const p = AC.decodeAudioData(ab, res, rej); if (p && p.then) p.then(res, rej); });
+}
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+function osc(type, freq, t, dur, vol, o = {}) {
+  const att = o.att != null ? o.att : .005, cut = o.cut || 0;
+  const d = Math.max(dur, att + .02), rel = Math.min(o.rel != null ? o.rel : .06, d - att);
+  const os = AC.createOscillator(); os.type = type; os.frequency.value = freq;
+  if (o.det) os.detune.value = o.det;
+  const gn = AC.createGain();
+  gn.gain.setValueAtTime(0, t);
+  gn.gain.linearRampToValueAtTime(vol, t + att);
+  gn.gain.setValueAtTime(vol, t + d - rel);
+  gn.gain.linearRampToValueAtTime(0, t + d);
+  let node = os;
+  if (cut) { const f = AC.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = cut; if (o.q) f.Q.value = o.q; os.connect(f); node = f; }
+  node.connect(gn); gn.connect(bus.gn);
+  os.start(t); os.stop(t + d + .05);
+}
+function nz(t, dur, type, freq, vol) {
+  const s = AC.createBufferSource(); s.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); f.type = type; f.frequency.value = freq;
+  const gn = AC.createGain();
+  gn.gain.setValueAtTime(vol, t); gn.gain.exponentialRampToValueAtTime(.0008, t + dur);
+  s.connect(f); f.connect(gn); gn.connect(bus.gn);
+  s.start(t, Math.random() * 1.2); s.stop(t + dur + .02);
+}
+const kick = t => {
+  const o = AC.createOscillator(), gn = AC.createGain();
+  o.frequency.setValueAtTime(155, t); o.frequency.exponentialRampToValueAtTime(45, t + .11);
+  gn.gain.setValueAtTime(.95, t); gn.gain.exponentialRampToValueAtTime(.001, t + .32);
+  o.connect(gn); gn.connect(bus.gn); o.start(t); o.stop(t + .34);
+};
+const snare = (t, v = .42) => { nz(t, .16, 'highpass', 1600, v); osc('triangle', 190, t, .08, v * .6, { rel: .07 }); };
+const hat = (t, v = .14) => nz(t, .045, 'highpass', 7500, v);
+const crash = t => nz(t, 1.5, 'highpass', 4200, .22);
+const bass = (t, m, d) => osc('sawtooth', mtof(m), t, d, .2, { cut: 650, q: 3, rel: .05 });
+const pad = (t, tones, d) => tones.forEach(m => {
+  osc('sawtooth', mtof(m), t, d, .034, { att: .12, rel: .35, cut: 1500, det: -7 });
+  osc('sawtooth', mtof(m), t, d, .034, { att: .12, rel: .35, cut: 1500, det: 7 });
+});
+const lead = (t, m, d, v = .075) => { osc('square', mtof(m), t, d, v, { cut: 3200, rel: .08 }); osc('triangle', mtof(m) * 2, t, d, v * .35, { rel: .08 }); };
+const bell = (t, m) => { osc('sine', mtof(m), t, .35, .09, { rel: .3 }); osc('sine', mtof(m) * 3, t, .12, .03, { rel: .1 }); };
+const arp = (t, m, d) => osc('square', mtof(m), t, d, .055, { cut: 2400, rel: .04 });
+const whoosh = (t, d) => {
+  const s = AC.createBufferSource(); s.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2.5;
+  f.frequency.setValueAtTime(350, t); f.frequency.exponentialRampToValueAtTime(5200, t + d);
+  const gn = AC.createGain();
+  gn.gain.setValueAtTime(0, t); gn.gain.linearRampToValueAtTime(.22, t + d * .8); gn.gain.linearRampToValueAtTime(0, t + d);
+  s.connect(f); f.connect(gn); gn.connect(bus.gn); s.start(t); s.stop(t + d + .05);
+};
+const tick = (t, strong) => osc('square', strong ? 1760 : 1175, t, .03, strong ? .06 : .035, { rel: .025, cut: 5000 });
+const answer = t => { osc('triangle', 2093, t, .05, .1, { rel: .045 }); nz(t, .03, 'highpass', 7000, .08); };
+function se(k) {
+  if (!AC || !bus || !run || run.demo) return;
+  if (run.guide && (k === 'perfect' || k === 'great' || k === 'touch')) return;
+  const t = AC.currentTime + .005;
+  try {
+    if (k === 'slide') { osc('sine', 1568, t, .18, .09, { rel: .16 }); osc('sine', 2093, t + .03, .16, .06, { rel: .14 }); }
+    else if (k === 'fw') { nz(t, .6, 'bandpass', 2400, .18); osc('sine', 3136, t, .25, .05, { rel: .22 }); }
+    else if (k === 'touch') { osc('sine', 2349, t, .08, .08, { rel: .07 }); nz(t, .05, 'highpass', 9000, .06); }
+    else { osc('triangle', k === 'great' ? 1397 : 1760, t, .06, .11, { rel: .05 }); nz(t, .03, 'highpass', 6500, .07); }
+  } catch (e) {}
+}
+function guideEvents(song, metro, ans) {
+  const ev = [];
+  if (metro) {
+    const tm = song.timing.length ? song.timing : [{ t: 0, bpm: song.bpm }];
+    for (let i = 0; i < tm.length; i++) {
+      const b = 60 / tm[i].bpm, tEnd = i + 1 < tm.length ? tm[i + 1].t : song.endT;
+      let k = 0;
+      for (let t = tm[i].t; t < tEnd - 1e-6; t += b, k++) { const strong = k % 4 === 0; ev.push({ t, fn: T => tick(T, strong) }); }
+    }
+    const b0 = 60 / tm[0].bpm;
+    for (let k = 1; k <= 4; k++) { const strong = k === 4; ev.push({ t: tm[0].t - k * b0, fn: T => tick(T, strong) }); }
+  }
+  if (ans) {
+    let last = -1e9;
+    for (const n of song.notes) { if (n.type === 'slide' || Math.abs(n.t - last) < 1e-3) continue; last = n.t; ev.push({ t: n.t, fn: answer }); }
+  }
+  return ev.sort((a, b) => a.t - b.t);
+}
+
+/* ================= built-in song ================= */
+function rng32(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const CH = [ { root: 45, tones: [57, 60, 64] }, { root: 41, tones: [53, 57, 60] },
+             { root: 48, tones: [55, 60, 64] }, { root: 43, tones: [55, 59, 62] } ];   // Am F C G
+function buildSong(ex) {
+  const BEAT = .4, notes = [], mus = [], rnd = rng32(150926);
+  const T = (m, b) => (m * 4 + b) * BEAT;
+  const tap = (m, b, l) => notes.push({ type: 'tap', lane: mod8(l), t: T(m, b) });
+  const hold = (m, b, l, len) => notes.push({ type: 'hold', lane: mod8(l), t: T(m, b), dur: len * BEAT });
+  const touch = (m, b, pos) => notes.push({ type: 'touch', pos, t: T(m, b) });
+  const B = k => lanePt(mod8(k), .48), CEN = [0, 0];
+  const slide = (m, b, l, seg, dly, len) => {
+    const t = T(m, b), lane = mod8(l);
+    notes.push({ type: 'tap', lane, t, star: true });
+    notes.push(makeSlide(lane, [{ ...seg, from: lane, to: seg.to === undefined ? undefined : mod8(seg.to) }], t, T(m, b + dly), T(m, b + dly + len)));
+  };
+  const ev = (m, b, fn) => mus.push({ t: T(m, b), fn });
+
+  for (let m = 0; m <= 36; m++) {
+    const ch = CH[m % 4];
+    if (m < 14 || (m >= 18 && m < 34)) for (let b = 0; b < 4; b++) ev(m, b, kick);
+    else if (m < 18) { ev(m, 0, kick); ev(m, 2, kick); }
+    else if (m < 36) { ev(m, 0, kick); if (m === 35) ev(m, 2, kick); }
+    else ev(m, 0, kick);
+    if ((m >= 2 && m < 14) || (m >= 18 && m < 34)) { ev(m, 1, t => snare(t)); ev(m, 3, t => snare(t)); }
+    else if (m >= 14 && m < 18) ev(m, 2, t => snare(t));
+    else if (m === 34) for (let i = 0; i < 8; i++) ev(m, i * .5, t => snare(t, .18 + i * .02));
+    else if (m === 35) for (let i = 0; i < 16; i++) ev(m, i * .25, t => snare(t, .16 + i * .018));
+    if (m >= 1 && m < 34) for (let b = 0; b < 4; b++) { ev(m, b + .5, t => hat(t)); if (m >= 26) ev(m, b, t => hat(t, .06)); }
+    if (m === 6 || m === 18 || m === 26 || m === 36) ev(m, 0, crash);
+    if ((m >= 2 && m < 14) || (m >= 18 && m < 34)) for (let i = 0; i < 8; i++) { const n = ch.root + (i % 2 ? 12 : 0); ev(m, i * .5, t => bass(t, n, BEAT * .42)); }
+    else if (m >= 14 && m < 36) ev(m, 0, t => bass(t, ch.root, BEAT * 3.8));
+    else if (m === 36) ev(m, 0, t => bass(t, ch.root, 2.2));
+    if (m >= 2 && m < 36) ev(m, 0, t => pad(t, ch.tones, BEAT * 4));
+    if (m === 36) ev(m, 0, t => pad(t, ch.tones, 2.6));
+  }
+  // intro
+  [[0, 1, 2, 3], [7, 6, 5, 4]].forEach((row, i) => row.forEach((l, b) => tap(2 + i, b, l)));
+  [[0, CEN], [1, B(0)], [2, B(4)], [3, CEN]].forEach(([b, p], j) => { touch(4, b, p); ev(4, b, t => bell(t, CH[0].tones[j % 3] + 24)); });
+  [[1.5, B(2)], [2.5, B(6)]].forEach(([b, p]) => { if (ex) touch(4, b, p); ev(4, b, t => bell(t, 88)); });
+  slide(5, 0, 0, { shape: '-', to: 4 }, 1, 2);
+  ev(5, 0, t => lead(t, CH[1].tones[2] + 24, BEAT * .9));
+  ev(5, 1, t => whoosh(t, BEAT * 2));
+  if (ex) { tap(5, 2, 6); tap(5, 3, 2); }
+  // melody
+  const RHY = [0, 1, 1.5, 2, 3, 4, 5, 5.5, 6, 6.5, 7];
+  let idx = 2;
+  for (let ph = 0; ph < 4; ph++) {
+    const m0 = 6 + ph * 2, shift = ph * 2;
+    RHY.forEach((b, i) => {
+      const m = m0 + Math.floor(b / 4), bb = b % 4, ch = CH[m % 4];
+      const tones = [...ch.tones.map(x => x + 12), ...ch.tones.map(x => x + 24)];
+      let st = Math.floor(rnd() * 5) - 2; if (st === 0) st = rnd() < .5 ? -1 : 1;
+      idx = clamp(idx + st, 0, 5);
+      const nb = i + 1 < RHY.length ? RHY[i + 1] : 8, len = Math.min(nb - b, 1.5) * BEAT * .9, midi = tones[idx];
+      ev(m, bb, t => lead(t, midi, len));
+      if (ex || Number.isInteger(b)) tap(m, bb, idx + shift);
+      if (ex && b === 0) tap(m, bb, idx + shift + 4);
+    });
+  }
+  // holds + touch
+  [1, 6, 2, 5].forEach((a, i) => {
+    const m = 14 + i, ch = CH[m % 4];
+    hold(m, 0, a, 2); if (ex) hold(m, 0, a + 4, 2);
+    ev(m, 0, t => lead(t, ch.tones[2] + 12, BEAT * 2));
+    [2, 2.5, 3, 3.5].forEach((b, j) => ev(m, b, t => lead(t, ch.tones[j % 3] + 24, BEAT * .35)));
+    tap(m, 2, a + 2);
+    if (ex) { touch(m, 2.5, B(a + 3)); tap(m, 3, a + 6); touch(m, 3.5, CEN); }
+    else touch(m, 3, CEN);
+  });
+  // slides
+  [
+    { seg: { shape: 'arc', dir: 1, steps: 3 }, a: 0, ext: [6, 5], after: [4, 5, 6] },
+    { seg: { shape: '-', to: 0 },              a: 4, ext: [2, 3], after: [7, 6, 5] },
+    { seg: { shape: '-', to: 7 },              a: 2, ext: [4, 5], after: [6, 5, 4] },
+    { seg: { shape: 'v', to: 3 },              a: 6, ext: [0, 1], after: [2, 1, 0] },
+  ].forEach((p, i) => {
+    const m = 18 + i * 2, ch = CH[m % 4], ch2 = CH[(m + 1) % 4];
+    slide(m, 0, p.a, p.seg, 1, 2);
+    ev(m, 0, t => lead(t, ch.tones[0] + 24, BEAT * .9));
+    ev(m, 1, t => whoosh(t, BEAT * 2));
+    if (ex) { tap(m, 2, p.ext[0]); tap(m, 3, p.ext[1]); }
+    p.after.forEach((l, j) => { ev(m, 4 + j, t => lead(t, ch2.tones[j] + 24, BEAT * .4)); tap(m, 4 + j, l); });
+    ev(m, 6.5, t => bell(t, ch2.tones[1] + 24));
+    ev(m, 7, t => bell(t, ch2.tones[0] + 24));
+    if (ex) touch(m, 6.5, B(p.after[2] + 4));
+    touch(m, 7, CEN);
+  });
+  // climax
+  let L = 0, dir = 1;
+  for (let m = 26; m < 34; m++) {
+    if (m > 26 && (m - 26) % 2 === 0) dir = -dir;
+    const ch = CH[m % 4], at = [ch.tones[0] + 12, ch.tones[1] + 12, ch.tones[2] + 12, ch.tones[0] + 24];
+    ev(m, 0, t => lead(t, ch.tones[2] + 24, BEAT * 1.8, .05));
+    ev(m, 2, t => lead(t, ch.tones[1] + 24, BEAT * 1.8, .05));
+    for (let i = 0; i < 8; i++) {
+      const n = at[dir > 0 ? i % 4 : 3 - (i % 4)];
+      ev(m, i * .5, t => arp(t, n, BEAT * .42));
+      if (ex || i % 2 === 0) tap(m, i * .5, L);
+      if (i === 0 && (ex || (m - 26) % 2 === 0)) tap(m, 0, L + 4);
+      L = mod8(L + dir);
+    }
+  }
+  // finale
+  hold(34, 0, 2, 3); if (ex) hold(34, 0, 6, 3);
+  ev(34, 0, t => lead(t, CH[34 % 4].tones[2] + 24, BEAT * 3));
+  if (ex) { slide(35, 0, 0, { shape: 'arc', dir: -1, steps: 3 }, 1, 2); slide(35, 0, 4, { shape: 'arc', dir: -1, steps: 3 }, 1, 2); }
+  else slide(35, 0, 0, { shape: 'arc', dir: 1, steps: 4 }, 1, 2);
+  ev(35, 0, t => lead(t, CH[35 % 4].tones[2] + 24, BEAT * .9));
+  ev(35, 1, t => whoosh(t, BEAT * 2));
+  tap(36, 0, 3); tap(36, 0, 7); if (ex) touch(36, 0, CEN);
+  ev(36, 0, t => lead(t, 81, 2.2, .07));
+
+  const f = finalize(notes);
+  mus.sort((a, b) => a.t - b.t);
+  return { ...f, endT: T(36, 0) + 2.5, mus, bpm: 150, timing: [{ t: 0, bpm: 150 }] };
+}
+
+/* ================= charts registry ================= */
+const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true };
+// ノーツ速度 → ノーツが出てからリングに届くまでの秒数（7.0 で約 0.46 秒）
+const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
+let SONGS = null, IMPORTS = [];
+const PARSED = {}, AUDIO = {};
+function loadImports() { try { IMPORTS = JSON.parse(localStorage.getItem('ringbeat:charts') || '[]') || []; } catch (e) { IMPORTS = []; } }
+function saveImports() { try { localStorage.setItem('ringbeat:charts', JSON.stringify(IMPORTS)); return true; } catch (e) { return false; } }
+function chartInfo(id) {
+  if (id === 'b:basic') return { id, builtin: true, title: 'Neon Circuit', label: 'BASIC', lv: 'Lv.4', song: SONGS.basic, first: 0, bestKey: 'basic' };
+  if (id === 'b:expert') return { id, builtin: true, title: 'Neon Circuit', label: 'EXPERT', lv: 'Lv.9', song: SONGS.expert, first: 0, bestKey: 'expert' };
+  const e = IMPORTS.find(x => x.id === id); if (!e) return null;
+  if (!PARSED[id]) PARSED[id] = parseChart(e.text);
+  return { id, builtin: false, title: e.title, label: e.label, lv: e.lv || '', song: PARSED[id], first: +e.first || 0, bestKey: id };
+}
+const currentChart = () => chartInfo(settings.chart) || chartInfo('b:basic');
+const hueOf = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
+const fmtTime = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+/* ================= state ================= */
+let run = null, mode = 'title';
+let W = 0, H = 0, dpr = 1, cx = 0, cy = 0, R = 100, R0 = 20, NS = 8, ar = { left: 0, top: 0 };
+const lastPress = new Array(8).fill(-1e9);
+const ptrs = new Map(), keys = new Set();
+let centerKey = false;
+
+function loadSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem('ringbeat:settings') || 'null');
+    if (s) { Object.assign(settings, s); if (!s.chart && s.diff) settings.chart = 'b:' + s.diff; }
+  } catch (e) {}
+}
+function saveSettings() { try { localStorage.setItem('ringbeat:settings', JSON.stringify(settings)); } catch (e) {} }
+function getBest(k) { try { return JSON.parse(localStorage.getItem('ringbeat:best:' + k) || 'null'); } catch (e) { return null; } }
+function setBest(k, v) { try { localStorage.setItem('ringbeat:best:' + k, JSON.stringify(v)); } catch (e) {} }
+
+function newRun(song, opt) {
+  const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0 }));
+  return { notes, first: 0, mus: song.mus || [], ei: 0, endT: song.endT, units: song.units, app: approachOf(settings.nspd),
+    beat: 60 / (song.bpm || 150), demo: !!opt.demo, auto: !!opt.auto, guide: false,
+    practice: !!opt.practice, rate: 1, base: 0, acBase: 0, startPos: 0, loopA: null, loopB: null, misses: [],
+    cnt: [0, 0, 0, 0], got: 0, jn: 0, combo: 0, maxc: 0, fast: 0, late: 0,
+    fx: [], txt: [], pf0: 0, paused: false, pausedAt: 0, over: false, comboAt: 0, held: new Array(8).fill(false) };
+}
+
+/* ================= clock =================
+   曲の時刻 = base + (聞こえている音声の時刻 - acBase) × rate
+   巻き戻し・速度変更は base / acBase / rate を付け替えるだけで済む */
+const clk = { ac: 0, pf: 0, ok: false };
+const audioRaw = () => AC.currentTime - (AC.outputLatency || AC.baseLatency || 0);
+function syncClock() {
+  const pf = performance.now(), raw = audioRaw();
+  if (!clk.ok) { clk.ac = raw; clk.pf = pf; clk.ok = true; return; }
+  const est = clk.ac + (pf - clk.pf) / 1000, d = raw - est;
+  if (Math.abs(d) > .06) { clk.ac = raw; clk.pf = pf; } else clk.ac += d * .03;
+}
+const songRaw = pf => run.base + (clk.ac + (pf - clk.pf) / 1000 - run.acBase) * run.rate;
+function songAt(pf) {
+  if (run.demo) return (pf - run.pf0) / 1000;
+  if (run.paused) return run.pausedAt;
+  return songRaw(pf) - settings.ofs / 1000;
+}
+const toAC = t => run.acBase + (t - run.base) / run.rate;   // 曲の時刻 t の音を鳴らす AudioContext 時刻
+function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 500) ? t : n; }
+function pump() {
+  if (!run || run.demo || run.paused || !AC || !bus) return;
+  const horizon = AC.currentTime + .18, ev = run.mus;
+  while (run.ei < ev.length) {
+    const at = toAC(ev[run.ei].t);
+    if (at >= horizon) break;
+    const e = ev[run.ei++];
+    if (at < AC.currentTime - .03) continue;
+    try { e.fn(Math.max(at, AC.currentTime)); } catch (err) {}
+  }
+}
+setInterval(pump, 25);
+
+/* ================= input & judgement ================= */
+const regionPx = (x, y) => regionAt((x - cx) / R, (y - cy) / R);
+// 指が通った点（前フレームからの移動も補間して拾う）
+const trail = [];
+function traverse(x0, y0, x1, y1) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (R * .06)));
+  for (let i = 1; i <= steps; i++) trail.push([(x0 + (x1 - x0) * i / steps - cx) / R, (y0 + (y1 - y0) * i / steps - cy) / R]);
+  if (trail.length > 400) trail.splice(0, trail.length - 400);
+}
+const keyPts = k => [lanePt(k, .92), lanePt(k, .7), lanePt(k, .46)];
+function readInput() {
+  const h = new Array(8).fill(false), P = [], S = [];
+  for (const p of ptrs.values()) {
+    const nx = (p.x - cx) / R, ny = (p.y - cy) / R, r = regionAt(nx, ny);
+    P.push([nx, ny]);
+    if (r < 0) continue;
+    if (r < 8) h[r] = true; else if (r < 16) h[r - 8] = true;
+  }
+  for (const k of keys) { h[k] = true; S.push(...keyPts(k)); }
+  if (centerKey) S.push([0, 0]);
+  S.push(...P, ...trail);
+  trail.length = 0;
+  return { h, P, S };
+}
+// スライド：経路に沿ってどこまでなぞれたか（許容幅 SL_TOL、先読み SL_LOOK）
+const SL_LOOK = 1.25;
+// 指の点 p が経路上の点 (sx, sy) をなぞったことになるか。
+// リング付近の経路は、リングの外側（ボタンのあたり）をなぞっても角度が合っていれば認める
+function slideNear(p, sx, sy, tol2) {
+  const dx = p[0] - sx, dy = p[1] - sy;
+  if (dx * dx + dy * dy < tol2) return true;
+  const rs = Math.hypot(sx, sy);
+  if (rs < .8) return false;
+  const rf = Math.hypot(p[0], p[1]);
+  if (rf < rs - .45 || rf > rs + 1.4) return false;
+  let da = Math.atan2(p[1], p[0]) - Math.atan2(sy, sx); da = Math.atan2(Math.sin(da), Math.cos(da));
+  return Math.abs(da) * rs < SL_TOL;
+}
+function advanceSlide(n, S) {
+  if (!S.length) return;
+  const tol2 = SL_TOL * SL_TOL;
+  for (let guard = 0; guard < 24; guard++) {
+    const i0 = Math.floor(n.prog / n.ss), i1 = Math.min(n.K, Math.ceil((n.prog + SL_LOOK) / n.ss));
+    let best = -1;
+    for (let i = i1; i > i0 && best < 0; i--) {
+      const x = n.samp[i * 2], y = n.samp[i * 2 + 1];
+      for (const p of S) if (slideNear(p, x, y, tol2)) { best = i; break; }
+    }
+    if (best < 0) return;
+    n.prog = Math.min(n.len, best * n.ss);
+  }
+}
+function touchHeld(n, P) {
+  for (const p of P) if (Math.hypot(p[0] - n.pos[0], p[1] - n.pos[1]) < .34) return true;
+  return isCenter(n.pos) ? centerKey : keys.has(nearestLane(n.pos));
+}
+const press = (l, pf) => { if (l >= 0 && l < 8) lastPress[l] = pf; };
+const colOf = n => n.brk ? C.brk : n.each ? C.each : n.type === 'slide' ? C.slide : (n.type === 'touch' || n.type === 'thold') ? C.touch : C.tap;
+const fin = n => { n.fin = true; };
+function grade(d, touch) {
+  const ad = Math.abs(d);
+  return touch ? (ad <= T_P ? 0 : ad <= T_G ? 1 : 2) : (ad <= W_P ? 0 : ad <= W_G ? 1 : 2);
+}
+const winD = n => (n.type === 'touch' || n.type === 'thold') ? T_D : W_D;
+// 時刻 t に取れるノーツを時間順に集める
+function scanCands(t, pred) {
+  const ns = run.notes, out = [];
+  for (let i = run.first; i < ns.length; i++) {
+    const n = ns[i];
+    if (n.t > t + T_D) break;
+    if (n.fin || n.hh || n.type === 'slide' || Math.abs(t - n.t) > winD(n)) continue;
+    if (pred(n)) out.push(n);
+  }
+  return out;
+}
+function applyHit(n, t) {
+  const d = t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
+  if (n.type === 'tap') { fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n); }
+  else if (n.type === 'touch') { fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n); }
+  else {
+    n.hh = true; n.hj = j; n.hd = d; n.holding = true;
+    const p = n.type === 'hold' ? lanePt(n.lane) : n.pos;
+    if (n.type === 'hold') press(n.lane, performance.now());
+    burst(p[0], p[1], col, n.type === 'hold' ? 'tap' : 'touch'); se('perfect');
+  }
+}
+const isHead = n => n.type === 'tap' || n.type === 'hold';
+const isTouch = n => n.type === 'touch' || n.type === 'thold';
+const distTo = (p, x, y) => Math.hypot(p[0] - x, p[1] - y);
+// 同じタイミングで近くにあるタッチは、手のひら1回でまとめて取れるようにする
+function hitTouchGroup(first, t, near) {
+  for (const n of scanCands(t, n => isTouch(n) && Math.abs(n.t - first.t) < .02 && near(n))) applyHit(n, t);
+}
+// 押した位置で受け付けるボタン。境目の近くなら隣のボタンも受け付ける（各ボタン ±34° くらい）
+const LANE_SLACK = .2;
+function lanesNear(nx, ny) {
+  if (Math.hypot(nx, ny) < .28) return [];
+  const a = Math.atan2(ny, nx), k = laneOfAngle(a);
+  let off = a - laneAng(k); off = Math.atan2(Math.sin(off), Math.cos(off));
+  const out = [k];
+  if (Math.abs(off) > Q / 2 - LANE_SLACK) out.push(mod8(k + (off > 0 ? 1 : -1)));
+  return out;
+}
+function hitPointer(nx, ny, t) {
+  const rg = regionAt(nx, ny); if (rg < 0) return;
+  let tap = null;
+  for (const L of lanesNear(nx, ny)) { tap = scanCands(t, n => isHead(n) && n.lane === L)[0]; if (tap) break; }
+  const tch = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR)[0];
+  let pick = tap || tch;
+  if (tap && tch) pick = Math.hypot(nx, ny) < .62 ? tch : (Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch);
+  if (!pick) return;
+  applyHit(pick, t);
+  if (isTouch(pick)) hitTouchGroup(pick, t, n => distTo(n.pos, nx, ny) < .6);
+}
+function hitKey(lane, t) {
+  const tap = scanCands(t, n => isHead(n) && n.lane === lane)[0];
+  const tch = scanCands(t, n => isTouch(n) && !isCenter(n.pos) && nearestLane(n.pos) === lane)[0];
+  let pick = tap || tch;
+  if (tap && tch) pick = Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch;
+  if (!pick) return;
+  applyHit(pick, t);
+  if (isTouch(pick)) hitTouchGroup(pick, t, n => !isCenter(n.pos) && Math.abs(mod8(nearestLane(n.pos) - lane + 4) - 4) <= 1);
+}
+function hitCenter(t) {
+  const n = scanCands(t, n => isTouch(n) && isCenter(n.pos))[0];
+  if (n) applyHit(n, t);
+}
+// 指をすべらせてタッチの範囲に入ったときも判定する
+function slideIntoTouch(x0, y0, x1, y1, t) {
+  const ax = (x0 - cx) / R, ay = (y0 - cy) / R, bx = (x1 - cx) / R, by = (y1 - cy) / R;
+  const vx = bx - ax, vy = by - ay, vv = vx * vx + vy * vy || 1e-9;
+  for (const n of scanCands(t, isTouch)) {
+    const [px, py] = n.pos;
+    if (distTo(n.pos, ax, ay) < TR) continue;
+    const k = clamp(((px - ax) * vx + (py - ay) * vy) / vv, 0, 1);
+    if (Math.hypot(ax + vx * k - px, ay + vy * k - py) < TR) applyHit(n, t);
+  }
+}
+function judge(j, d, px, py, col, kind, n) {
+  const r = run;
+  r.cnt[j]++; r.got += J_PT[j]; r.jn++;
+  if (j < 3) { r.combo++; if (r.combo > r.maxc) r.maxc = r.combo; r.comboAt = performance.now(); } else { r.combo = 0; if (n && r.practice) addMiss(n.type === 'slide' ? n.s1 : n.t); }
+  let fl = '';
+  if ((j === 1 || j === 2) && Number.isFinite(d)) { if (d < 0) { fl = 'FAST'; r.fast++; } else { fl = 'LATE'; r.late++; } }
+  const inner = kind === 'touch';
+  r.txt.push({ x: inner ? px : px * .72, y: inner ? py - .17 : py * .72, j, fl, t: performance.now() });
+  if (j < 3) {
+    burst(px, py, col, kind);
+    if (n && n.fw) { r.fx.push({ x: px, y: py, rgb: col.rgb, kind: 'fw', t: performance.now() }); se('fw'); }
+    se(kind === 'slide' ? 'slide' : kind === 'touch' ? 'touch' : j === 0 ? 'perfect' : 'great');
+  }
+}
+function burst(px, py, col, kind) { run.fx.push({ x: px, y: py, rgb: col.rgb, kind, t: performance.now() }); }
+
+/* ================= update ================= */
+function update(now, pf) {
+  const r = run; if (!r || r.paused || r.over) return;
+  let h, S, P;
+  if (r.auto) h = new Array(8).fill(false);
+  else ({ h, S, P } = readInput());
+  const notes = r.notes;
+  for (let i = r.first; i < notes.length; i++) {
+    const n = notes[i];
+    if (n.t > now + .5) break;
+    if (n.fin) continue;
+    const col = colOf(n);
+    if (n.type === 'tap' || n.type === 'touch') {
+      const [px, py] = n.type === 'tap' ? lanePt(n.lane) : n.pos, kind = n.type === 'tap' ? 'tap' : 'touch';
+      if (r.auto) { if (now >= n.t) { fin(n); if (n.type === 'tap') press(n.lane, pf); judge(0, NaN, px, py, col, kind, n); } }
+      else if (now > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); }
+      continue;
+    }
+    if (n.type === 'hold' || n.type === 'thold') {
+      const isT = n.type === 'thold', [px, py] = isT ? n.pos : lanePt(n.lane), kind = isT ? 'touch' : 'tap';
+      if (!n.hh) {
+        if (r.auto) {
+          if (now < n.t) continue;
+          n.hh = true; n.hj = 0; n.hd = NaN; n.holding = true; if (!isT) press(n.lane, pf); burst(px, py, col, kind);
+        } else { if (now > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
+      }
+      const dur = Math.max(n.dur, .05), te = n.t + dur;
+      if (r.auto && !isT) h[n.lane] = true;
+      const held = r.auto || (isT ? touchHeld(n, P) : h[n.lane]);
+      if (now >= te) { fin(n); n.holding = false; judge(n.hj, n.hd, px, py, col, kind, n); }
+      else if (!held) {
+        let j = n.hj, d = n.hd;
+        if (te - now > .12) { j = Math.max(j, (now - n.t) / dur >= .6 ? 1 : 2); d = NaN; }
+        fin(n); n.holding = false; judge(j, d, px, py, col, kind, n);
+      }
+      continue;
+    }
+    // slide（☆のタップは別ノーツ。ここではなぞりだけを判定）
+    const [ex, ey] = n.end;
+    if (r.auto) {
+      if (now >= n.s0) {
+        n.prog = clamp((now - n.s0) / Math.max(n.s1 - n.s0, .001), 0, 1) * n.len;
+        const [ax, ay] = pathAt(n, n.prog / n.len), rg = regionAt(ax, ay); if (rg >= 0 && rg < 8) h[rg] = true;
+      }
+      if (now >= n.s1) { n.prog = n.len; fin(n); judge(0, NaN, ex, ey, col, 'slide', n); }
+      continue;
+    }
+    if (now < n.t - W_D) continue;
+    advanceSlide(n, S);
+    if (n.prog >= n.len - .22) { fin(n); const d = now - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
+    // 時間切れでも、4分の3以上なぞれていれば GOOD にする
+    else if (now > n.s1 + SL_M) { fin(n); judge(n.prog >= n.len * .75 ? 2 : 3, NaN, ex, ey, col, 'slide', n); }
+  }
+  while (r.first < notes.length && notes[r.first].fin) r.first++;
+  r.held = h;
+  if (now > r.endT) finish();
+}
+
+/* ================= drawing ================= */
+function circle(x, y, r) { g.beginPath(); g.arc(x, y, Math.max(.1, r), 0, TAU); }
+function drawTap(x, y, s, c, al, exn) {
+  g.globalAlpha = al;
+  if (exn) { g.lineWidth = s * .22; g.strokeStyle = 'rgba(255,255,255,.55)'; circle(x, y, s * 1.3); g.stroke(); }
+  circle(x, y, s * .8);
+  g.lineWidth = s * .5; g.strokeStyle = c.dark; g.stroke();
+  g.lineWidth = s * .34; g.strokeStyle = c.main; g.stroke();
+  g.lineWidth = Math.max(1, s * .07); g.strokeStyle = 'rgba(255,255,255,.95)';
+  circle(x, y, s * 1.05); g.stroke();
+  circle(x, y, s * .55); g.stroke();
+  g.fillStyle = 'rgba(255,255,255,.9)'; circle(x, y, s * .12); g.fill();
+  g.globalAlpha = 1;
+}
+function starPath(x, y, ro, rot) {
+  g.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 ? ro * .48 : ro, a = rot + i * Math.PI / 5 - Math.PI / 2;
+    const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
+    i ? g.lineTo(px, py) : g.moveTo(px, py);
+  }
+  g.closePath();
+}
+function drawStar(x, y, s, c, al, rot, exn) {
+  g.globalAlpha = al; g.lineJoin = 'round';
+  if (exn) { starPath(x, y, s * 1.2, rot); g.lineWidth = s * .2; g.strokeStyle = 'rgba(255,255,255,.5)'; g.stroke(); }
+  starPath(x, y, s, rot);
+  g.lineWidth = s * .34; g.strokeStyle = c.dark; g.stroke();
+  g.fillStyle = c.main; g.fill();
+  g.lineWidth = Math.max(1, s * .08); g.strokeStyle = '#fff'; g.stroke();
+  g.globalAlpha = 1;
+}
+function hexPath(l, r1, r2, h, tip) {
+  const a = laneAng(l), ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux;
+  const P = (r, o) => [cx + ux * r + nx * o, cy + uy * r + ny * o];
+  const pts = [P(r1 - tip, 0), P(r1, h), P(r2, h), P(r2 + tip, 0), P(r2, -h), P(r1, -h)];
+  g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath();
+}
+function drawHold(n, now, pf) {
+  const A = run.app, ph = 1 - (n.t - now) / A;
+  if (ph < -.25) return;
+  let s = 1, rh;
+  if (ph < 0) { s = (ph + .25) / .25; rh = R0; } else rh = R0 + (R - R0) * Math.min(ph, 1);
+  const pt = 1 - (n.t + n.dur - now) / A;
+  const rt = Math.min(rh, pt <= 0 ? R0 : R0 + (R - R0) * Math.min(pt, 1));
+  const al = (!n.hh && now > n.t) ? Math.max(0, 1 - (now - n.t) / W_D) : 1;
+  const c = colOf(n), w = NS * 1.7 * s;
+  hexPath(n.lane, rt, rh, w / 2, w * .42);
+  g.globalAlpha = al; g.lineJoin = 'round';
+  g.fillStyle = n.holding ? `rgba(${c.rgb},${reduceMotion ? .45 : .38 + .2 * Math.sin(pf / 60)})` : 'rgba(10,6,20,.65)';
+  g.fill();
+  g.lineWidth = w * .3; g.strokeStyle = c.dark; g.stroke();
+  g.lineWidth = w * .18; g.strokeStyle = c.main; g.stroke();
+  g.lineWidth = Math.max(1, w * .04); g.strokeStyle = 'rgba(255,255,255,.7)'; g.stroke();
+  g.globalAlpha = 1;
+}
+const CHEV = [[-.35, -.6], [0, -.6], [.45, 0], [0, .6], [-.35, .6], [.1, 0]];
+function drawSlidePath(n, now, pf) {
+  const A = run.app, ph = 1 - (n.t - now) / A;
+  if (ph < -.25) return;
+  const c = colOf(n);
+  let al = now < n.t ? clamp((ph + .25) / 1.25, 0, 1) * .85 : 1;
+  if (now >= n.t && now < n.s0 && !reduceMotion) al = .78 + .22 * Math.sin(pf / 70);
+  const s = NS * 1.05;
+  g.globalAlpha = al; g.lineJoin = 'round';
+  for (const ch of n.chev) {
+    if (ch.L < n.prog - .04) continue;
+    const co = Math.cos(ch.ang), si = Math.sin(ch.ang);
+    g.setTransform(dpr * co, dpr * si, -dpr * si, dpr * co, dpr * (cx + ch.x * R), dpr * (cy + ch.y * R));
+    g.beginPath();
+    CHEV.forEach(([a, b], i) => i ? g.lineTo(a * s, b * s) : g.moveTo(a * s, b * s));
+    g.closePath();
+    g.lineWidth = s * .2; g.strokeStyle = c.dark; g.stroke();
+    g.fillStyle = c.main; g.fill();
+  }
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.globalAlpha = 1;
+}
+function drawSlideStar(n, now, pf) {
+  if (now < n.t) return;
+  const [x, y] = pathAt(n, (now - n.s0) / Math.max(n.s1 - n.s0, .001));
+  drawStar(cx + x * R, cy + y * R, NS * 1.1, colOf(n), now < n.s0 ? .55 : .92, reduceMotion ? 0 : pf / 300);
+}
+function drawTouch(n, now) {
+  const A = run.app, ph = 1 - (n.t - now) / A;
+  if (ph < 0) return;
+  const [nx, ny] = n.pos, x = cx + nx * R, y = cy + ny * R, c = colOf(n);
+  const late = !n.hh && now > n.t;
+  const al = late ? Math.max(0, 1 - (now - n.t) / T_D) : Math.min(1, ph / .2);
+  // 4つの三角は判定の瞬間にちょうど中心の点へ届く
+  const k = n.hh ? 1 : Math.min(ph, 1), dist = NS * (.5 + 2 * (1 - k)), s = NS * .75;
+  g.globalAlpha = al; g.lineJoin = 'round';
+  if (n.type === 'thold') {
+    g.lineWidth = NS * .22; g.strokeStyle = `rgba(${c.rgb},.25)`; circle(x, y, NS * 1.45); g.stroke();
+    if (n.hh) {
+      const f = clamp((now - n.t) / Math.max(n.dur, .05), 0, 1);
+      g.strokeStyle = c.main; g.beginPath(); g.arc(x, y, NS * 1.45, -Math.PI / 2, -Math.PI / 2 + TAU * f); g.stroke();
+    }
+  } else { g.strokeStyle = `rgba(${c.rgb},.35)`; g.lineWidth = 1.5; circle(x, y, NS * 1.05); g.stroke(); }
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2 - Math.PI / 2, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
+    const bx = x + ux * dist, by = y + uy * dist;
+    g.beginPath();
+    g.moveTo(bx - ux * s * .5, by - uy * s * .5);
+    g.lineTo(bx + ux * s * .45 + vx * s * .62, by + uy * s * .45 + vy * s * .62);
+    g.lineTo(bx + ux * s * .45 - vx * s * .62, by + uy * s * .45 - vy * s * .62);
+    g.closePath();
+    g.fillStyle = n.holding ? `rgba(${c.rgb},.45)` : 'rgba(10,6,20,.7)'; g.fill();
+    g.lineWidth = s * .34; g.strokeStyle = c.dark; g.stroke();
+    g.lineWidth = s * .2; g.strokeStyle = c.main; g.stroke();
+  }
+  g.fillStyle = c.main; circle(x, y, NS * .16); g.fill();
+  if (n.fw) { g.fillStyle = 'rgba(255,255,255,.85)'; circle(x, y, NS * .08); g.fill(); }
+  g.globalAlpha = 1;
+}
+function drawCenter(now, pf) {
+  const r = run;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  if (!r.demo && !r.seeked && now < 1.4) {
+    g.globalAlpha = clamp(1.4 - now, 0, 1) * clamp(now + 1, 0, 1);
+    g.font = `900 ${Math.round(R * .1)}px ${DISP}`; g.fillStyle = '#f5f0ff';
+    g.fillText('READY', cx, cy);
+    g.globalAlpha = 1;
+  }
+  if (r.combo >= 3) {
+    const k = clamp((pf - r.comboAt) / 120, 0, 1), sc = reduceMotion ? 1 : 1 + .16 * (1 - k);
+    g.save(); g.translate(cx, cy - R * .02); g.scale(sc, sc); g.globalAlpha = .8;
+    g.font = `900 ${Math.round(R * .14)}px ${DISP}`;
+    const lg = g.createLinearGradient(0, -R * .07, 0, R * .07);
+    lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
+    g.fillStyle = lg; g.fillText(String(r.combo), 0, 0);
+    g.font = `800 ${Math.round(R * .045)}px ${BODY}`; g.fillStyle = 'rgba(245,240,255,.7)';
+    g.fillText('COMBO', 0, R * .11);
+    g.restore();
+  }
+}
+function sparkle(x, y, r) { g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r * .3, y - r * .3); g.lineTo(x + r, y); g.lineTo(x + r * .3, y + r * .3); g.lineTo(x, y + r); g.lineTo(x - r * .3, y + r * .3); g.lineTo(x - r, y); g.lineTo(x - r * .3, y - r * .3); g.closePath(); }
+function drawFx(pf) {
+  const fx = run.fx;
+  g.globalCompositeOperation = 'lighter';
+  for (let i = fx.length - 1; i >= 0; i--) {
+    const f = fx[i], life = f.kind === 'fw' ? 750 : 380, k = (pf - f.t) / life;
+    if (k >= 1 || k < 0) { if (k >= 1) fx.splice(i, 1); continue; }
+    const x = cx + f.x * R, y = cy + f.y * R;
+    if (f.kind === 'fw') {
+      const rr = NS + (R * 1.05 - NS) * (1 - Math.pow(1 - k, 3));
+      g.strokeStyle = `rgba(${f.rgb},${(1 - k) * .7})`; g.lineWidth = NS * .35 * (1 - k); circle(x, y, rr); g.stroke();
+      if (!reduceMotion) { g.fillStyle = `rgba(255,236,170,${1 - k})`; for (let s = 0; s < 16; s++) { const a = s * TAU / 16; sparkle(x + Math.cos(a) * rr, y + Math.sin(a) * rr, NS * .3 * (1 - k)); g.fill(); } }
+      continue;
+    }
+    if (k < .3) { g.fillStyle = `rgba(255,255,255,${(.3 - k) * 1.6})`; circle(x, y, NS * 1.1); g.fill(); }
+    g.strokeStyle = `rgba(${f.rgb},${(1 - k) * .9})`; g.lineWidth = NS * .3 * (1 - k);
+    circle(x, y, NS * (.9 + k * 1.6)); g.stroke();
+    if (reduceMotion) continue;
+    if (f.kind === 'touch') {
+      g.fillStyle = `rgba(${f.rgb},${1 - k})`;
+      for (let s = 0; s < 8; s++) { const a = s * Q + .4, rr = NS * (1 + k * 1.8); sparkle(x + Math.cos(a) * rr, y + Math.sin(a) * rr, NS * .32 * (1 - k * .6)); g.fill(); }
+    } else {
+      g.lineWidth = Math.max(1, NS * .12 * (1 - k)); g.beginPath();
+      for (let s = 0; s < 8; s++) {
+        const a = s * Q + .2, r1 = NS * (1.1 + k * 1.3), r2 = NS * (1.4 + k * 2.4);
+        g.moveTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); g.lineTo(x + Math.cos(a) * r2, y + Math.sin(a) * r2);
+      }
+      g.stroke();
+    }
+  }
+  g.globalCompositeOperation = 'source-over';
+}
+function drawTexts(pf) {
+  const tx = run.txt;
+  if (tx.length > 40) tx.splice(0, tx.length - 40);
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let i = tx.length - 1; i >= 0; i--) {
+    const t = tx[i], age = (pf - t.t) / 1000;
+    if (age > .5) { tx.splice(i, 1); continue; }
+    const k = age / .5;
+    const x = cx + t.x * R, y = cy + t.y * R - (reduceMotion ? 0 : k * R * .04);
+    const pop = reduceMotion ? 1 : 1 + .25 * (1 - clamp(age / .08, 0, 1));
+    g.save(); g.translate(x, y); g.scale(pop, pop); g.globalAlpha = 1 - k * k;
+    g.font = `900 ${Math.round(R * .058)}px ${DISP}`;
+    g.lineWidth = R * .02; g.lineJoin = 'round'; g.strokeStyle = 'rgba(11,8,20,.85)';
+    g.strokeText(J_NAME[t.j], 0, 0); g.fillStyle = J_COL[t.j]; g.fillText(J_NAME[t.j], 0, 0);
+    if (t.fl) {
+      g.font = `800 ${Math.round(R * .04)}px ${BODY}`;
+      g.strokeText(t.fl, 0, R * .055); g.fillStyle = t.fl === 'FAST' ? '#3fd6ff' : '#ff8a6b'; g.fillText(t.fl, 0, R * .055);
+    }
+    g.restore();
+  }
+}
+function draw(now, pf) {
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
+  g.fillStyle = '#0b0814'; g.fillRect(0, 0, W, H);
+  const beat = run ? run.beat : .4;
+  const active = run && !run.over && now >= 0;
+  const bp = ((now / beat) % 1 + 1) % 1;
+  const pulse = (active && !reduceMotion) ? Math.pow(1 - bp, 3) : 0;
+
+  const gr = g.createRadialGradient(cx, cy, R * .2, cx, cy, Math.max(W, H) * .8);
+  gr.addColorStop(0, 'rgba(66,26,104,.5)'); gr.addColorStop(.4, 'rgba(28,13,52,.35)'); gr.addColorStop(1, 'rgba(11,8,20,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  circle(cx, cy, R); g.fillStyle = 'rgba(5,3,12,.55)'; g.fill();
+
+  g.lineWidth = 1; g.strokeStyle = 'rgba(196,178,255,.07)'; g.beginPath();
+  for (let k = 0; k < 8; k++) { const a = laneAng(k); g.moveTo(cx + Math.cos(a) * R0, cy + Math.sin(a) * R0); g.lineTo(cx + Math.cos(a) * R * .97, cy + Math.sin(a) * R * .97); }
+  g.stroke();
+  circle(cx, cy, R0); g.strokeStyle = 'rgba(196,178,255,.14)'; g.stroke();
+
+  // 小節時計：16分音符ごとに外周の目盛りが進む
+  const six = active ? Math.floor(((now / (beat / 4)) % 16 + 16) % 16) : -1;
+  for (let i = 0; i < 16; i++) {
+    const a = -Math.PI / 2 + i * TAU / 16, isBeat = i % 4 === 0;
+    const r1 = R * 1.045, r2 = R * (isBeat ? 1.1 : 1.075);
+    let al = isBeat ? .35 : .18, col = '196,178,255';
+    if (six >= 0) { const age = (six - i + 16) % 16; if (age < 4) { al = Math.max(al, 1 - age * .28); col = '255,197,61'; } }
+    g.strokeStyle = `rgba(${col},${al})`; g.lineWidth = isBeat ? 2 : 1.5;
+    g.beginPath(); g.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2); g.stroke();
+  }
+
+  g.globalCompositeOperation = 'lighter';
+  circle(cx, cy, R); g.lineWidth = R * .06; g.strokeStyle = `rgba(255,61,154,${.1 + .28 * pulse})`; g.stroke();
+  g.globalCompositeOperation = 'source-over';
+  g.lineWidth = Math.max(2, R * .013); g.strokeStyle = '#f5f0ff'; g.stroke();
+
+  for (let k = 0; k < 8; k++) {
+    const a = laneAng(k), x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
+    const held = run && run.held && run.held[k] && !run.over;
+    const gl = Math.max(held ? 1 : 0, 1 - (pf - lastPress[k]) / 200);
+    if (gl > 0) {
+      g.globalCompositeOperation = 'lighter';
+      const rg = g.createRadialGradient(x, y, 0, x, y, R * .16);
+      rg.addColorStop(0, `rgba(255,61,154,${.55 * gl})`); rg.addColorStop(1, 'rgba(255,61,154,0)');
+      g.fillStyle = rg; circle(x, y, R * .16); g.fill();
+      g.globalCompositeOperation = 'source-over';
+    }
+    g.fillStyle = '#f5f0ff'; circle(x, y, R * .027 * (1 + .4 * gl)); g.fill();
+  }
+  if (mode === 'play' && finePointer) {
+    g.font = `800 ${Math.round(R * .05)}px ${BODY}`; g.fillStyle = 'rgba(165,158,200,.6)';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (let k = 0; k < 8; k++) { const a = laneAng(k); g.fillText(KEYLBL[k], cx + Math.cos(a) * R * 1.19, cy + Math.sin(a) * R * 1.19); }
+  }
+  if (!run) return;
+
+  drawCenter(now, pf);
+  const notes = run.notes, A = run.app, vis = now + A * 1.25 + .05;
+  let last = run.first; while (last < notes.length && notes[last].t <= vis) last++;
+  for (let i = run.first; i < last; i++) { const n = notes[i]; if (n.type === 'slide' && !n.fin) drawSlidePath(n, now, pf); }
+  for (let i = last - 1; i >= run.first; i--) { const n = notes[i]; if (n.type === 'hold' && !n.fin) drawHold(n, now, pf); }
+  for (let i = last - 1; i >= run.first; i--) { const n = notes[i]; if (isTouch(n) && !n.fin) drawTouch(n, now); }
+  for (let i = last - 1; i >= run.first; i--) {
+    const n = notes[i];
+    if (n.type !== 'tap' || n.fin) continue;
+    const ph = 1 - (n.t - now) / A;
+    if (ph < -.25) continue;
+    let r, s = 1;
+    if (ph < 0) { r = R0; s = (ph + .25) / .25; } else r = R0 + (R - R0) * ph;
+    const al = now > n.t ? Math.max(0, 1 - (now - n.t) / W_D) : 1;
+    const a = laneAng(n.lane), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
+    if (n.star) drawStar(x, y, NS * 1.2 * s, n.brk ? C.brk : n.each ? C.each : C.slide, al, reduceMotion ? 0 : pf / 400, n.ex);
+    else drawTap(x, y, NS * s, colOf(n), al, n.ex);
+  }
+  for (let i = run.first; i < last; i++) { const n = notes[i]; if (n.type === 'slide' && !n.fin) drawSlideStar(n, now, pf); }
+  // 指が触れたと判定された位置（薄い白丸）
+  for (let i = tapMarks.length - 1; i >= 0; i--) {
+    const m = tapMarks[i], k = (pf - m.t) / 260;
+    if (k >= 1 || k < 0) { if (k >= 1) tapMarks.splice(i, 1); continue; }
+    g.strokeStyle = `rgba(255,255,255,${.5 * (1 - k)})`; g.lineWidth = 2;
+    circle(cx + m.x * R, cy + m.y * R, NS * (.5 + k * .5)); g.stroke();
+  }
+  drawFx(pf);
+  drawTexts(pf);
+}
+
+/* ================= layout ================= */
+function setSizes() { R0 = R * .2; NS = R * .085; }
+function layoutRing() {
+  if (mode === 'title' && !titleOv.hidden) {
+    const s = stageEl.getBoundingClientRect();
+    if (s.width > 60 && s.height > 60) {
+      cx = s.left - ar.left + s.width / 2; cy = s.top - ar.top + s.height / 2;
+      R = Math.min(s.width, s.height) * .42; setSizes(); return;
+    }
+  }
+  const pb = (mode === 'play' && !practiceEl.hidden) ? practiceEl.getBoundingClientRect().height : 0;
+  const HH = Math.max(120, H - pb);
+  cx = W / 2; cy = HH / 2 + (W > HH ? 10 : 0);
+  R = Math.min(W * .44, HH * .4); setSizes();
+}
+function resize() {
+  const r = app.getBoundingClientRect();
+  ar = r; W = r.width; H = r.height;
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.width = Math.max(1, Math.round(W * dpr)); cv.height = Math.max(1, Math.round(H * dpr));
+  layoutRing();
+}
+
+/* ================= flow ================= */
+function startDemo() { run = newRun(SONGS.expert, { demo: true, auto: true }); run.pf0 = performance.now() - 1500; }
+let playing = null;
+async function startPlay() {
+  const ch = currentChart();
+  if (!ch.song.notes.length) { toast('この譜面にはノーツがありません'); return; }
+  initAudio();
+  const resumed = AC.resume ? AC.resume() : null;
+  try { await resumed; } catch (e) {}
+  stopTrack(false); killBus(bus); bus = makeBus();
+  playing = ch;
+  applyJudge(settings.judge);
+  run = newRun(ch.song, { auto: settings.auto, practice: settings.practice });
+  run.rate = settings.practice ? clamp(+settings.prate || .75, .5, 1) : 1;
+  let lead = .6;
+  if (!ch.builtin) {
+    const au = AUDIO[ch.id], firstNote = ch.song.notes[0].t;
+    run.guide = settings.guide;
+    run.mus = guideEvents(ch.song, settings.guide && !au, settings.guide);
+    lead = Math.max(run.app + 1.2 - firstNote, ch.first + .25, run.beat * 4 + .4, .6);
+  }
+  run.startPos = -lead;
+  clk.ok = false; syncClock();
+  run.base = -lead; run.acBase = AC.currentTime + .05;
+  const au = !ch.builtin && AUDIO[ch.id];
+  if (au) playTrack(au.buf, ch.first, run.base, run.acBase, run.rate);
+  ptrs.clear(); keys.clear(); trail.length = 0; centerKey = false; lastPress.fill(-1e9);
+  pMarks.innerHTML = ''; pSeek.max = run.endT; pSeek.value = 0;
+  setMode('play');
+}
+function setMode(m) {
+  mode = m;
+  titleOv.hidden = m !== 'title';
+  pauseOv.hidden = true;
+  importOv.hidden = true;
+  resultOv.hidden = m !== 'result';
+  hudEl.hidden = m !== 'play';
+  const prac = m === 'play' && run && run.practice;
+  practiceEl.hidden = !prac;
+  progEl.hidden = m !== 'play' || prac;
+  if (m === 'play') {
+    // 文字入力などでずれたページを元の位置に戻す
+    try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
+    hudTitle.textContent = playing.title;
+    hudDiff.textContent = playing.label + (run.practice ? ' · 練習' : '') + (settings.auto ? ' · AUTO' : '');
+    hudAccTxt = ''; updPracticeUI();
+  }
+  if (m === 'title') { stopTrack(true); killBus(bus); bus = null; syncForm(); startDemo(); }
+  layoutRing();
+}
+function pause(menu = true) {
+  if (mode !== 'play' || !run || run.demo || run.paused || run.over) return;
+  run.pausedAt = songAt(performance.now()); run.paused = true;
+  try { AC.suspend(); } catch (e) {}
+  ptrs.clear(); keys.clear(); centerKey = false;
+  if (menu) { pauseOv.hidden = false; $('#resumeBtn').focus({ preventScroll: true }); }
+  updPracticeUI();
+}
+async function resume() {
+  if (!run || !run.paused) return;
+  pauseOv.hidden = true;
+  try { await AC.resume(); } catch (e) {}
+  clk.ok = false; syncClock(); run.paused = false;
+  updPracticeUI();
+}
+
+/* ================= practice ================= */
+const practiceEl = $('#practice'), pSeek = $('#pSeek'), pMarks = $('#pMarks'), pLoop = $('#pLoop');
+let seeking = false;
+const measure = () => run.beat * 4;
+const curSong = () => run.paused ? run.pausedAt + settings.ofs / 1000 : songRaw(performance.now());
+// pos（曲の時刻）から再生し直す。resetNotes なら pos 以降のノーツを未判定に戻す
+function rebase(pos, resetNotes) {
+  const r = run;
+  killBus(bus); bus = makeBus(); stopTrack(false);
+  if (resetNotes) {
+    for (const n of r.notes) {
+      if (n.t >= pos) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; }
+      else n.fin = true;
+    }
+    r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
+    r.cnt = [0, 0, 0, 0]; r.got = 0; r.jn = 0; r.combo = 0; r.maxc = 0; r.fast = 0; r.late = 0;
+    r.units = r.notes.filter(n => !n.fin).length || 1;
+    r.fx.length = 0; r.txt.length = 0; r.over = false; r.seeked = true; lastPress.fill(-1e9);
+  }
+  r.base = pos; r.acBase = AC.currentTime + .06;
+  let ei = 0; while (ei < r.mus.length && r.mus[ei].t < pos) ei++;
+  r.ei = ei;
+  const au = !playing.builtin && AUDIO[playing.id];
+  if (au) playTrack(au.buf, playing.first, pos, r.acBase, r.rate);
+  if (r.paused) r.pausedAt = pos - settings.ofs / 1000;
+  hudAccTxt = '';
+}
+function seekTo(target, preroll = true) {
+  const r = run; if (!r || r.demo || !r.practice) return;
+  const pos = clamp(target - (preroll ? r.app + .8 : 0), r.startPos, r.endT - 1);
+  rebase(pos, true);
+  updPracticeUI();
+}
+function setRate(v) {
+  const r = run; if (!r || r.demo || !r.practice) return;
+  v = Math.round(clamp(v, .5, 1) * 20) / 20;
+  if (Math.abs(v - r.rate) < 1e-6) return;
+  const at = AC.currentTime + .06;
+  const pos = r.paused ? r.pausedAt + settings.ofs / 1000 : r.base + (at - r.acBase) * r.rate;
+  r.rate = v; settings.prate = v; saveSettings();
+  rebase(pos, false);
+  updPracticeUI();
+}
+function addMiss(t) {
+  const r = run; r.misses.push(t); r.lastMiss = t;
+  const i = document.createElement('i'); i.style.left = clamp(t / r.endT * 100, 0, 100) + '%'; pMarks.append(i);
+  $('#pMiss').disabled = false;
+}
+function setLoop(which) {
+  const r = run; if (!r || !r.practice) return;
+  const cur = clamp(curSong(), 0, r.endT);
+  if (which === 'A') { r.loopA = cur; if (r.loopB !== null && r.loopB <= cur + .5) r.loopB = null; }
+  else {
+    if (r.loopA === null) r.loopA = Math.max(0, cur - measure() * 2);
+    if (cur <= r.loopA + .5) { toast('B は A より後ろの位置で押してください'); return; }
+    r.loopB = cur; seekTo(r.loopA);
+  }
+  updPracticeUI();
+}
+function updPracticeUI() {
+  const r = run; if (!r || !r.practice) return;
+  $('#pPlay').textContent = r.paused ? '▶' : '❚❚';
+  $('#pPlay').setAttribute('aria-label', r.paused ? '再生' : '一時停止');
+  $('#pRate').textContent = r.rate.toFixed(2).replace(/0$/, '') + 'x';
+  $('#pSlow').disabled = r.rate <= .5; $('#pFast').disabled = r.rate >= 1;
+  $('#pA').classList.toggle('on', r.loopA !== null); $('#pB').classList.toggle('on', r.loopB !== null);
+  $('#pClr').disabled = r.loopA === null && r.loopB === null;
+  $('#pMiss').disabled = !r.misses.length;
+  const on = r.loopA !== null && r.loopB !== null;
+  pLoop.hidden = !on;
+  if (on) { pLoop.style.left = (r.loopA / r.endT * 100) + '%'; pLoop.style.width = ((r.loopB - r.loopA) / r.endT * 100) + '%'; }
+}
+$('#pPlay').addEventListener('click', () => { if (!run) return; run.paused ? resume() : pause(false); });
+$('#pBack').addEventListener('click', () => { if (run) { rebaseSeek(curSong() - measure() * 2); } });
+$('#pFwd').addEventListener('click', () => { if (run) { rebaseSeek(curSong() + measure() * 2); } });
+function rebaseSeek(pos) { const r = run; if (!r || !r.practice) return; rebase(clamp(pos, r.startPos, r.endT - 1), true); updPracticeUI(); }
+$('#pMiss').addEventListener('click', () => { if (run && run.misses.length) seekTo(run.lastMiss - run.beat); });
+$('#pA').addEventListener('click', () => setLoop('A'));
+$('#pB').addEventListener('click', () => setLoop('B'));
+$('#pClr').addEventListener('click', () => { if (!run) return; run.loopA = run.loopB = null; updPracticeUI(); });
+$('#pSlow').addEventListener('click', () => run && setRate(run.rate - .05));
+$('#pFast').addEventListener('click', () => run && setRate(run.rate + .05));
+pSeek.addEventListener('input', () => { seeking = true; if (run) $('#pTime').textContent = `${fmtTime(+pSeek.value)} / ${fmtTime(run.endT - 2)}`; });
+pSeek.addEventListener('change', () => { seeking = false; seekTo(+pSeek.value); });
+const rankOf = acc => acc >= 99 ? ['S+', 'r-s'] : acc >= 97 ? ['S', 'r-s'] : acc >= 94 ? ['A', 'r-a'] : acc >= 90 ? ['B', 'r-b'] : acc >= 80 ? ['C', 'r-c'] : ['D', 'r-d'];
+function finish() {
+  const r = run; if (r.over) return;
+  r.over = true;
+  if (r.demo) return;
+  setTimeout(() => { if (run === r && mode === 'play') showResult(r); }, 700);
+}
+function showResult(r) {
+  const ch = playing, acc = r.got / r.units * 100, [rk, cls] = rankOf(acc);
+  stopTrack(true);
+  $('#resSong').textContent = `${ch.title} · ${ch.label}`;
+  const rEl = $('#resRank'); rEl.textContent = rk; rEl.className = 'rank ' + cls;
+  $('#resAcc').textContent = acc.toFixed(2) + '%';
+  const b = $('#resBadge');
+  if (r.practice) { b.textContent = 'PRACTICE ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
+  else if (r.auto) { b.textContent = 'AUTO PLAY'; b.className = 'badge auto'; b.hidden = false; }
+  else if (r.cnt[0] === r.units) { b.textContent = 'ALL PERFECT'; b.className = 'badge'; b.hidden = false; }
+  else if (r.cnt[3] === 0) { b.textContent = 'FULL COMBO'; b.className = 'badge fc'; b.hidden = false; }
+  else b.hidden = true;
+  $('#cP').textContent = r.cnt[0]; $('#cG').textContent = r.cnt[1]; $('#cD').textContent = r.cnt[2]; $('#cM').textContent = r.cnt[3];
+  $('#resCombo').textContent = r.maxc + ' / ' + r.units;
+  $('#resFast').textContent = r.fast; $('#resLate').textContent = r.late;
+  let msg;
+  if (r.practice) msg = r.misses.length ? `練習モードの結果は記録されません（この回のミス ${r.cnt[3]} 個）` : '練習モードの結果は記録されません';
+  else if (r.auto) msg = 'オートプレイの結果は記録されません';
+  else {
+    const prev = getBest(ch.bestKey);
+    if (!prev || acc > prev.acc) { setBest(ch.bestKey, { acc, rank: rk }); msg = prev ? `自己ベスト更新（前回 ${prev.acc.toFixed(2)}%）` : '初クリア！記録を保存しました'; }
+    else msg = `自己ベスト ${prev.acc.toFixed(2)}%（${prev.rank}）`;
+  }
+  $('#resBest').textContent = msg;
+  setMode('result');
+  $('#retryBtn').focus({ preventScroll: true });
+}
+let hudAccTxt = '';
+function hud(now) {
+  const r = run, acc = r.jn ? r.got / r.jn * 100 : 100, t = acc.toFixed(2);
+  if (t !== hudAccTxt) { hudAcc.textContent = t; hudAccTxt = t; }
+  if (r.practice) {
+    const cur = clamp(now, 0, r.endT);
+    if (!seeking) { pSeek.value = cur; $('#pTime').textContent = `${fmtTime(cur)} / ${fmtTime(r.endT - 2)}`; }
+  } else progBar.style.transform = `scaleX(${clamp(now / r.endT, 0, 1)})`;
+}
+
+/* ================= main loop ================= */
+function frame(pf) {
+  requestAnimationFrame(frame);
+  if (mode === 'title') layoutRing();
+  if (run && !run.demo && !run.paused && AC) syncClock();
+  let now = 0;
+  if (run) {
+    if (run.demo && run.over) startDemo();
+    now = songAt(pf);
+    // A-B ループ：B に来たら A の少し前から再開
+    if (run.practice && !run.paused && mode === 'play' && run.loopA !== null && run.loopB !== null && now >= run.loopB) { seekTo(run.loopA); now = songAt(pf); }
+    update(now, pf);
+  }
+  pump();
+  draw(now, pf);
+  if (run && !run.demo && mode === 'play') hud(now);
+}
+
+/* ================= toast ================= */
+const toastEl = $('#toast');
+let toastTimer = 0;
+function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toastEl.hidden = true; }, 3400); }
+
+/* ================= title form / song list ================= */
+function rowsData() {
+  const rows = [
+    { id: 'b:basic', title: 'Neon Circuit', label: 'BASIC', lvCol: 'var(--cyan)', hue: 320, sub: `Lv.4 · ${SONGS.basic.notes.length} ノーツ · 内蔵曲` },
+    { id: 'b:expert', title: 'Neon Circuit', label: 'EXPERT', lvCol: 'var(--pink)', hue: 320, sub: `Lv.9 · ${SONGS.expert.notes.length} ノーツ · 内蔵曲` },
+  ];
+  for (const e of IMPORTS) {
+    if (!PARSED[e.id]) PARSED[e.id] = parseChart(e.text);
+    const s = PARSED[e.id], au = AUDIO[e.id];
+    rows.push({ id: e.id, title: e.title, label: e.label, lvCol: 'var(--violet)', hue: hueOf(e.title), imported: true,
+      sub: `${e.lv ? e.lv + ' · ' : ''}${s.notes.length} ノーツ · ${fmtTime(s.endT - 2)} · ${au ? '♪ ' + au.name : '音源なし'}` });
+  }
+  return rows;
+}
+function renderSongs() {
+  const rows = rowsData();
+  if (!rows.some(r => r.id === settings.chart)) settings.chart = 'b:basic';
+  songList.innerHTML = '<legend class="sr">曲と難易度</legend>' + rows.map(r => `
+    <div class="songrow${r.id === settings.chart ? ' sel' : ''}" data-id="${esc(r.id)}">
+      <input type="radio" name="chart" id="ch_${esc(r.id)}" value="${esc(r.id)}"${r.id === settings.chart ? ' checked' : ''}>
+      <label for="ch_${esc(r.id)}" class="songmain">
+        <span class="jk" style="--h:${r.hue}"></span>
+        <span class="st"><b>${esc(r.title)}</b><small><span class="lv" style="color:${r.lvCol}">${esc(r.label)}</span> · ${esc(r.sub)}</small></span>
+      </label>
+      ${r.imported ? `<div class="acts">
+        <label class="mini">音源<input type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a" data-audio="${esc(r.id)}" aria-label="${esc(r.title)} の音源を選ぶ"></label>
+        <button type="button" class="mini" data-del="${esc(r.id)}">削除</button>
+      </div>` : ''}
+    </div>`).join('');
+}
+songList.addEventListener('change', async e => {
+  const el = e.target;
+  if (el.name === 'chart') {
+    settings.chart = el.value; saveSettings();
+    songList.querySelectorAll('.songrow').forEach(r => r.classList.toggle('sel', r.dataset.id === el.value));
+    bestLine();
+  } else if (el.dataset.audio) {
+    const f = el.files && el.files[0]; if (!f) return;
+    try { AUDIO[el.dataset.audio] = { buf: await decodeFile(f), name: f.name }; toast('音源を読み込みました'); }
+    catch (err) { toast('この音源ファイルは読み込めませんでした'); }
+    renderSongs();
+  }
+});
+songList.addEventListener('click', e => {
+  const b = e.target.closest('[data-del]'); if (!b) return;
+  const id = b.dataset.del;
+  if (!b.classList.contains('warn')) {
+    b.classList.add('warn'); b.textContent = 'もう一度押すと削除';
+    setTimeout(() => { if (b.isConnected) { b.classList.remove('warn'); b.textContent = '削除'; } }, 3000);
+    return;
+  }
+  IMPORTS = IMPORTS.filter(x => x.id !== id); delete PARSED[id]; delete AUDIO[id];
+  saveImports();
+  if (settings.chart === id) settings.chart = 'b:basic';
+  saveSettings(); renderSongs(); bestLine();
+});
+function outs() {
+  spdOut.textContent = `${(+settings.nspd).toFixed(2).replace(/0$/, '')}（${approachOf(settings.nspd).toFixed(2)}秒）`;
+  const o = +settings.ofs; ofsOut.textContent = (o > 0 ? '+' : o < 0 ? '−' : '±') + Math.abs(o) + ' ms';
+  $('#prateOut').textContent = (+settings.prate).toFixed(2).replace(/0$/, '') + 'x';
+}
+function bestLine() {
+  const ch = currentChart(), b = getBest(ch.bestKey);
+  $('#bestTxt').textContent = b ? `${ch.title} ${ch.label} 自己ベスト ${b.acc.toFixed(2)}%（${b.rank}）` : `${ch.title} ${ch.label} はまだ記録がありません`;
+}
+function syncForm() {
+  renderSongs();
+  spdIn.value = settings.nspd; ofsIn.value = settings.ofs; autoIn.checked = !!settings.auto; guideIn.checked = settings.guide !== false;
+  $('#nagashi').checked = settings.nagashi !== false;
+  ($('#m_' + (settings.practice ? 'prac' : 'play'))).checked = true;
+  ($('#j_' + settings.judge) || $('#j_wide')).checked = true;
+  $('#prate').value = settings.prate;
+  $('#prateField').hidden = !settings.practice;
+  $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
+  outs(); bestLine();
+}
+document.querySelectorAll('input[name=pmode]').forEach(el => el.addEventListener('change', () => {
+  settings.practice = el.value === 'practice'; saveSettings();
+  $('#prateField').hidden = !settings.practice;
+  $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
+}));
+document.querySelectorAll('input[name=judge]').forEach(el => el.addEventListener('change', () => { settings.judge = el.value; saveSettings(); }));
+$('#prate').addEventListener('input', () => { settings.prate = +$('#prate').value; outs(); saveSettings(); });
+spdIn.addEventListener('input', () => { settings.nspd = +spdIn.value; outs(); saveSettings(); if (run && run.demo) run.app = approachOf(settings.nspd); });
+ofsIn.addEventListener('input', () => { settings.ofs = +ofsIn.value; outs(); saveSettings(); });
+autoIn.addEventListener('change', () => { settings.auto = autoIn.checked; saveSettings(); });
+guideIn.addEventListener('change', () => { settings.guide = guideIn.checked; saveSettings(); });
+$('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); });
+$('#setup').addEventListener('submit', e => { e.preventDefault(); startPlay(); });
+$('#pauseBtn').addEventListener('click', pause);
+$('#resumeBtn').addEventListener('click', resume);
+$('#restartBtn').addEventListener('click', () => startPlay());
+$('#quitBtn').addEventListener('click', () => setMode('title'));
+$('#retryBtn').addEventListener('click', () => startPlay());
+$('#backBtn').addEventListener('click', () => setMode('title'));
+
+/* ================= import ================= */
+const impText = $('#impText'), impTitle = $('#impTitle'), impLabel = $('#impLabel'), impFirst = $('#impFirst'), impMsg = $('#impMsg');
+let impAudio = null, previewTimer = 0;
+function openImport() {
+  impText.value = ''; impTitle.value = ''; impLabel.value = ''; impFirst.value = '0'; impAudio = null;
+  $('#impFile').value = ''; $('#impAudio').value = ''; $('#impFileName').textContent = ''; $('#impAudioName').textContent = 'なし';
+  impMsg.className = 'msg'; impMsg.textContent = '譜面を貼り付けると、ノーツ数と長さをここに表示します。';
+  importOv.hidden = false; impText.focus({ preventScroll: true });
+}
+function closeImport() { importOv.hidden = true; $('#addChartBtn').focus({ preventScroll: true }); }
+function importEntries() {
+  const text = impText.value, meta = detectMeta(text);
+  if (meta.charts) return meta.charts.map(c => ({ label: c.label, lv: c.lv, text: c.text, first: meta.first, title: meta.title }));
+  return [{ label: impLabel.value.trim() || meta.label || 'MASTER', lv: '', text, first: parseFloat(impFirst.value) || 0 }];
+}
+function preview() {
+  const text = impText.value;
+  if (!text.trim()) { impMsg.className = 'msg'; impMsg.textContent = '譜面を貼り付けると、ノーツ数と長さをここに表示します。'; return; }
+  const meta = detectMeta(text);
+  if (meta.title && !impTitle.value) impTitle.value = meta.title;
+  if (meta.label && !impLabel.value) impLabel.value = meta.label;
+  if (meta.charts && meta.first && (parseFloat(impFirst.value) || 0) === 0) impFirst.value = meta.first;
+  const parts = importEntries().map(e => {
+    const s = parseChart(e.text), c = { tap: 0, hold: 0, slide: 0, touch: 0 };
+    for (const n of s.notes) { if (n.type === 'tap') c.tap++; else if (n.type === 'hold') c.hold++; else if (n.type === 'slide') c.slide++; else c.touch++; }
+    return { e, s, c };
+  });
+  const good = parts.filter(p => p.s.notes.length);
+  if (!good.length) { impMsg.className = 'msg err'; impMsg.textContent = 'ノーツが見つかりませんでした。simai形式のテキストか確認してください。'; return; }
+  impMsg.className = 'msg ok';
+  if (parts.length > 1) impMsg.textContent = `maidata から ${good.length} 譜面を検出：` + good.map(p => `${p.e.label} ${p.s.notes.length}`).join(' / ');
+  else {
+    const { s, c } = good[0];
+    impMsg.textContent = `${s.notes.length} ノーツ（タップ ${c.tap}・ホールド ${c.hold}・スライド ${c.slide}・タッチ ${c.touch}）· BPM ${s.bpm} · 約 ${fmtTime(s.endT - 2)}` +
+      (s.unknown ? ` · 読めなかった記号 ${s.unknown} 個は無視します` : '');
+  }
+}
+$('#addChartBtn').addEventListener('click', openImport);
+$('#impCancel').addEventListener('click', closeImport);
+impText.addEventListener('input', () => { clearTimeout(previewTimer); previewTimer = setTimeout(preview, 250); });
+$('#impFile').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  $('#impFileName').textContent = f.name;
+  try { impText.value = await f.text(); preview(); } catch (err) { impMsg.className = 'msg err'; impMsg.textContent = 'ファイルを読み込めませんでした。'; }
+});
+$('#impAudio').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0]; if (!f) return;
+  $('#impAudioName').textContent = '読み込み中…';
+  try { impAudio = { buf: await decodeFile(f), name: f.name }; $('#impAudioName').textContent = f.name; }
+  catch (err) { impAudio = null; $('#impAudioName').textContent = '読み込めませんでした'; }
+});
+$('#impForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const entries = importEntries().filter(x => x.text.trim());
+  const title = impTitle.value.trim() || (entries[0] && entries[0].title) || '読み込んだ譜面';
+  const added = [];
+  entries.forEach((x, i) => {
+    const s = parseChart(x.text);
+    if (!s.notes.length) return;
+    const id = 'c' + Date.now().toString(36) + i;
+    IMPORTS.push({ id, title, label: x.label, lv: x.lv, text: x.text, first: x.first });
+    PARSED[id] = s;
+    if (impAudio) AUDIO[id] = impAudio;
+    added.push(id);
+  });
+  if (!added.length) { impMsg.className = 'msg err'; impMsg.textContent = 'ノーツが見つかりませんでした。simai形式のテキストか確認してください。'; return; }
+  const saved = saveImports();
+  settings.chart = added[added.length - 1]; saveSettings();
+  closeImport(); syncForm();
+  toast(saved ? `${title} を追加しました` : `${title} を追加しました（ブラウザに保存できなかったため、閉じると消えます）`);
+});
+
+/* ================= pointer ================= */
+// 画面上のキャンバスの位置を毎回読み直す（iPad では文字入力のあとにページがずれることがあるため）
+function freshRect() { const r = cv.getBoundingClientRect(); ar = { left: r.left, top: r.top, width: r.width, height: r.height }; }
+const tapMarks = [];
+cv.addEventListener('pointerdown', e => {
+  if (mode !== 'play' || !run || run.paused) return;
+  e.preventDefault();
+  freshRect();
+  const x = e.clientX - ar.left, y = e.clientY - ar.top, nx = (x - cx) / R, ny = (y - cy) / R;
+  const rg = regionAt(nx, ny);
+  ptrs.set(e.pointerId, { x, y, lane: rg >= 0 && rg < 8 ? rg : -1 });
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  tapMarks.push({ x: nx, y: ny, t: performance.now() }); if (tapMarks.length > 12) tapMarks.shift();
+  if (rg < 0) return;
+  trail.push([nx, ny]);
+  if (rg < 8) press(rg, performance.now());
+  if (run.auto || run.over) return;
+  hitPointer(nx, ny, songAt(evTime(e)));
+});
+// 流し：リングの外側を指ですべらせて別のボタンの範囲に入ったら、そのボタンを叩いたことにする
+function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (R * .05)));
+  for (let i = 1; i <= steps; i++) {
+    const nx = (x0 + (x1 - x0) * i / steps - cx) / R, ny = (y0 + (y1 - y0) * i / steps - cy) / R, d = Math.hypot(nx, ny);
+    let lane = -1;
+    if (d >= .62 && d <= 1.9) {
+      const a = Math.atan2(ny, nx); lane = laneOfAngle(a);
+      if (p.lane >= 0 && lane !== p.lane) {
+        let off = a - laneAng(lane); off = Math.atan2(Math.sin(off), Math.cos(off));
+        if (Math.abs(off) > Q / 2 - .07) lane = p.lane;   // 境目ぎりぎりでは切り替えない（二重判定を防ぐ）
+      }
+    }
+    if (lane === p.lane) continue;
+    p.lane = lane;
+    if (lane < 0) continue;
+    press(lane, performance.now());
+    if (live && settings.nagashi !== false) {
+      const n = scanCands(t, n => isHead(n) && n.lane === lane)[0];
+      if (n) applyHit(n, t);
+    }
+  }
+}
+cv.addEventListener('pointermove', e => {
+  const p = ptrs.get(e.pointerId); if (!p) return;
+  freshRect();
+  const live = mode === 'play' && run && !run.paused && !run.auto && !run.over;
+  // 間引かれた細かい移動も拾って、速いスライドでも経路を取りこぼさない
+  const evs = (e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
+  for (const ce of evs) {
+    const x = ce.clientX - ar.left, y = ce.clientY - ar.top;
+    if (live) {
+      const t = songAt(evTime(ce));
+      slideIntoTouch(p.x, p.y, x, y, t);
+      slideAcrossLanes(p, p.x, p.y, x, y, t, true);
+    } else if (mode === 'play' && run) slideAcrossLanes(p, p.x, p.y, x, y, 0, false);
+    traverse(p.x, p.y, x, y); p.x = x; p.y = y;
+  }
+});
+const up = e => { ptrs.delete(e.pointerId); };
+cv.addEventListener('pointerup', up);
+cv.addEventListener('pointercancel', up);
+cv.addEventListener('lostpointercapture', up);
+cv.addEventListener('contextmenu', e => e.preventDefault());
+// iPad / iPhone の Safari：ピンチ拡大や、なぞったときの画面スクロールを止める
+['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+cv.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+/* ================= fullscreen ================= */
+const FS_ON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const FS_OFF = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M9 4v5H4M20 9h-5V4M15 20v-5h5M4 15h5v5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const fsBtns = [$('#fsBtn'), $('#fsBtn2')];
+const canFs = !!(app.requestFullscreen || app.webkitRequestFullscreen);
+const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function fsFail() { toast('この画面では全画面にできません。アーティファクトのリンクをブラウザの別タブで開いてください'); }
+function syncFsBtns() {
+  const on = isFs();
+  fsBtns.forEach(b => { b.innerHTML = on ? FS_OFF : FS_ON; b.setAttribute('aria-label', on ? '全画面を終了' : '全画面表示'); b.hidden = !canFs; });
+}
+function toggleFs() {
+  try {
+    if (isFs()) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    const p = (app.requestFullscreen || app.webkitRequestFullscreen).call(app);
+    if (p && p.catch) p.catch(fsFail);
+  } catch (e) { fsFail(); }
+}
+fsBtns.forEach(b => b.addEventListener('click', toggleFs));
+document.addEventListener('fullscreenchange', () => { syncFsBtns(); resize(); });
+document.addEventListener('webkitfullscreenchange', () => { syncFsBtns(); resize(); });
+syncFsBtns();
+
+/* ================= keyboard ================= */
+const typing = e => e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+addEventListener('keydown', e => {
+  if (!importOv.hidden) { if (e.code === 'Escape') closeImport(); return; }
+  if (e.code === 'KeyF' && !e.repeat && canFs && !typing(e)) { e.preventDefault(); toggleFs(); return; }
+  if (mode !== 'play' || !run || run.demo) return;
+  if (e.code === 'Escape' || e.code === 'Space') {
+    e.preventDefault();
+    if (!e.repeat) (run.paused ? resume() : pause(!(run.practice && e.code === 'Space')));
+    return;
+  }
+  if (run.practice && !typing(e)) {
+    const m = run.beat * 8;
+    if (e.code === 'ArrowLeft') { e.preventDefault(); rebaseSeek(curSong() - m); return; }
+    if (e.code === 'ArrowRight') { e.preventDefault(); rebaseSeek(curSong() + m); return; }
+    if (e.code === 'ArrowUp') { e.preventDefault(); setRate(run.rate + .05); return; }
+    if (e.code === 'ArrowDown') { e.preventDefault(); setRate(run.rate - .05); return; }
+  }
+  if (CENTER_KEYS[e.code]) {
+    e.preventDefault();
+    if (e.repeat || run.paused) return;
+    centerKey = true; trail.push([0, 0]);
+    if (!run.auto && !run.over) hitCenter(songAt(evTime(e)));
+    return;
+  }
+  const l = KEYMAP[e.code];
+  if (l === undefined) return;
+  e.preventDefault();
+  if (e.repeat || run.paused) return;
+  keys.add(l); trail.push(...keyPts(l)); press(l, performance.now());
+  if (!run.auto && !run.over) hitKey(l, songAt(evTime(e)));
+});
+addEventListener('keyup', e => {
+  if (CENTER_KEYS[e.code]) { centerKey = false; return; }
+  const l = KEYMAP[e.code]; if (l !== undefined) keys.delete(l);
+});
+addEventListener('blur', () => { keys.clear(); ptrs.clear(); centerKey = false; });
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+if (window.ResizeObserver) new ResizeObserver(resize).observe(app);
+addEventListener('resize', resize);
+
+/* ================= boot ================= */
+let booted = false;
+function boot(data) {
+  if (booted) return;
+  booted = true;
+  try {
+    loadSettings(); loadImports();
+    if (data && data.settings) Object.assign(settings, data.settings);
+    SONGS = { basic: buildSong(false), expert: buildSong(true) };
+    resize();
+    setMode('title');
+    requestAnimationFrame(frame);
+    if (document.fonts && document.fonts.load) {
+      document.fonts.load('900 40px Unbounded').catch(() => {});
+      document.fonts.load('800 20px "M PLUS Rounded 1c"').catch(() => {});
+    }
+  } catch (err) {
+    if (window.__rbShowError) window.__rbShowError('boot: ' + (err && err.stack ? err.stack : err));
+  }
+}
+let HOT = null;
+try { HOT = window.claude && window.claude.hot; } catch (e) {}
+try { if (HOT && HOT.snapshot) HOT.snapshot(() => ({ settings: { ...settings } })); } catch (e) {}
+if (HOT && typeof HOT.ready === 'function') {
+  try { HOT.ready(boot); } catch (e) {}
+  // 表示環境によっては ready の合図が来ないことがあるので、少し待っても来なければ自分で起動する
+  setTimeout(() => boot((HOT && HOT.data) || {}), 700);
+} else boot((HOT && HOT.data) || {});
+})();
+</script>
+
+<script>
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  addEventListener('load', function () { navigator.serviceWorker.register('./sw.js').catch(function () {}); });
+}
+</script>
+</body>
+</html>
