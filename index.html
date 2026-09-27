@@ -976,9 +976,19 @@ let SONGS = null, IMPORTS = [];
 const PARSED = {}, AUDIO = {};
 function loadImports() { try { IMPORTS = JSON.parse(localStorage.getItem('ringbeat:charts') || '[]') || []; } catch (e) { IMPORTS = []; } }
 function saveImports() { try { localStorage.setItem('ringbeat:charts', JSON.stringify(IMPORTS)); return true; } catch (e) { return false; } }
+// 最初から入っている simai 譜面（音源は含まない。音源はあとから選べる）
+const BUNDLED = [
+  { id: 'b:latent', title: 'Latent Kingdom', label: 'MASTER', lv: 'Lv.14+', text: "(201)\n{8}3,5,4,6,5h[4:1],,6,,4,4,5,3h[4:1],,5h[8:3],,4,4,,,\n{16}6,6,{8}4,5,3,4,2h[4:1],,3,,{16}34,,,45,,,{8}56,56,,,\n{24}5,6,5,{4}6,45,35,{24},,,4,3,4,{4}3,54,64,{16},,\n6,6,{8}4,5,3,4,2h[2:1],,,,1,1,2,8,37,4,6,2,4,,35,,\n6,6,4,3h[4:1]/5,,4h[4:1],,3,3,5,2,6,1,4,3,5,\n{4}4/6h[4:1],5,78,16,2q5[2:1]/5,,,8,7p4[2:1]/4,,,1,\n2/6h[2:1],,{16}4,3,2,1,8,7,6,5,8,7,6,5,7,6,5,4,6,5,4,3,5,4,3,2,{1}1h[1:2]/4b,,\n\n{8}6,6-2[8:1],,4,4h[8:3],,1,1-5[8:1],,3,3,,{2}2-5[8:1]/6-1[8:1],\n{8}3,3-7[8:1],,5,5h[8:3],,8,8-4[8:1],,6,6,,{2}7-4[8:1]/3-8[8:1],\n{8}26,,1^4[8:1],5,16,,8-3[8:1],3,82,,1-6[8:1]/5-2[8:1],15,15,,\n7-2[8:1]/3-6[8:1],73,{1}7bq1[4:5]b/3q5[4:5],{4},,,\n\n{16}4,5,4,,{4}6b-1[8:1]b/2v5[8:1],26,4b/8,{8}17,26,\n3h[16:1]/5,3h[16:1],3h[16:1]/1,3h[16:1],3h[16:1]/6,3h[16:1],3h[16:1]/4,3h[16:1],\n{4}3b-8[8:1]b/7v4[8:1],73,5/1b,{8}2b/8,3/7b,4b/6h[4:1],,8b,5b/1b,\n4-8[8:1],2-5[8:1],4,2,{4}8x^6[8:1]*v5[8:1],8b^2[8:1]*v3[8:1],8b,\n{8}5b/6b,4b/7b,3bh[8:1]/8bh[8:1],,1b/6b,1b/6b,{16}7b,8b,7b,8b,6b-3[8:1]b,5b,6b,5b,6b,,,,\n28,,3,4,2,,6,5,{8}7-3[8:1],8,{4}7/1^4[8:1],1/5w1[8:1]b,A1/B1/Cf/B5/A5,,\n\n{8}2h[8:1]/8,8,37,46,5h[8:1]/3,3,24,15,8h[8:1]/6,6,15,26,3/7h[8:1],3,46,35,2h[8:1]/4,4,35,46,37,\n{16}2,1,3,,6,5,7,,{8}18,2z6[8:3]/7s3[8:3],36,{4},,4/5-8[8:1],1b,\n{8}7h[8:1]/1,1,62,53,4h[8:1]/6,6,37,26,1/5h[8:1],1,68,71,82,37,26,35,4h[8:1]/6h[8:1],,\n{16}5p2[8:3]/7,57,,,{4}Cf,,8w4[8:1]b,8,\n\n2b-6[8:1]/6b,5-1[8:1],3,{16}8,7,6,5,{8}4/2-5[8:1],2,6-2[8:1],6,{4}1,5/7p4[8:3],2-5[8:1],,\n26,{16}1,2,3,4,{8}5/7-4[8:1],7,3-8[8:1]*v6[8:1],3,,,\n{32}5,4,3,2,1,8,7,6,{4}5b-2[8:1]/4b-7[8:1],5/4-8[8:1],45,\n{16}16,2,3,4,{8}5/7-4[8:1],7,3-7[8:1],3,8-4[8:1],8,1,1,\n{4}2-5[8:1]/6-1[8:1],26,7-4[8:1]/3-8[8:1],73,{8}15,26,3V16[4:1]/7V52[4:1],48,3b/7b,,,,\n\n3b/6b-3[8:1],,{16}1/6,,2,8,2,,7,1,7,,3,4,2,,6,5,7,,2,1,3,8,4,7,1h[8:1],,5,3,\n{8}8b-4[8:1],,18,{16}2,6,2,,8,4,8,,3,4,52,,,47,,,18,,\n{32}1,2,3,4,5,6,7,8,1,2,3,4,5,6,7,8,{2}1-5[8:1]/Cf,\n{16}18,,2,6,2,,8,4,8,,2,1,2,,38,,6,5,,3,4,,{8}25,7h[1:1]/1,1,1,1,\n{32}1,2,3,4,5,6,,8,{48}1,2,3,4,5,6,,8,1,2,3,4,{1}5b-1[4:3],5hb[1:1],\n\n{4}1^4^7[2:1],4^7[4:1]b,7^2[4:1]b,2,{8}4b-8-6[4:1],4,3,2,1-5-3[4:1],1,5,6,\n{4}7^2^5[2:1]b,2^5[4:1],5^8[4:1],8,{8}2-4[8:1],1-5[8:1],2,1,8-4[8:1],7-5[8:1],8,7,\n1-3[8:1],1-7[8:1],{4}1-5[8:1],,1V35-7[8:3]b/7,B3/B4f/B5,,{8}8,8,7>5[8:3],7,{2}B2/B3f/B4,\n\n{16}8,7,8,,6,5,7,,{4}4/8>6[2:1],3^6[4:1],6q3[4:1]b,3<1[2:1],B4/B5/E5f,,3,2,\n{4}8/1<3[2:1],6^3[4:1],3p6[4:1]b,6>8[2:1],B5/B4/E5f,,6,7,\n{8}7-4[8:1],2-6[8:1],7,2,1-6[8:1],5-1[8:1],1,5,7-4[8:1],3-7[8:1],7,3,8b,,\n{16}2/8-4-8[4:1]b,37,46,,{8}1b,1b-5-1[4:1]b,,7b,7b-3-7[4:1]b,,2b,2bh[4:1],,\n8,8,8,{16}2,3,48,7,6/1-5[8:1],2,37,6,{1}5/1b>8[4:13]`Cf,,,,{2}1>8[4:13]/8,{1}C,C,C,{2}C,\n\n{8}3x/7x,4,46,5,2x/4x,3,37,6,4x/6x,4,37,6,25,3,37,6,\n3x/5x,3,47,6,52,3,37,6,5x/2x,2,34,5,46,46,35,35,{2}1b,\n{16}2,5,2,5,3,6,3,6,4,7,4,7,5,6,5,6,4,5,4,5,3,4,3,4,2,1,3,8,4,7,5,6,4,5,4,5,3,6,2,7,\n{24}1,8,1,8,1,8,1,8,1,8,1,8,1,8,1,8,1,8,1,8,1,8,1,8,{1}1b,{2}4/5h[8:7],1bh[8:3],\n\n{4}1b-6[8:1]b/5-2[8:1],15,{16}73,84,15,26,37,48,51,62,\n{4}7^4[8:1]/3^8[8:1],3/7-3[8:1],7/1-5[8:1],15,\n{16}2,4,3,7,5,6,1,4,3,8,5,6,2,7,4,5,1b,,,47,,,35,,{4}3/5w1[8:1],5,\n7/3-8[8:1],3/6-1[8:1],{8}6/4-1[8:1],3,4/5-8[8:1],6,5/2-6[8:1],,12,,\n37,{16}4,8,3,7,2,6,1^4[8:1],,,,5,6,7,8,1^6[8:1],,,,\n4,3,2,1,8,4,8,4,1,5,1,5,{32}2,3,4,5,6,7,8,1,{4}2b/6,\n\n8b-3[8:1]b/4-7[8:1],84,{16}26,15,84,73,62,51,48,37,\n{4}2^5[8:1]/6^1[8:1],6/2-6[8:1],2/8-4[8:1],84,\n{16}7,5,6,2,4,3,8,5,6,1,5,3,{8}4b,2b/6,{4}8b-3[8:1]/4-7[8:1],84,1b^6[8:1]/5^2[8:1],15,\n{8}1-5[8:1]/5,1,1/7-3[8:1],7,7/2-6[8:1],2,2/8-4[8:1],8,8/5-1[8:1],5,5/6-2[8:1],6,6/7^4[8:1],7,78,,\n{16}2b,1,2,1,2,3,2,3,4,3,4,3,4,5,4,5,4b,,{24}7,6,5,4,,,12,3,4,{8}5,7b/8b,1b/6b,,\n\n2/D7/E7,2/E6/B5,,8/D3/E3,8/E4/B4,,2/E7/B6,2/A5/D6,,8/E3/B3,8/A4/D4,,{2}1^4[8:1]/7^4[8:1],\n{8}8/B4/E4,8/E3/D3,,{16}1b/B7/E7,2b,{8}3b/B5/E6,,8/B4/E4,8/E3/D3,,\n{16}1b/A6/B6,2b,{8}3b/A5/E5,,{4}1^4[8:1]/7^4[8:1],,\n26,{16}1,8,1,8,1,8,1,8,1,8,1,8,2,6,3,5,4,7,3,8,2,7,3,6,45,,\n{24}4bqq5[8:27]b/5b,3b/6b,2b/7b,{1}1b/8bqq1[4:13],,,,\n{8}8hb[4:1]/4b,,6,6h[4:1],,4,4h[4:1],,2,2h[4:1],,1,1,,38,,47,47,\n{16}6,5,6,5,6,,3,4,3,,25,,3,4,,6,5,,{8}18,1^4[8:1]/8^5[8:1],,1b/8b,,\n\n{16}7,8,6,1,7-3[8:1],8,6,1,{8}7,,24,35,46,{24}7,5,7,5,,,2,4,2,4,,,\n{16}13,13,{4}1-7[8:1]/3-7[8:1],1b-5[8:1]b/3b-5[8:1]b,1b/3b,{8}8,\n{6}5h[12:1]/7h[12:1],2h[12:1]/4h[12:1],{24},{12}3/5b,3/5b,3/5b,\n{16}4h[32:1],4h[32:1],4h[32:1],4h[32:1],{4}4bw8[8:1],4b,\n{16}2,6,2,6,1,5,2,6,3b/7b,,{24},{12}2/8b,2/8b,2/8b,2/8b,\n{32}1b,2,3,4,7,,,,1b,2,3,4,6,,,,8b,7,6,5,8b,7,6,5,8b,7,6,5,8b,7,6,5,\n\n{1}1bv3[4:3]b*s5[4:3]b,{4},18,27,36,\n{16}2b,4b,3b,8b,6b,7b,1b,3b,2b,7b,5b,6b,3b,5b,2b,6b,\n{24}1b,7,1,7,,,8b,2,8,2,,,1b,1,1,1,1,1,1-5[16:1]b,1,1,1,1,1,\n{1}1b`B2f/B3f/B4f/B5f/B6f/B7f/B8f`Cf,,,,E\n" },
+];
+const normChart = t => { const x = String(t).replace(/\s+/g, ''); const i = x.indexOf('('); return i >= 0 ? x.slice(i) : x; };
 function chartInfo(id) {
-  if (id === 'b:basic') return { id, builtin: true, title: 'Neon Circuit', label: 'BASIC', lv: 'Lv.4', song: SONGS.basic, first: 0, bestKey: 'basic' };
-  if (id === 'b:expert') return { id, builtin: true, title: 'Neon Circuit', label: 'EXPERT', lv: 'Lv.9', song: SONGS.expert, first: 0, bestKey: 'expert' };
+  if (id === 'b:basic') return { id, builtin: true, synth: true, title: 'Neon Circuit', label: 'BASIC', lv: 'Lv.4', song: SONGS.basic, first: 0, bestKey: 'basic' };
+  if (id === 'b:expert') return { id, builtin: true, synth: true, title: 'Neon Circuit', label: 'EXPERT', lv: 'Lv.9', song: SONGS.expert, first: 0, bestKey: 'expert' };
+  const bd = BUNDLED.find(x => x.id === id);
+  if (bd) {
+    if (!PARSED[id]) PARSED[id] = parseChart(bd.text);
+    return { id, builtin: true, synth: false, title: bd.title, label: bd.label, lv: bd.lv, song: PARSED[id], first: 0, bestKey: id };
+  }
   const e = IMPORTS.find(x => x.id === id); if (!e) return null;
   if (!PARSED[id]) PARSED[id] = parseChart(e.text);
   return { id, builtin: false, title: e.title, label: e.label, lv: e.lv || '', song: PARSED[id], first: +e.first || 0, bestKey: id };
@@ -1569,7 +1579,7 @@ async function startPlay() {
   run = newRun(ch.song, { auto: settings.auto, practice: settings.practice });
   run.rate = settings.practice ? clamp(+settings.prate || .75, .5, 1) : 1;
   let lead = .6;
-  if (!ch.builtin) {
+  if (!ch.synth) {
     const au = AUDIO[ch.id], firstNote = ch.song.notes[0].t;
     run.guide = settings.guide;
     run.mus = guideEvents(ch.song, settings.guide && !au, settings.guide);
@@ -1578,7 +1588,7 @@ async function startPlay() {
   run.startPos = -lead;
   clk.ok = false; syncClock();
   run.base = -lead; run.acBase = AC.currentTime + .05;
-  const au = !ch.builtin && AUDIO[ch.id];
+  const au = !ch.synth && AUDIO[ch.id];
   if (au) playTrack(au.buf, ch.first, run.base, run.acBase, run.rate);
   ptrs.clear(); keys.clear(); trail.length = 0; centerKey = false; lastPress.fill(-1e9);
   pMarks.innerHTML = ''; pSeek.max = run.endT; pSeek.value = 0;
@@ -1642,7 +1652,7 @@ function rebase(pos, resetNotes) {
   r.base = pos; r.acBase = AC.currentTime + .06;
   let ei = 0; while (ei < r.mus.length && r.mus[ei].t < pos) ei++;
   r.ei = ei;
-  const au = !playing.builtin && AUDIO[playing.id];
+  const au = !playing.synth && AUDIO[playing.id];
   if (au) playTrack(au.buf, playing.first, pos, r.acBase, r.rate);
   if (r.paused) r.pausedAt = pos - settings.ofs / 1000;
   hudAccTxt = '';
@@ -1777,7 +1787,20 @@ function rowsData() {
     { id: 'b:basic', title: 'Neon Circuit', label: 'BASIC', lvCol: 'var(--cyan)', hue: 320, sub: `Lv.4 · ${SONGS.basic.notes.length} ノーツ · 内蔵曲` },
     { id: 'b:expert', title: 'Neon Circuit', label: 'EXPERT', lvCol: 'var(--pink)', hue: 320, sub: `Lv.9 · ${SONGS.expert.notes.length} ノーツ · 内蔵曲` },
   ];
+  for (const bd of BUNDLED) {
+    const s = chartInfo(bd.id).song, au = AUDIO[bd.id];
+    rows.push({ id: bd.id, title: bd.title, label: bd.label, lvCol: 'var(--gold)', hue: hueOf(bd.title), audioOnly: true,
+      sub: `${bd.lv} · ${s.notes.length} ノーツ · ${fmtTime(s.endT - 2)} · ${au ? '♪ ' + au.name : '内蔵譜面'}` });
+  }
   for (const e of IMPORTS) {
+    // 最初から入っている譜面と同じものは一覧に出さない（自己ベストは引き継ぐ）
+    const dup = BUNDLED.find(bd => normChart(bd.text) === normChart(e.text));
+    if (dup) {
+      const b = getBest(e.id), nb = getBest(dup.id);
+      if (b && (!nb || b.acc > nb.acc)) setBest(dup.id, b);
+      if (settings.chart === e.id) settings.chart = dup.id;
+      continue;
+    }
     if (!PARSED[e.id]) PARSED[e.id] = parseChart(e.text);
     const s = PARSED[e.id], au = AUDIO[e.id];
     rows.push({ id: e.id, title: e.title, label: e.label, lvCol: 'var(--violet)', hue: hueOf(e.title), imported: true,
@@ -1798,6 +1821,8 @@ function renderSongs() {
       ${r.imported ? `<div class="acts">
         <label class="mini">音源<input type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a" data-audio="${esc(r.id)}" aria-label="${esc(r.title)} の音源を選ぶ"></label>
         <button type="button" class="mini" data-del="${esc(r.id)}">削除</button>
+      </div>` : r.audioOnly ? `<div class="acts">
+        <label class="mini">音源<input type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a" data-audio="${esc(r.id)}" aria-label="${esc(r.title)} の音源を選ぶ"></label>
       </div>` : ''}
     </div>`).join('');
 }
