@@ -291,7 +291,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       </fieldset>
       <div class="field" id="prateField">
         <label for="prate">再生速度（練習）</label><output id="prateOut" for="prate">0.75x</output>
-        <input type="range" id="prate" min="0.5" max="1" step="0.05" value="0.75">
+        <input type="range" id="prate" min="0.1" max="1" step="0.05" value="0.75">
       </div>
       <div class="field">
         <label for="spd">ノーツ速度</label><output id="spdOut" for="spd">7.0</output>
@@ -324,7 +324,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
             <span><i class="sw touch"></i>タッチ（4つの三角が集まった点をタップ）</span>
           </li>
           <li>「＋ simai譜面を追加」から、simai形式の譜面テキスト（maidata.txt も可）を貼り付けて遊べます。音源ファイルは任意で、なければガイド音で再生します。</li>
-          <li>練習モードでは、画面下のバーで好きな位置へ移動、2小節ずつの巻き戻し・早送り、直前のミス地点へ戻る、A〜B区間のくり返し、再生速度の変更ができます。ミスした位置はバーに赤い線で残ります。音源を使っているときは、スローにすると音程も下がります。</li>
+          <li>練習モードでは、画面下のバーで好きな位置へ移動、2小節ずつの巻き戻し・早送り、直前のミス地点へ戻る、A〜B区間のくり返し、再生速度の変更（0.1〜1倍）ができます。ミスした位置はバーに赤い線で残ります。音源を使っているときは、スローにすると音程も下がります。</li>
           <li>判定幅は PERFECT ±80ms・GREAT ±140ms・GOOD ±200ms。スライドは矢印に沿ってなぞってください（リングのすぐ外側をなぞってもOK）。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチはさらに広めで、指をすべらせて範囲に入れても取れます。</li>
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正」で調整します（＋にすると譜面が遅れます）。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
@@ -1601,13 +1601,15 @@ async function startPlay() {
   playing = ch;
   applyJudge('wide');
   run = newRun(ch.song, { auto: settings.auto, practice: settings.practice });
-  run.rate = settings.practice ? clamp(+settings.prate || .75, .5, 1) : 1;
+  run.rate = settings.practice ? clamp(+settings.prate || .75, .1, 1) : 1;
   let lead = .6;
   if (!ch.synth) {
     const au = AUDIO[ch.id], firstNote = ch.song.notes[0].t;
     run.guide = settings.guide;
     run.mus = guideEvents(ch.song, settings.guide && !au, settings.guide);
-    lead = Math.max(run.app + 1.2 - firstNote, ch.first + .25, run.beat * 4 + .4, .6);
+    // 0.5倍より遅いときは、始まるまでの待ち（カウントや余白）が長くなりすぎないように縮める
+    const k = run.practice ? Math.min(1, run.rate * 2) : 1;
+    lead = Math.max(run.app + 1.2 * k - firstNote, ch.first + .25, (run.beat * 4 + .4) * k, .6 * k);
   }
   run.startPos = -lead;
   clk.ok = false; syncClock();
@@ -1683,13 +1685,13 @@ function rebase(pos, resetNotes) {
 }
 function seekTo(target, preroll = true) {
   const r = run; if (!r || r.demo || !r.practice) return;
-  const pos = clamp(target - (preroll ? r.app + .8 : 0), r.startPos, r.endT - 1);
+  const pos = clamp(target - (preroll ? r.app + .8 * Math.min(1, r.rate * 2) : 0), r.startPos, r.endT - 1);
   rebase(pos, true);
   updPracticeUI();
 }
 function setRate(v) {
   const r = run; if (!r || r.demo || !r.practice) return;
-  v = Math.round(clamp(v, .5, 1) * 20) / 20;
+  v = Math.round(clamp(v, .1, 1) * 20) / 20;
   if (Math.abs(v - r.rate) < 1e-6) return;
   const at = AC.currentTime + .06;
   const pos = r.paused ? r.pausedAt + settings.ofs / 1000 : r.base + (at - r.acBase) * r.rate;
@@ -1718,7 +1720,7 @@ function updPracticeUI() {
   $('#pPlay').textContent = r.paused ? '▶' : '❚❚';
   $('#pPlay').setAttribute('aria-label', r.paused ? '再生' : '一時停止');
   $('#pRate').textContent = r.rate.toFixed(2).replace(/0$/, '') + 'x';
-  $('#pSlow').disabled = r.rate <= .5; $('#pFast').disabled = r.rate >= 1;
+  $('#pSlow').disabled = r.rate <= .1 + 1e-6; $('#pFast').disabled = r.rate >= 1;
   $('#pA').classList.toggle('on', r.loopA !== null); $('#pB').classList.toggle('on', r.loopB !== null);
   $('#pClr').disabled = r.loopA === null && r.loopB === null;
   $('#pMiss').disabled = !r.misses.length;
