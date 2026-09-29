@@ -448,13 +448,13 @@ const mod8 = k => ((k % 8) + 8) % 8;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 // 判定幅（秒）。「判定の広さ」の設定で切り替える
 const JUDGE_PRESETS = {
-  normal: { tap: [.05, .10, .15],  touch: [.08, .13, .20], slide: [.25, .45, .55] },
-  wide:   { tap: [.08, .14, .20],  touch: [.10, .16, .24], slide: [.30, .50, .60] },
-  easy:   { tap: [.11, .18, .26],  touch: [.13, .21, .29], slide: [.40, .60, .70] },
+  normal: { tap: [.05, .10, .15],  touch: [.08, .13, .20], slide: [.30, .52, .64] },
+  wide:   { tap: [.08, .14, .20],  touch: [.10, .16, .24], slide: [.36, .58, .72] },
+  easy:   { tap: [.11, .18, .26],  touch: [.13, .21, .29], slide: [.46, .68, .82] },
 };
 let W_P = .07, W_G = .125, W_D = .18, T_P = .09, T_G = .15, T_D = .22, SL_P = .3, SL_G = .5, SL_M = .6;
 // スライドの経路からどれだけ離れていてもなぞった扱いにするか（リング半径=1）
-const SLIDE_TOL = { normal: .26, wide: .28, easy: .32 };
+const SLIDE_TOL = { normal: .30, wide: .34, easy: .38 };
 let SL_TOL = .44;
 function applyJudge(name) {
   const p = JUDGE_PRESETS[name] || JUDGE_PRESETS.wide;
@@ -558,8 +558,8 @@ function chevrons(p, mapL) {
 }
 function makeSlide(lane, segs, t, s0, s1, brk) {
   const raw = [lanePt(lane)];
-  let fanTo = null;
-  for (const s of segs) { raw.push(...segPoints(s)); if (s.shape === 'w') fanTo = s.to; }
+  // 扇形スライド（w）も1本の直線として出す・判定する
+  for (const s of segs) raw.push(...segPoints(s));
   const pts = [raw[0]];
   for (let i = 1; i < raw.length; i++) { const p = pts[pts.length - 1]; if (Math.hypot(raw[i][0] - p[0], raw[i][1] - p[1]) > 1e-6) pts.push(raw[i]); }
   if (pts.length < 2) pts.push([pts[0][0] * .98, pts[0][1] * .98]);
@@ -570,12 +570,6 @@ function makeSlide(lane, segs, t, s0, s1, brk) {
   n.samp = new Float32Array((n.K + 1) * 2);
   for (let i = 0; i <= n.K; i++) { const [x, y] = pathAt(n, Math.min(1, i * n.ss / n.len)); n.samp[i * 2] = x; n.samp[i * 2 + 1] = y; }
   n.chev = chevrons(n, L => L);
-  if (fanTo !== null) {
-    for (const o of [-1, 1]) {
-      const f = { pts: [lanePt(lane), lanePt(mod8(fanTo + o))] }; f.cum = cumOf(f.pts); f.len = f.cum[1];
-      n.chev.push(...chevrons(f, L => L / f.len * n.len));
-    }
-  }
   n.end = pts[pts.length - 1];
   return n;
 }
@@ -1115,7 +1109,7 @@ function readInput() {
   return { h, P, S };
 }
 // スライド：経路に沿ってどこまでなぞれたか（許容幅 SL_TOL、先読み SL_LOOK）
-const SL_LOOK = .4;             // 一度に進めるのは経路の少し先まで（離れたボタンを押しても飛ばない）
+const SL_LOOK = .5;             // 一度に進めるのは経路の少し先まで（離れたボタンを押しても飛ばない）
 // 指の点 p が経路上の点 (sx, sy) をなぞったことになるか。
 // リング付近の経路は、リングの外側（ボタンのあたり）をなぞっても角度が合っていれば認める
 function slideNear(p, sx, sy, tol2) {
@@ -1297,7 +1291,7 @@ function update(now, pf) {
     }
     if (now < n.t - W_D) continue;
     advanceSlide(n, S);
-    if (n.prog >= n.len - .12) { fin(n); const d = now - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
+    if (n.prog >= n.len - .18) { fin(n); const d = now - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
     else if (now > n.s1 + SL_M) { fin(n); judge(3, NaN, ex, ey, col, 'slide', n); }
   }
   while (r.first < notes.length && notes[r.first].fin) r.first++;
