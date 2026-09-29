@@ -154,7 +154,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 
 /* ---------- HUD ---------- */
 .hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:12px 16px;pointer-events:none}
-.icon-btn{pointer-events:auto;width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:12px;
+.icon-btn{pointer-events:auto;width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:12px;touch-action:none;
   border:1px solid var(--line);background:rgba(21,14,40,.7);color:var(--ink);cursor:pointer}
 .hud-song{display:flex;flex-direction:column;min-width:0}
 .hud-song strong{font:600 13px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -205,20 +205,20 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .practice{position:absolute;left:50%;top:62px;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;gap:8px;
   padding:10px 12px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(11,8,20,.95);box-shadow:0 14px 34px rgba(0,0,0,.5);touch-action:manipulation}
 .pmenu{pointer-events:auto;flex:none;display:inline-flex;align-items:center;gap:6px;height:42px;padding:0 12px;border-radius:12px;
-  border:1px solid var(--line);background:rgba(21,14,40,.7);color:var(--ink);font:800 12px var(--body);cursor:pointer;white-space:nowrap;touch-action:manipulation}
+  border:1px solid var(--line);background:rgba(21,14,40,.7);color:var(--ink);font:800 12px var(--body);cursor:pointer;white-space:nowrap;touch-action:none}
 .pmenu b{font:900 12px var(--display);color:var(--gold);font-variant-numeric:tabular-nums}
 .pmenu .chev{display:inline-block;font-size:11px;color:var(--muted);transition:transform .15s}
 .pmenu[aria-expanded="true"]{border-color:var(--cyan)}
 .pmenu[aria-expanded="true"] .chev{transform:rotate(180deg)}
 .pmenu:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.ptrack{position:relative;height:28px;display:flex;align-items:center}
-.ptrack input{position:relative;z-index:2;width:100%;margin:0;accent-color:var(--gold);background:transparent;height:28px}
+.ptrack{position:relative;height:36px;display:flex;align-items:center;touch-action:none;cursor:pointer}
+.ptrack input{position:relative;z-index:2;width:100%;margin:0;accent-color:var(--gold);background:transparent;height:36px;pointer-events:none}
 .pmarks,.ploop{position:absolute;left:0;right:0;top:50%;height:14px;transform:translateY(-50%);pointer-events:none}
 .pmarks i{position:absolute;top:0;width:2px;height:14px;margin-left:-1px;background:#ff5a6e;border-radius:1px;opacity:.85}
 .ploop{left:auto;right:auto;background:rgba(63,214,255,.22);border-left:2px solid var(--cyan);border-right:2px solid var(--cyan);border-radius:3px}
 .prow{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .pb{appearance:none;display:inline-flex;align-items:center;justify-content:center;gap:4px;min-width:40px;height:36px;padding:0 10px;
-  border-radius:10px;border:1px solid var(--line);background:rgba(21,14,40,.8);color:var(--ink);font:800 12px var(--body);cursor:pointer;white-space:nowrap}
+  border-radius:10px;border:1px solid var(--line);background:rgba(21,14,40,.8);color:var(--ink);font:800 12px var(--body);cursor:pointer;white-space:nowrap;touch-action:none}
 .pb.on{border-color:var(--cyan);color:var(--cyan)}
 .pb:disabled{opacity:.4;cursor:default}
 .pb:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
@@ -1668,6 +1668,29 @@ async function resume() {
   updPracticeUI();
 }
 
+/* ================= play-time buttons ================= */
+// iPad では別の指が画面に触れていると click が来ない（リングを押さえたままだとボタンが効かない）。
+// プレイ中に使うボタンは、そのボタンの上で指を離した瞬間に反応させる
+function onTap(el, fn) {
+  let pid = null, fired = 0;
+  el.addEventListener('pointerdown', e => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    pid = e.pointerId;
+    try { el.setPointerCapture(e.pointerId); } catch (_) {}
+  });
+  el.addEventListener('pointerup', e => {
+    if (e.pointerId !== pid) return;
+    pid = null;
+    const r = el.getBoundingClientRect(), m = 14;
+    if (el.disabled || el.hidden || e.clientX < r.left - m || e.clientX > r.right + m || e.clientY < r.top - m || e.clientY > r.bottom + m) return;
+    fired = performance.now();
+    fn(e);
+  });
+  el.addEventListener('pointercancel', e => { if (e.pointerId === pid) pid = null; });
+  // キーボードの Enter など。指で反応した直後の click は二重に動かさない
+  el.addEventListener('click', e => { if (performance.now() - fired < 800 || el.disabled) return; fn(e); });
+}
+
 /* ================= practice ================= */
 const practiceEl = $('#practice'), pSeek = $('#pSeek'), pMarks = $('#pMarks'), pLoop = $('#pLoop'), pMenuBtn = $('#pMenuBtn');
 let seeking = false;
@@ -1678,10 +1701,10 @@ function setPMenu(open) {
   const prac = mode === 'play' && run && run.practice;
   pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
   practiceEl.hidden = !(prac && pOpen);
-  if (!pOpen) seeking = false;
+  if (!pOpen) { seeking = false; seekPid = null; }
   layoutRing();
 }
-pMenuBtn.addEventListener('click', () => { setPMenu(!pOpen); pMenuBtn.blur(); });
+onTap(pMenuBtn, () => { setPMenu(!pOpen); pMenuBtn.blur(); });
 const measure = () => run.beat * 4;
 const curSong = () => run.paused ? run.pausedAt + settings.ofs / 1000 : songRaw(performance.now());
 // pos（曲の時刻）から再生し直す。resetNotes なら pos 以降のノーツを未判定に戻す
@@ -1751,18 +1774,39 @@ function updPracticeUI() {
   pLoop.hidden = !on;
   if (on) { pLoop.style.left = (r.loopA / r.endT * 100) + '%'; pLoop.style.width = ((r.loopB - r.loopA) / r.endT * 100) + '%'; }
 }
-$('#pPlay').addEventListener('click', () => { if (!run) return; run.paused ? resume() : pause(false); });
-$('#pBack').addEventListener('click', () => { if (run) { rebaseSeek(curSong() - measure() * 2); } });
-$('#pFwd').addEventListener('click', () => { if (run) { rebaseSeek(curSong() + measure() * 2); } });
+onTap($('#pPlay'), () => { if (!run) return; run.paused ? resume() : pause(false); });
+onTap($('#pBack'), () => { if (run) { rebaseSeek(curSong() - measure() * 2); } });
+onTap($('#pFwd'), () => { if (run) { rebaseSeek(curSong() + measure() * 2); } });
 function rebaseSeek(pos) { const r = run; if (!r || !r.practice) return; rebase(clamp(pos, r.startPos, r.endT - 1), true); updPracticeUI(); }
-$('#pMiss').addEventListener('click', () => { if (run && run.misses.length) seekTo(run.lastMiss - run.beat); });
-$('#pA').addEventListener('click', () => setLoop('A'));
-$('#pB').addEventListener('click', () => setLoop('B'));
-$('#pClr').addEventListener('click', () => { if (!run) return; run.loopA = run.loopB = null; updPracticeUI(); });
-$('#pSlow').addEventListener('click', () => run && setRate(run.rate - .05));
-$('#pFast').addEventListener('click', () => run && setRate(run.rate + .05));
+onTap($('#pMiss'), () => { if (run && run.misses.length) seekTo(run.lastMiss - run.beat); });
+onTap($('#pA'), () => setLoop('A'));
+onTap($('#pB'), () => setLoop('B'));
+onTap($('#pClr'), () => { if (!run) return; run.loopA = run.loopB = null; updPracticeUI(); });
+onTap($('#pSlow'), () => run && setRate(run.rate - .05));
+onTap($('#pFast'), () => run && setRate(run.rate + .05));
 pSeek.addEventListener('input', () => { seeking = true; if (run) $('#pTime').textContent = `${fmtTime(+pSeek.value)} / ${fmtTime(run.endT - 2)}`; });
 pSeek.addEventListener('change', () => { seeking = false; seekTo(+pSeek.value); });
+const pTrack = pSeek.parentElement;
+let seekPid = null;
+function seekFromX(x) {
+  const r = pSeek.getBoundingClientRect(), pad = 8;
+  pSeek.value = clamp((x - r.left - pad) / Math.max(1, r.width - pad * 2), 0, 1) * (+pSeek.max);
+  if (run) $('#pTime').textContent = `${fmtTime(+pSeek.value)} / ${fmtTime(run.endT - 2)}`;
+}
+pTrack.addEventListener('pointerdown', e => {
+  if (!run || !run.practice || seekPid !== null) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  e.preventDefault();
+  seekPid = e.pointerId; seeking = true;
+  try { pTrack.setPointerCapture(e.pointerId); } catch (_) {}
+  seekFromX(e.clientX);
+});
+pTrack.addEventListener('pointermove', e => { if (e.pointerId === seekPid) seekFromX(e.clientX); });
+pTrack.addEventListener('pointerup', e => {
+  if (e.pointerId !== seekPid) return;
+  seekPid = null; seekFromX(e.clientX); seeking = false; seekTo(+pSeek.value);
+});
+pTrack.addEventListener('pointercancel', e => { if (e.pointerId === seekPid) { seekPid = null; seeking = false; } });
 const rankOf = acc => acc >= 99 ? ['S+', 'r-s'] : acc >= 97 ? ['S', 'r-s'] : acc >= 94 ? ['A', 'r-a'] : acc >= 90 ? ['B', 'r-b'] : acc >= 80 ? ['C', 'r-c'] : ['D', 'r-d'];
 function finish() {
   const r = run; if (r.over) return;
@@ -1933,10 +1977,10 @@ autoIn.addEventListener('change', () => { settings.auto = autoIn.checked; saveSe
 guideIn.addEventListener('change', () => { settings.guide = guideIn.checked; saveSettings(); });
 $('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); });
 $('#setup').addEventListener('submit', e => { e.preventDefault(); startPlay(); });
-$('#pauseBtn').addEventListener('click', pause);
-$('#resumeBtn').addEventListener('click', resume);
-$('#restartBtn').addEventListener('click', () => startPlay());
-$('#quitBtn').addEventListener('click', () => setMode('title'));
+onTap($('#pauseBtn'), () => pause());
+onTap($('#resumeBtn'), () => resume());
+onTap($('#restartBtn'), () => startPlay());
+onTap($('#quitBtn'), () => setMode('title'));
 $('#retryBtn').addEventListener('click', () => startPlay());
 $('#backBtn').addEventListener('click', () => setMode('title'));
 
