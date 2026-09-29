@@ -1,5 +1,5 @@
 // Ring Beat: オフラインでも起動できるように、本体とフォントをキャッシュする
-const CACHE = 'ringbeat-v12';
+const CACHE = 'ringbeat-v13';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
