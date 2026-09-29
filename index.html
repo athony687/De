@@ -1194,8 +1194,12 @@ function lanesNear(nx, ny) {
 }
 function hitPointer(nx, ny, t) {
   const rg = regionAt(nx, ny); if (rg < 0) return;
+  // 境目の近くなら隣のボタンも候補にして、叩いた時刻にいちばん近いノーツを取る（速いトリルで隣のノーツを先取りしない）
   let tap = null;
-  for (const L of lanesNear(nx, ny)) { tap = scanCands(t, n => isHead(n) && n.lane === L)[0]; if (tap) break; }
+  for (const L of lanesNear(nx, ny)) {
+    const c = scanCands(t, n => isHead(n) && n.lane === L)[0];
+    if (c && (!tap || Math.abs(c.t - t) < Math.abs(tap.t - t) - 1e-4)) tap = c;
+  }
   const tch = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR)[0];
   let pick = tap || tch;
   if (tap && tch) pick = Math.hypot(nx, ny) < .62 ? tch : (Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch);
@@ -2066,7 +2070,8 @@ cv.addEventListener('pointerdown', e => {
   freshRect();
   const x = e.clientX - ar.left, y = e.clientY - ar.top, nx = (x - cx) / R, ny = (y - cy) / R;
   const rg = regionAt(nx, ny);
-  ptrs.set(e.pointerId, { x, y, x0: x, y0: y, moved: false, lane: rg >= 0 && rg < 8 ? rg : -1 });
+  const lane0 = rg >= 0 && rg < 8 ? rg : -1;
+  ptrs.set(e.pointerId, { x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false });
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
   tapMarks.push({ x: nx, y: ny, t: performance.now() }); if (tapMarks.length > 12) tapMarks.shift();
   if (rg < 0) return;
@@ -2074,7 +2079,10 @@ cv.addEventListener('pointerdown', e => {
   if (run.auto || run.over) return;
   hitPointer(nx, ny, songAt(evTime(e)));
 });
-// 流し：リングの外側を指ですべらせて別のボタンの範囲に入ったら、そのボタンを叩いたことにする
+// 流し：リングの外側を指ですべらせて別のボタンの範囲に入ったら、そのボタンを叩いたことにする。
+// ただし指のぶれ（接触面の中心が数px〜十数pxずれる）で境目をまたいだだけのときは数えない。
+// 最後に叩いた位置から NAGASHI_MOVE 以上すべらせてはじめて、入ったボタンを叩いたことにする
+const NAGASHI_MOVE = .2;
 function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
   const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (R * .05)));
   for (let i = 1; i <= steps; i++) {
@@ -2087,9 +2095,12 @@ function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
         if (Math.abs(off) > Q / 2 - .07) lane = p.lane;   // 境目ぎりぎりでは切り替えない（二重判定を防ぐ）
       }
     }
-    if (lane === p.lane) continue;
-    p.lane = lane;
-    if (lane < 0) continue;
+    if (lane !== p.lane) { p.lane = lane; p.pend = lane >= 0 && lane !== p.hitLane; }
+    if (lane < 0 || !p.pend) continue;
+    const px = x0 + (x1 - x0) * i / steps, py = y0 + (y1 - y0) * i / steps;
+    if (Math.hypot(px - p.hx, py - p.hy) < R * NAGASHI_MOVE) continue;
+    // 十分すべらせてこのボタンに入った
+    p.pend = false; p.hitLane = lane; p.hx = px; p.hy = py;
     press(lane, performance.now());
     if (live && settings.nagashi !== false) {
       const n = scanCands(t, n => isHead(n) && n.lane === lane)[0];
