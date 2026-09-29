@@ -202,8 +202,15 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .more > div{display:flex;flex-direction:column;gap:14px;margin-top:12px}
 
 /* practice bar */
-.practice{position:absolute;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:8px;
-  padding:10px 16px calc(12px + env(safe-area-inset-bottom, 0px));background:linear-gradient(180deg,rgba(11,8,20,0),rgba(11,8,20,.92) 28%);touch-action:manipulation}
+.practice{position:absolute;left:50%;top:62px;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;gap:8px;
+  padding:10px 12px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(11,8,20,.95);box-shadow:0 14px 34px rgba(0,0,0,.5);touch-action:manipulation}
+.pmenu{pointer-events:auto;flex:none;display:inline-flex;align-items:center;gap:6px;height:42px;padding:0 12px;border-radius:12px;
+  border:1px solid var(--line);background:rgba(21,14,40,.7);color:var(--ink);font:800 12px var(--body);cursor:pointer;white-space:nowrap;touch-action:manipulation}
+.pmenu b{font:900 12px var(--display);color:var(--gold);font-variant-numeric:tabular-nums}
+.pmenu .chev{display:inline-block;font-size:11px;color:var(--muted);transition:transform .15s}
+.pmenu[aria-expanded="true"]{border-color:var(--cyan)}
+.pmenu[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.pmenu:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .ptrack{position:relative;height:28px;display:flex;align-items:center}
 .ptrack input{position:relative;z-index:2;width:100%;margin:0;accent-color:var(--gold);background:transparent;height:28px}
 .pmarks,.ploop{position:absolute;left:0;right:0;top:50%;height:14px;transform:translateY(-50%);pointer-events:none}
@@ -242,6 +249,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>
     </button>
     <div class="hud-song"><strong id="hudTitle">Neon Circuit</strong><span id="hudDiff">BASIC</span></div>
+    <button id="pMenuBtn" class="pmenu" type="button" aria-expanded="false" aria-controls="practice" hidden>練習 <b id="pMenuRate">0.75x</b><span class="chev" aria-hidden="true">▾</span></button>
     <div class="hud-acc"><span id="hudAcc">100.00</span><small>%</small></div>
     <button id="fsBtn" class="icon-btn fs-btn" type="button" aria-label="全画面表示"></button>
   </div>
@@ -1576,9 +1584,9 @@ function layoutRing() {
       R = Math.min(s.width, s.height) * .42; setSizes(); return;
     }
   }
-  const pb = (mode === 'play' && !practiceEl.hidden) ? practiceEl.getBoundingClientRect().height : 0;
-  const HH = Math.max(120, H - pb);
-  cx = W / 2; cy = HH / 2 + (W > HH ? 10 : 0);
+  const top = (mode === 'play' && !practiceEl.hidden) ? Math.max(0, practiceEl.getBoundingClientRect().bottom - ar.top) : 0;
+  const HH = Math.max(120, H - top);
+  cx = W / 2; cy = top + HH / 2 + (W > HH ? 10 : 0);
   R = Math.min(W * .44, HH * .4); setSizes();
 }
 function resize() {
@@ -1619,6 +1627,7 @@ async function startPlay() {
   if (au) playTrack(au.buf, ch.first, run.base, run.acBase, run.rate);
   ptrs.clear(); keys.clear(); trail.length = 0; centerKey = false; lastPress.fill(-1e9);
   pMarks.innerHTML = ''; pSeek.max = run.endT; pSeek.value = 0;
+  pOpen = false;
   setMode('play');
 }
 function setMode(m) {
@@ -1629,8 +1638,10 @@ function setMode(m) {
   resultOv.hidden = m !== 'result';
   hudEl.hidden = m !== 'play';
   const prac = m === 'play' && run && run.practice;
-  practiceEl.hidden = !prac;
-  progEl.hidden = m !== 'play' || prac;
+  pMenuBtn.hidden = !prac;
+  pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
+  practiceEl.hidden = !(prac && pOpen);
+  progEl.hidden = m !== 'play';
   if (m === 'play') {
     // 文字入力などでずれたページを元の位置に戻す
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
@@ -1658,8 +1669,19 @@ async function resume() {
 }
 
 /* ================= practice ================= */
-const practiceEl = $('#practice'), pSeek = $('#pSeek'), pMarks = $('#pMarks'), pLoop = $('#pLoop');
+const practiceEl = $('#practice'), pSeek = $('#pSeek'), pMarks = $('#pMarks'), pLoop = $('#pLoop'), pMenuBtn = $('#pMenuBtn');
 let seeking = false;
+// 練習コントロールは上のボタンで開くプルダウン。たたんでいる間は手が当たっても何も起きない
+let pOpen = false;
+function setPMenu(open) {
+  pOpen = !!open;
+  const prac = mode === 'play' && run && run.practice;
+  pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
+  practiceEl.hidden = !(prac && pOpen);
+  if (!pOpen) seeking = false;
+  layoutRing();
+}
+pMenuBtn.addEventListener('click', () => { setPMenu(!pOpen); pMenuBtn.blur(); });
 const measure = () => run.beat * 4;
 const curSong = () => run.paused ? run.pausedAt + settings.ofs / 1000 : songRaw(performance.now());
 // pos（曲の時刻）から再生し直す。resetNotes なら pos 以降のノーツを未判定に戻す
@@ -1720,7 +1742,7 @@ function updPracticeUI() {
   const r = run; if (!r || !r.practice) return;
   $('#pPlay').textContent = r.paused ? '▶' : '❚❚';
   $('#pPlay').setAttribute('aria-label', r.paused ? '再生' : '一時停止');
-  $('#pRate').textContent = r.rate.toFixed(2).replace(/0$/, '') + 'x';
+  $('#pRate').textContent = $('#pMenuRate').textContent = r.rate.toFixed(2).replace(/0$/, '') + 'x';
   $('#pSlow').disabled = r.rate <= .1 + 1e-6; $('#pFast').disabled = r.rate >= 1;
   $('#pA').classList.toggle('on', r.loopA !== null); $('#pB').classList.toggle('on', r.loopB !== null);
   $('#pClr').disabled = r.loopA === null && r.loopB === null;
@@ -1782,7 +1804,8 @@ function hud(now) {
   if (r.practice) {
     const cur = clamp(now, 0, r.endT);
     if (!seeking) { pSeek.value = cur; $('#pTime').textContent = `${fmtTime(cur)} / ${fmtTime(r.endT - 2)}`; }
-  } else progBar.style.transform = `scaleX(${clamp(now / r.endT, 0, 1)})`;
+  }
+  progBar.style.transform = `scaleX(${clamp(now / r.endT, 0, 1)})`;
 }
 
 /* ================= main loop ================= */
