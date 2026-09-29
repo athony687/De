@@ -1590,8 +1590,15 @@ function layoutRing() {
   }
   const top = (mode === 'play' && !practiceEl.hidden) ? Math.max(0, practiceEl.getBoundingClientRect().bottom - ar.top) : 0;
   const HH = Math.max(120, H - top);
-  cx = W / 2; cy = top + HH / 2 + (W > HH ? 10 : 0);
-  R = Math.min(W * .44, HH * .4); setSizes();
+  // リングの下には空きを残す。iPad の下の端はホームに戻るスワイプの受付範囲で、手のひらも置かれやすく、
+  // 下側のボタン（4・5 あたり）を叩いても反応しにくい。上は右上・左上のボタンと重ならないので詰めてよい
+  const minTop = top + (top ? 8 : 40);
+  const below = r => Math.max(r * .36, 96);
+  R = Math.min(W * .44, HH * .4, (H - minTop) / 2.36, (H - minTop - 96) / 2);
+  R = Math.max(R, 40);
+  cx = W / 2;
+  cy = clamp(top + HH / 2, minTop + R, H - below(R) - R);
+  setSizes();
 }
 function resize() {
   const r = app.getBoundingClientRect();
