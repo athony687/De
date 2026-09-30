@@ -327,7 +327,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
             <span><i class="sw tap"></i>タップ</span>
             <span><i class="sw each"></i>同時押し（金色）</span>
             <span><i class="sw brk"></i>ブレイク（オレンジ）</span>
-            <span><i class="sw hold"></i>ホールド（終わりまで押し続ける）</span>
+            <span><i class="sw hold"></i>ホールド（押したまま終点まで。終点は押しっぱなしでOK、途中で離しても押し直せる）</span>
             <span><i class="sw slide"></i>スライド（☆をタップ → 矢印に沿ってなぞる）</span>
             <span><i class="sw touch"></i>タッチ（4つの三角が集まった点をタップ）</span>
           </li>
@@ -1043,7 +1043,7 @@ function getBest(k) { try { return JSON.parse(localStorage.getItem('ringbeat:bes
 function setBest(k, v) { try { localStorage.setItem('ringbeat:best:' + k, JSON.stringify(v)); } catch (e) {} }
 
 function newRun(song, opt) {
-  const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0 }));
+  const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0, rel: 0, lastT: null }));
   return { notes, first: 0, mus: song.mus || [], ei: 0, endT: song.endT, units: song.units, app: approachOf(settings.nspd),
     beat: 60 / (song.bpm || 150), demo: !!opt.demo, auto: !!opt.auto, guide: false,
     practice: !!opt.practice, rate: 1, base: 0, acBase: 0, startPos: 0, loopA: null, loopB: null, misses: [],
@@ -1164,7 +1164,7 @@ function applyHit(n, t) {
   if (n.type === 'tap') { fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n); }
   else if (n.type === 'touch') { fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n); }
   else {
-    n.hh = true; n.hj = j; n.hd = d; n.holding = true;
+    n.hh = true; n.hj = j; n.hd = d; n.holding = true; n.rel = 0; n.lastT = t;
     const p = n.type === 'hold' ? lanePt(n.lane) : n.pos;
     if (n.type === 'hold') press(n.lane, performance.now());
     burst(p[0], p[1], col, n.type === 'hold' ? 'tap' : 'touch'); se('perfect');
@@ -1243,6 +1243,17 @@ function judge(j, d, px, py, col, kind, n) {
 function burst(px, py, col, kind) { run.fx.push({ x: px, y: py, rgb: col.rgb, kind, t: performance.now() }); }
 
 /* ================= update ================= */
+// ホールド：始点はタップと同じ判定。押したまま終点まで行けばそのまま成功（終点で離さなくてよい）。
+// 途中で離しても押し直せる。離していた時間が長いほど評価が下がる
+const HOLD_SHORT = .3;    // これより短いホールドはタップと同じ操作でOK（離しても減点なし）
+const HOLD_GRACE = .15;   // 終点の直前は離しても数えない
+function holdGrade(n, dur) {
+  if (dur < HOLD_SHORT) return n.hj;
+  const rr = n.rel / Math.max(dur - HOLD_GRACE, .05);
+  if (rr <= .1) return n.hj;               // ほんの一瞬なら減点なし
+  if (rr <= .35) return Math.max(n.hj, 1); // 少し離した → GREAT まで
+  return Math.max(n.hj, 2);                // 長く離した → GOOD
+}
 function update(now, pf) {
   const r = run; if (!r || r.paused || r.over) return;
   let h, S, P;
@@ -1265,17 +1276,22 @@ function update(now, pf) {
       if (!n.hh) {
         if (r.auto) {
           if (now < n.t) continue;
-          n.hh = true; n.hj = 0; n.hd = NaN; n.holding = true; if (!isT) press(n.lane, pf); burst(px, py, col, kind);
+          n.hh = true; n.hj = 0; n.hd = NaN; n.holding = true; n.rel = 0; n.lastT = now; if (!isT) press(n.lane, pf); burst(px, py, col, kind);
         } else { if (now > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
       }
       const dur = Math.max(n.dur, .05), te = n.t + dur;
       if (r.auto && !isT) h[n.lane] = true;
       const held = r.auto || (isT ? touchHeld(n, P) : h[n.lane]);
-      if (now >= te) { fin(n); n.holding = false; judge(n.hj, n.hd, px, py, col, kind, n); }
-      else if (!held) {
-        let j = n.hj, d = n.hd;
-        if (te - now > .12) { j = Math.max(j, (now - n.t) / dur >= .6 ? 1 : 2); d = NaN; }
-        fin(n); n.holding = false; judge(j, d, px, py, col, kind, n);
+      // 離していた時間を数える（終点の直前と、ごく短いホールドは数えない）。離しても押し直せば続きから取れる
+      const from = Math.max(n.lastT == null ? n.t : n.lastT, n.t), upto = Math.min(now, te - HOLD_GRACE);
+      if (!held && dur >= HOLD_SHORT && upto > from) n.rel += upto - from;
+      n.lastT = now;
+      if (held && !n.holding && !isT) press(n.lane, pf);
+      n.holding = held;
+      // 終点は押しっぱなしで通る（離す操作はいらない）。1本で1コンボ
+      if (now >= te) {
+        const j = holdGrade(n, dur);
+        fin(n); n.holding = false; judge(j, j === n.hj ? n.hd : NaN, px, py, col, kind, n);
       }
       continue;
     }
@@ -1719,7 +1735,7 @@ function rebase(pos, resetNotes) {
   killBus(bus); bus = makeBus(); stopTrack(false);
   if (resetNotes) {
     for (const n of r.notes) {
-      if (n.t >= pos) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; }
+      if (n.t >= pos) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.rel = 0; n.lastT = null; }
       else n.fin = true;
     }
     r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
