@@ -314,9 +314,14 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <summary>詳細設定</summary>
         <div>
           <div class="field">
-            <label for="ofs">タイミング補正</label><output id="ofsOut" for="ofs">±0 ms</output>
+            <label for="ofs">タイミング補正（音）</label><output id="ofsOut" for="ofs">±0 ms</output>
             <input type="range" id="ofs" min="-200" max="200" step="10" value="0">
           </div>
+          <div class="field">
+            <label for="jofs">判定タイミング</label><output id="jofsOut" for="jofs">±0 ms</output>
+            <input type="range" id="jofs" min="-150" max="150" step="1" value="0">
+          </div>
+          <label class="check" for="jauto"><input type="checkbox" id="jauto" checked><span>判定タイミングを自動で合わせる <small>プレイのあと、叩いたタイミングの平均のずれに合わせて調整する</small></span></label>
           <label class="check" for="guide"><input type="checkbox" id="guide" checked><span>ガイド音 <small>読み込んだ譜面でノーツの位置に音を鳴らす</small></span></label>
           <label class="check" for="nagashi"><input type="checkbox" id="nagashi" checked><span>流し <small>リングに沿って指をすべらせ、入ったボタンのノーツも叩いた判定にする</small></span></label>
         </div>
@@ -337,7 +342,8 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>練習モードでは、画面下のバーで好きな位置へ移動、2小節ずつの巻き戻し・早送り、直前のミス地点へ戻る、A〜B区間のくり返し、再生速度の変更（0.1〜1倍）ができます。ミスした位置はバーに赤い線で残ります。音源を使っているときは、スローにすると音程も下がります。</li>
           <li>判定幅は PERFECT ±80ms（中心の ±27ms は CRITICAL PERFECT）・GREAT ±140ms・GOOD ±200ms。スライドは矢印に沿ってなぞってください（リングのすぐ外側をなぞってもOK）。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチはさらに広めで、指をすべらせて範囲に入れても取れます。</li>
           <li>採点は maimai でらっくす と同じです。達成率は最大 101%（基本点 100% ＋ BREAKボーナス 1%）。重みは TAP・TOUCH 1、HOLD 2、SLIDE 3、BREAK 5 で、BREAK は GREAT・PERFECT がずれの大きさで細かく分かれます。EXノーツは GOOD 以上で CRITICAL PERFECT になります。ランクは SSS+ 100.5%・SSS 100%・SS+ 99.5%・SS 99%・S+ 98%・S 97%・AAA 94%・AA 90%・A 80% から。</li>
-          <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正」で調整します（＋にすると譜面が遅れます）。</li>
+          <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
+          <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
         </ul>
         <div class="kb">
@@ -407,6 +413,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <p class="meta"><span>でらっくスコア <b id="resDx">0</b> <b id="resStar" class="stars"></b></span></p>
       <p class="meta"><span>MAX COMBO <b id="resCombo">0</b></span><span>FAST <b id="resFast">0</b> / LATE <b id="resLate">0</b></span></p>
       <p class="best" id="resBest"></p>
+      <p class="best" id="resTim" hidden></p>
       <div class="btnrow">
         <button type="button" class="play" id="retryBtn">もう一度</button>
         <button type="button" class="ghost" id="backBtn">曲選択へ</button>
@@ -982,7 +989,7 @@ function buildSong(ex) {
 }
 
 /* ================= charts registry ================= */
-const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true };
+const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, jofs: 0, jauto: true };
 // ノーツ速度 → ノーツが出てからリングに届くまでの秒数（7.0 で約 0.46 秒）
 const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
 let SONGS = null, IMPORTS = [];
@@ -1069,7 +1076,7 @@ function newRun(song, opt) {
     practice: !!opt.practice, rate: 1, base: 0, acBase: 0, startPos: 0, loopA: null, loopB: null, misses: [],
     cnt: [0, 0, 0, 0], got: 0, jn: 0, gotW: 0, bonus: 0, bjn: 0, cp: 0, dx: 0, combo: 0, maxc: 0, fast: 0, late: 0,
     totalW: notes.reduce((a, n) => a + noteW(n), 0), nBrk: notes.filter(n => n.brk).length,
-    fx: [], txt: [], pf0: 0, paused: false, pausedAt: 0, over: false, comboAt: 0, held: new Array(8).fill(false) };
+    fx: [], txt: [], devs: [], pf0: 0, paused: false, pausedAt: 0, over: false, comboAt: 0, held: new Array(8).fill(false) };
 }
 
 /* ================= clock =================
@@ -1091,6 +1098,12 @@ function songAt(pf) {
 }
 const toAC = t => run.acBase + (t - run.base) / run.rate;   // 曲の時刻 t の音を鳴らす AudioContext 時刻
 function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 500) ? t : n; }
+/* 判定タイミング補正（settings.jofs, ms）。画面にノーツが出るまでの遅れと、指が触れてから入力が届くまでの遅れの分、
+   叩いた時刻が見た目より遅れて記録される。その分を叩いた時刻から引いて判定する（見た目と音は動かさない）。
+   速度を落とした練習でも、実際の時間で同じだけずらす */
+const jofsMs = () => clamp(+settings.jofs || 0, -150, 150);
+const inT = e => songAt(evTime(e) - jofsMs());                  // 入力の判定用の時刻
+const jShift = () => (run && !run.demo && !run.auto) ? jofsMs() / 1000 * run.rate : 0;   // 曲の時刻でのずらし幅
 function pump() {
   if (!run || run.demo || run.paused || !AC || !bus) return;
   const horizon = AC.currentTime + .18, ev = run.mus;
@@ -1182,13 +1195,13 @@ function scanCands(t, pred) {
 }
 function applyHit(n, t) {
   const d = t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
+  if (!run.auto && !run.demo && Number.isFinite(d)) run.devs.push(d / (run.rate || 1));
   if (n.type === 'tap') { fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n); }
   else if (n.type === 'touch') { fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n); }
   else {
     n.hh = true; n.hj = j; n.hd = d; n.holding = true; n.rel = 0; n.lastT = t;
-    const p = n.type === 'hold' ? lanePt(n.lane) : n.pos;
     if (n.type === 'hold') press(n.lane, performance.now());
-    burst(p[0], p[1], col, n.type === 'hold' ? 'tap' : 'touch'); se('perfect');
+    se('perfect');
   }
 }
 const isHead = n => n.type === 'tap' || n.type === 'hold';
@@ -1217,10 +1230,22 @@ function hitPointer(nx, ny, t) {
   }
   const tch = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR)[0];
   let pick = tap || tch;
-  if (tap && tch) pick = Math.hypot(nx, ny) < .62 ? tch : (Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch);
+  if (tap && tch) pick = tapOrTouch(tap, tch, nx, ny, t);
   if (!pick) return;
   applyHit(pick, t);
   if (isTouch(pick)) hitTouchGroup(pick, t, n => distTo(n.pos, nx, ny) < .7);
+}
+// タップとタッチのどちらも取れるとき、どちらを取るか。時間の近さだけで決めると、
+// ボタンの間（D・E）のタッチを押したのに隣のボタンのタップを取ってしまい、両方ミスになることがある
+//   リングの内側を押した → タッチ
+//   タッチがそのボタンの真上（同じ向き）にある → 時間が近い方
+//   それ以外 → 押した向きに近い方
+const angGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+function tapOrTouch(tap, tch, nx, ny, t) {
+  if (Math.hypot(nx, ny) < .62) return tch;
+  const pa = Math.atan2(ny, nx), ta = Math.atan2(tch.pos[1], tch.pos[0]), la = laneAng(tap.lane);
+  if (angGap(ta, la) < .15) return Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch;
+  return angGap(pa, ta) < angGap(pa, la) ? tch : tap;
 }
 function hitKey(lane, t) {
   const tap = scanCands(t, n => isHead(n) && n.lane === lane)[0];
@@ -1274,13 +1299,12 @@ function judge(j, d, px, py, col, kind, n) {
   if ((j === 1 || j === 2) && Number.isFinite(d)) { if (d < 0) { fl = 'FAST'; r.fast++; } else { fl = 'LATE'; r.late++; } }
   const inner = kind === 'touch';
   r.txt.push({ x: inner ? px : px * .72, y: inner ? py - .17 : py * .72, j, cr: crit, fl, t: performance.now() });
+  // 叩いたときの光のエフェクトは出さない（音だけ鳴らす）
   if (j < 3) {
-    burst(px, py, col, kind);
-    if (n && n.fw) { r.fx.push({ x: px, y: py, rgb: col.rgb, kind: 'fw', t: performance.now() }); se('fw'); }
+    if (n && n.fw) se('fw');
     se(kind === 'slide' ? 'slide' : kind === 'touch' ? 'touch' : j === 0 ? 'perfect' : 'great');
   }
 }
-function burst(px, py, col, kind) { run.fx.push({ x: px, y: py, rgb: col.rgb, kind, t: performance.now() }); }
 
 /* ================= update ================= */
 // ホールド：始点はタップと同じ判定。押したまま終点まで行けばそのまま成功（終点で離さなくてよい）。
@@ -1299,7 +1323,7 @@ function update(now, pf) {
   let h, S, P;
   if (r.auto) h = new Array(8).fill(false);
   else ({ h, S, P } = readInput());
-  const notes = r.notes;
+  const notes = r.notes, nj = now - jShift();   // 判定用の時刻（判定タイミング補正の分ずらす）
   for (let i = r.first; i < notes.length; i++) {
     const n = notes[i];
     if (n.t > now + .5) break;
@@ -1308,7 +1332,7 @@ function update(now, pf) {
     if (n.type === 'tap' || n.type === 'touch') {
       const [px, py] = n.type === 'tap' ? lanePt(n.lane) : n.pos, kind = n.type === 'tap' ? 'tap' : 'touch';
       if (r.auto) { if (now >= n.t) { fin(n); if (n.type === 'tap') press(n.lane, pf); judge(0, NaN, px, py, col, kind, n); } }
-      else if (now > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); }
+      else if (nj > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); }
       continue;
     }
     if (n.type === 'hold' || n.type === 'thold') {
@@ -1316,8 +1340,8 @@ function update(now, pf) {
       if (!n.hh) {
         if (r.auto) {
           if (now < n.t) continue;
-          n.hh = true; n.hj = 0; n.hd = NaN; n.holding = true; n.rel = 0; n.lastT = now; if (!isT) press(n.lane, pf); burst(px, py, col, kind);
-        } else { if (now > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
+          n.hh = true; n.hj = 0; n.hd = NaN; n.holding = true; n.rel = 0; n.lastT = now; if (!isT) press(n.lane, pf);
+        } else { if (nj > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
       }
       const dur = Math.max(n.dur, .05), te = n.t + dur;
       if (r.auto && !isT) h[n.lane] = true;
@@ -1347,8 +1371,8 @@ function update(now, pf) {
     }
     if (now < n.t - W_D) continue;
     advanceSlide(n, S);
-    if (n.prog >= n.len - .18) { fin(n); const d = now - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
-    else if (now > n.s1 + SL_M) { fin(n); judge(3, NaN, ex, ey, col, 'slide', n); }
+    if (n.prog >= n.len - .18) { fin(n); const d = nj - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
+    else if (nj > n.s1 + SL_M) { fin(n); judge(3, NaN, ex, ey, col, 'slide', n); }
   }
   while (r.first < notes.length && notes[r.first].fin) r.first++;
   r.held = h;
@@ -1491,38 +1515,6 @@ function drawCenter(now, pf) {
     g.restore();
   }
 }
-function sparkle(x, y, r) { g.beginPath(); g.moveTo(x, y - r); g.lineTo(x + r * .3, y - r * .3); g.lineTo(x + r, y); g.lineTo(x + r * .3, y + r * .3); g.lineTo(x, y + r); g.lineTo(x - r * .3, y + r * .3); g.lineTo(x - r, y); g.lineTo(x - r * .3, y - r * .3); g.closePath(); }
-function drawFx(pf) {
-  const fx = run.fx;
-  g.globalCompositeOperation = 'lighter';
-  for (let i = fx.length - 1; i >= 0; i--) {
-    const f = fx[i], life = f.kind === 'fw' ? 750 : 380, k = (pf - f.t) / life;
-    if (k >= 1 || k < 0) { if (k >= 1) fx.splice(i, 1); continue; }
-    const x = cx + f.x * R, y = cy + f.y * R;
-    if (f.kind === 'fw') {
-      const rr = NS + (R * 1.05 - NS) * (1 - Math.pow(1 - k, 3));
-      g.strokeStyle = `rgba(${f.rgb},${(1 - k) * .7})`; g.lineWidth = NS * .35 * (1 - k); circle(x, y, rr); g.stroke();
-      if (!reduceMotion) { g.fillStyle = `rgba(255,236,170,${1 - k})`; for (let s = 0; s < 16; s++) { const a = s * TAU / 16; sparkle(x + Math.cos(a) * rr, y + Math.sin(a) * rr, NS * .3 * (1 - k)); g.fill(); } }
-      continue;
-    }
-    if (k < .3) { g.fillStyle = `rgba(255,255,255,${(.3 - k) * 1.6})`; circle(x, y, NS * 1.1); g.fill(); }
-    g.strokeStyle = `rgba(${f.rgb},${(1 - k) * .9})`; g.lineWidth = NS * .3 * (1 - k);
-    circle(x, y, NS * (.9 + k * 1.6)); g.stroke();
-    if (reduceMotion) continue;
-    if (f.kind === 'touch') {
-      g.fillStyle = `rgba(${f.rgb},${1 - k})`;
-      for (let s = 0; s < 8; s++) { const a = s * Q + .4, rr = NS * (1 + k * 1.8); sparkle(x + Math.cos(a) * rr, y + Math.sin(a) * rr, NS * .32 * (1 - k * .6)); g.fill(); }
-    } else {
-      g.lineWidth = Math.max(1, NS * .12 * (1 - k)); g.beginPath();
-      for (let s = 0; s < 8; s++) {
-        const a = s * Q + .2, r1 = NS * (1.1 + k * 1.3), r2 = NS * (1.4 + k * 2.4);
-        g.moveTo(x + Math.cos(a) * r1, y + Math.sin(a) * r1); g.lineTo(x + Math.cos(a) * r2, y + Math.sin(a) * r2);
-      }
-      g.stroke();
-    }
-  }
-  g.globalCompositeOperation = 'source-over';
-}
 function drawTexts(pf) {
   const tx = run.txt;
   if (tx.length > 40) tx.splice(0, tx.length - 40);
@@ -1552,11 +1544,6 @@ function draw(now, pf) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   g.fillStyle = '#0b0814'; g.fillRect(0, 0, W, H);
-  const beat = run ? run.beat : .4;
-  const active = run && !run.over && now >= 0;
-  const bp = ((now / beat) % 1 + 1) % 1;
-  const pulse = (active && !reduceMotion) ? Math.pow(1 - bp, 3) : 0;
-
   const gr = g.createRadialGradient(cx, cy, R * .2, cx, cy, Math.max(W, H) * .8);
   gr.addColorStop(0, 'rgba(66,26,104,.5)'); gr.addColorStop(.4, 'rgba(28,13,52,.35)'); gr.addColorStop(1, 'rgba(11,8,20,0)');
   g.fillStyle = gr; g.fillRect(0, 0, W, H);
@@ -1567,35 +1554,10 @@ function draw(now, pf) {
   g.stroke();
   circle(cx, cy, R0); g.strokeStyle = 'rgba(196,178,255,.14)'; g.stroke();
 
-  // 小節時計：16分音符ごとに外周の目盛りが進む
-  const six = active ? Math.floor(((now / (beat / 4)) % 16 + 16) % 16) : -1;
-  for (let i = 0; i < 16; i++) {
-    const a = -Math.PI / 2 + i * TAU / 16, isBeat = i % 4 === 0;
-    const r1 = R * 1.045, r2 = R * (isBeat ? 1.1 : 1.075);
-    let al = isBeat ? .35 : .18, col = '196,178,255';
-    if (six >= 0) { const age = (six - i + 16) % 16; if (age < 4) { al = Math.max(al, 1 - age * .28); col = '255,197,61'; } }
-    g.strokeStyle = `rgba(${col},${al})`; g.lineWidth = isBeat ? 2 : 1.5;
-    g.beginPath(); g.moveTo(cx + Math.cos(a) * r1, cy + Math.sin(a) * r1); g.lineTo(cx + Math.cos(a) * r2, cy + Math.sin(a) * r2); g.stroke();
-  }
-
-  g.globalCompositeOperation = 'lighter';
-  circle(cx, cy, R); g.lineWidth = R * .06; g.strokeStyle = `rgba(255,61,154,${.1 + .28 * pulse})`; g.stroke();
-  g.globalCompositeOperation = 'source-over';
-  g.lineWidth = Math.max(2, R * .013); g.strokeStyle = '#f5f0ff'; g.stroke();
-
-  for (let k = 0; k < 8; k++) {
-    const a = laneAng(k), x = cx + Math.cos(a) * R, y = cy + Math.sin(a) * R;
-    const held = run && run.held && run.held[k] && !run.over;
-    const gl = Math.max(held ? 1 : 0, 1 - (pf - lastPress[k]) / 200);
-    if (gl > 0) {
-      g.globalCompositeOperation = 'lighter';
-      const rg = g.createRadialGradient(x, y, 0, x, y, R * .16);
-      rg.addColorStop(0, `rgba(255,61,154,${.55 * gl})`); rg.addColorStop(1, 'rgba(255,61,154,0)');
-      g.fillStyle = rg; circle(x, y, R * .16); g.fill();
-      g.globalCompositeOperation = 'source-over';
-    }
-    g.fillStyle = '#f5f0ff'; circle(x, y, R * .027 * (1 + .4 * gl)); g.fill();
-  }
+  // リング（光らせない。拍に合わせた発光・ボタンを押したときの光・外周の小節時計はなし）
+  circle(cx, cy, R); g.lineWidth = Math.max(2, R * .013); g.strokeStyle = '#f5f0ff'; g.stroke();
+  g.fillStyle = '#f5f0ff';
+  for (let k = 0; k < 8; k++) { const a = laneAng(k); circle(cx + Math.cos(a) * R, cy + Math.sin(a) * R, R * .027); g.fill(); }
   if (mode === 'play' && finePointer) {
     g.font = `800 ${Math.round(R * .05)}px ${BODY}`; g.fillStyle = 'rgba(165,158,200,.6)';
     g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -1622,14 +1584,6 @@ function draw(now, pf) {
     else drawTap(x, y, NS * s, colOf(n), al, n.ex);
   }
   for (let i = run.first; i < last; i++) { const n = notes[i]; if (n.type === 'slide' && !n.fin) drawSlideStar(n, now, pf); }
-  // 指が触れたと判定された位置（薄い白丸）
-  for (let i = tapMarks.length - 1; i >= 0; i--) {
-    const m = tapMarks[i], k = (pf - m.t) / 260;
-    if (k >= 1 || k < 0) { if (k >= 1) tapMarks.splice(i, 1); continue; }
-    g.strokeStyle = `rgba(255,255,255,${.5 * (1 - k)})`; g.lineWidth = 2;
-    circle(cx + m.x * R, cy + m.y * R, NS * (.5 + k * .5)); g.stroke();
-  }
-  drawFx(pf);
   drawTexts(pf);
 }
 
@@ -1913,8 +1867,24 @@ function showResult(r) {
     else msg = `自己ベスト ${fmtAcc(prev.acc)}%（${prev.rank}）`;
   }
   $('#resBest').textContent = msg;
+  timingResult(r);
   setMode('result');
   $('#retryBtn').focus({ preventScroll: true });
+}
+const fmtMs = v => (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(Math.round(v)) + ' ms';
+// 叩いたタイミングのずれ（中央値）を出し、「自動で合わせる」がオンなら判定タイミングをその分ずらす
+function timingResult(r) {
+  const el = $('#resTim'), dv = r.devs.slice().sort((a, b) => a - b);
+  el.hidden = true;
+  if (r.auto || dv.length < 20) return;
+  const med = dv[dv.length >> 1] * 1000, am = Math.round(Math.abs(med));
+  const tend = am < 6 ? 'ずれはほぼなし' : `平均 ${am}ms ${med > 0 ? '遅め' : '早め'}`;
+  if (settings.jauto !== false && am >= 6) {
+    const cur = jofsMs(), nv = clamp(Math.round(cur + clamp(med, -60, 60)), -150, 150);
+    if (nv !== cur) { settings.jofs = nv; saveSettings(); outs(); $('#jofs').value = nv; }
+    el.textContent = `叩いたタイミング：${tend} → 判定タイミングを ${fmtMs(nv)} に自動で合わせました`;
+  } else el.textContent = `叩いたタイミング：${tend}（判定タイミング ${fmtMs(jofsMs())}）`;
+  el.hidden = false;
 }
 let hudAccTxt = '';
 function hud(now) {
@@ -2024,6 +1994,7 @@ songList.addEventListener('click', e => {
 function outs() {
   spdOut.textContent = `${(+settings.nspd).toFixed(2).replace(/0$/, '')}（${approachOf(settings.nspd).toFixed(2)}秒）`;
   const o = +settings.ofs; ofsOut.textContent = (o > 0 ? '+' : o < 0 ? '−' : '±') + Math.abs(o) + ' ms';
+  $('#jofsOut').textContent = fmtMs(jofsMs());
   $('#prateOut').textContent = (+settings.prate).toFixed(2).replace(/0$/, '') + 'x';
 }
 function bestLine() {
@@ -2034,6 +2005,7 @@ function syncForm() {
   renderSongs();
   spdIn.value = settings.nspd; ofsIn.value = settings.ofs; autoIn.checked = !!settings.auto; guideIn.checked = settings.guide !== false;
   $('#nagashi').checked = settings.nagashi !== false;
+  $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
   ($('#m_' + (settings.practice ? 'prac' : 'play'))).checked = true;
   $('#prate').value = settings.prate;
   $('#prateField').hidden = !settings.practice;
@@ -2051,6 +2023,8 @@ ofsIn.addEventListener('input', () => { settings.ofs = +ofsIn.value; outs(); sav
 autoIn.addEventListener('change', () => { settings.auto = autoIn.checked; saveSettings(); });
 guideIn.addEventListener('change', () => { settings.guide = guideIn.checked; saveSettings(); });
 $('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); });
+$('#jofs').addEventListener('input', () => { settings.jofs = +$('#jofs').value; outs(); saveSettings(); });
+$('#jauto').addEventListener('change', () => { settings.jauto = $('#jauto').checked; saveSettings(); });
 $('#setup').addEventListener('submit', e => { e.preventDefault(); startPlay(); });
 onTap($('#pauseBtn'), () => pause());
 onTap($('#resumeBtn'), () => resume());
@@ -2134,7 +2108,6 @@ $('#impForm').addEventListener('submit', e => {
 /* ================= pointer ================= */
 // 画面上のキャンバスの位置を毎回読み直す（iPad では文字入力のあとにページがずれることがあるため）
 function freshRect() { const r = cv.getBoundingClientRect(); ar = { left: r.left, top: r.top, width: r.width, height: r.height }; }
-const tapMarks = [];
 cv.addEventListener('pointerdown', e => {
   if (mode !== 'play' || !run || run.paused) return;
   e.preventDefault();
@@ -2144,11 +2117,10 @@ cv.addEventListener('pointerdown', e => {
   const lane0 = rg >= 0 && rg < 8 ? rg : -1;
   ptrs.set(e.pointerId, { x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false });
   try { cv.setPointerCapture(e.pointerId); } catch (_) {}
-  tapMarks.push({ x: nx, y: ny, t: performance.now() }); if (tapMarks.length > 12) tapMarks.shift();
   if (rg < 0) return;
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
-  hitPointer(nx, ny, songAt(evTime(e)));
+  hitPointer(nx, ny, inT(e));
 });
 // 流し：リングの外側を指ですべらせて別のボタンの範囲に入ったら、そのボタンを叩いたことにする。
 // ただし指のぶれ（接触面の中心が数px〜十数pxずれる）で境目をまたいだだけのときは数えない。
@@ -2188,7 +2160,7 @@ cv.addEventListener('pointermove', e => {
   for (const ce of evs) {
     const x = ce.clientX - ar.left, y = ce.clientY - ar.top;
     if (live) {
-      const t = songAt(evTime(ce));
+      const t = inT(ce);
       slideIntoTouch(p.x, p.y, x, y, t);
       slideAcrossLanes(p, p.x, p.y, x, y, t, true);
     } else if (mode === 'play' && run) slideAcrossLanes(p, p.x, p.y, x, y, 0, false);
@@ -2252,7 +2224,7 @@ addEventListener('keydown', e => {
     e.preventDefault();
     if (e.repeat || run.paused) return;
     centerKey = true; trail.push([0, 0]);
-    if (!run.auto && !run.over) hitCenter(songAt(evTime(e)));
+    if (!run.auto && !run.over) hitCenter(inT(e));
     return;
   }
   const l = KEYMAP[e.code];
@@ -2260,7 +2232,7 @@ addEventListener('keydown', e => {
   e.preventDefault();
   if (e.repeat || run.paused) return;
   keys.add(l); trail.push(...keyPts(l)); press(l, performance.now());
-  if (!run.auto && !run.over) hitKey(l, songAt(evTime(e)));
+  if (!run.auto && !run.over) hitKey(l, inT(e));
 });
 addEventListener('keyup', e => {
   if (CENTER_KEYS[e.code]) { centerKey = false; return; }
