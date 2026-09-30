@@ -68,23 +68,28 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .card.narrow{width:min(300px,100%);align-items:stretch}
 
 /* song list */
-.songs{display:flex;flex-direction:column;gap:8px;border:0;margin:0;padding:0;min-width:0}
-.songrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:8px 10px;border-radius:14px;
+.songscroll{max-height:min(286px,40vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  margin-inline:-2px;padding:2px;border-radius:14px}
+.songs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;border:0;margin:0;padding:0;min-width:0}
+.songrow{position:relative;display:flex;align-items:center;padding:6px 8px;border-radius:12px;min-width:0;
   border:1px solid var(--line);background:var(--panel-2);transition:border-color .15s,background .15s}
 .songrow.sel{border-color:var(--pink);background:rgba(255,61,154,.1)}
 .songrow input[type=radio]{position:absolute;opacity:0;pointer-events:none}
-.songmain{flex:1 1 210px;min-width:0;display:flex;align-items:center;gap:10px;cursor:pointer}
+.songmain{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;cursor:pointer}
 .songrow input:focus-visible + .songmain{outline:2px solid var(--gold);outline-offset:4px;border-radius:8px}
-.jk{--h:320;width:40px;height:40px;border-radius:10px;flex:none;
+.jk{--h:320;width:34px;height:34px;border-radius:9px;flex:none;
   background:radial-gradient(circle,#0b0814 0 30%,transparent 31%),
              radial-gradient(circle,transparent 0 42%,rgba(245,240,255,.9) 43% 47%,transparent 48%),
              conic-gradient(from 22deg,hsl(var(--h) 90% 62%),hsl(calc(var(--h) + 70) 90% 60%),hsl(calc(var(--h) + 170) 90% 62%),hsl(var(--h) 90% 62%));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
 .st{min-width:0;display:flex;flex-direction:column;gap:2px}
-.st b{font:600 14px/1.25 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st b{font:600 13px/1.25 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .st small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
 .st .lv{font-weight:800;letter-spacing:.04em}
-.acts{display:flex;gap:6px;margin-left:auto}
+.acts{display:flex;gap:6px;margin-left:auto;flex:none}
+.selinfo{display:flex;align-items:center;gap:8px;min-height:30px;margin-top:-6px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.selinfo > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.selinfo .lv{font-weight:800;letter-spacing:.04em}
 .mini{appearance:none;position:relative;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:transparent;
   color:var(--ink);font:700 11px var(--body);padding:6px 9px;border-radius:8px;cursor:pointer;overflow:hidden}
 .mini input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
@@ -108,7 +113,8 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .ghost{appearance:none;border:1px solid var(--line);border-radius:12px;padding:12px 16px;cursor:pointer;
   background:transparent;color:var(--ink);font:700 14px var(--body)}
 .ghost:hover{background:var(--panel-2)}
-.addbtn{border-style:dashed;color:var(--muted)}
+.songbox{display:flex;flex-direction:column;gap:12px;min-width:0}
+.addbtn{border-style:dashed;color:var(--muted);padding-block:9px}
 .addbtn:hover{color:var(--ink)}
 button:focus-visible,summary:focus-visible,.check input:focus-visible,.field input:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 button,label,summary,input[type=range]{touch-action:manipulation}
@@ -290,7 +296,10 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
     <form id="setup" class="card" autocomplete="off">
-      <fieldset class="songs" id="songList"><legend class="sr">曲と難易度</legend></fieldset>
+      <div class="songbox" id="songBox">
+        <div class="songscroll" id="songScroll"><fieldset class="songs" id="songList"><legend class="sr">曲と難易度</legend></fieldset></div>
+        <div class="selinfo" id="selInfo" aria-live="polite"></div>
+      </div>
       <button type="button" class="ghost addbtn" id="addChartBtn">＋ simai譜面を追加</button>
       <fieldset class="opt">
         <legend>モード</legend>
@@ -1923,12 +1932,12 @@ function toast(msg) { toastEl.textContent = msg; toastEl.hidden = false; clearTi
 /* ================= title form / song list ================= */
 function rowsData() {
   const rows = [
-    { id: 'b:basic', title: 'Neon Circuit', label: 'BASIC', lvCol: 'var(--cyan)', hue: 320, sub: `Lv.4 · ${SONGS.basic.notes.length} ノーツ · 内蔵曲` },
-    { id: 'b:expert', title: 'Neon Circuit', label: 'EXPERT', lvCol: 'var(--pink)', hue: 320, sub: `Lv.9 · ${SONGS.expert.notes.length} ノーツ · 内蔵曲` },
+    { id: 'b:basic', title: 'Neon Circuit', label: 'BASIC', lv: 'Lv.4', lvCol: 'var(--cyan)', hue: 320, sub: `Lv.4 · ${SONGS.basic.notes.length} ノーツ · 内蔵曲` },
+    { id: 'b:expert', title: 'Neon Circuit', label: 'EXPERT', lv: 'Lv.9', lvCol: 'var(--pink)', hue: 320, sub: `Lv.9 · ${SONGS.expert.notes.length} ノーツ · 内蔵曲` },
   ];
   for (const bd of BUNDLED) {
     const s = chartInfo(bd.id).song, au = AUDIO[bd.id];
-    rows.push({ id: bd.id, title: bd.title, label: bd.label, lvCol: bd.lvCol || 'var(--gold)', hue: hueOf(bd.title), audioOnly: !bd.music,
+    rows.push({ id: bd.id, title: bd.title, label: bd.label, lv: bd.lv, lvCol: bd.lvCol || 'var(--gold)', hue: hueOf(bd.title), audioOnly: !bd.music,
       sub: `${bd.lv} · ${s.notes.length} ノーツ · ${fmtTime(s.endT - 2)} · ${bd.music ? '内蔵曲' : au ? '♪ ' + au.name : '内蔵譜面'}` });
   }
   for (const e of IMPORTS) {
@@ -1942,35 +1951,46 @@ function rowsData() {
     }
     if (!PARSED[e.id]) PARSED[e.id] = parseChart(e.text);
     const s = PARSED[e.id], au = AUDIO[e.id];
-    rows.push({ id: e.id, title: e.title, label: e.label, lvCol: 'var(--violet)', hue: hueOf(e.title), imported: true,
+    rows.push({ id: e.id, title: e.title, label: e.label, lv: e.lv || '', lvCol: 'var(--violet)', hue: hueOf(e.title), imported: true,
       sub: `${e.lv ? e.lv + ' · ' : ''}${s.notes.length} ノーツ · ${fmtTime(s.endT - 2)} · ${au ? '♪ ' + au.name : '音源なし'}` });
   }
   return rows;
 }
+let ROWS = [];
 function renderSongs() {
-  const rows = rowsData();
+  const rows = ROWS = rowsData();
   if (!rows.some(r => r.id === settings.chart)) settings.chart = 'b:basic';
   songList.innerHTML = '<legend class="sr">曲と難易度</legend>' + rows.map(r => `
     <div class="songrow${r.id === settings.chart ? ' sel' : ''}" data-id="${esc(r.id)}">
       <input type="radio" name="chart" id="ch_${esc(r.id)}" value="${esc(r.id)}"${r.id === settings.chart ? ' checked' : ''}>
       <label for="ch_${esc(r.id)}" class="songmain">
         <span class="jk" style="--h:${r.hue}"></span>
-        <span class="st"><b>${esc(r.title)}</b><small><span class="lv" style="color:${r.lvCol}">${esc(r.label)}</span> · ${esc(r.sub)}</small></span>
+        <span class="st"><b>${esc(r.title)}</b><small><span class="lv" style="color:${r.lvCol}">${esc(r.label)}</span>${r.lv ? ' ' + esc(r.lv.replace(/^Lv\./, '')) : ''}</small></span>
       </label>
-      ${r.imported ? `<div class="acts">
-        <label class="mini">音源<input type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a" data-audio="${esc(r.id)}" aria-label="${esc(r.title)} の音源を選ぶ"></label>
-        <button type="button" class="mini" data-del="${esc(r.id)}">削除</button>
-      </div>` : r.audioOnly ? `<div class="acts">
-        <label class="mini">音源<input type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a" data-audio="${esc(r.id)}" aria-label="${esc(r.title)} の音源を選ぶ"></label>
-      </div>` : ''}
     </div>`).join('');
+  renderSelInfo();
+  // 選んでいる曲が見える位置までリストだけをスクロール（ページ全体は動かさない）
+  const sel = songList.querySelector('.songrow.sel'), box = $('#songScroll');
+  if (sel && box.scrollHeight > box.clientHeight) {
+    const top = sel.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop, bot = top + sel.offsetHeight;
+    if (top < box.scrollTop) box.scrollTop = top - 4;
+    else if (bot > box.scrollTop + box.clientHeight) box.scrollTop = bot - box.clientHeight + 4;
+  }
 }
-songList.addEventListener('change', async e => {
+function renderSelInfo() {
+  const r = ROWS.find(x => x.id === settings.chart); if (!r) { $('#selInfo').innerHTML = ''; return; }
+  const audio = `<label class="mini">音源<input type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a" data-audio="${esc(r.id)}" aria-label="${esc(r.title)} の音源を選ぶ"></label>`;
+  $('#selInfo').innerHTML = `<span><span class="lv" style="color:${r.lvCol}">${esc(r.label)}</span> · ${esc(r.sub)}</span>` +
+    (r.imported ? `<div class="acts">${audio}<button type="button" class="mini" data-del="${esc(r.id)}">削除</button></div>`
+      : r.audioOnly ? `<div class="acts">${audio}</div>` : '');
+}
+const songBox = $('#songBox');
+songBox.addEventListener('change', async e => {
   const el = e.target;
   if (el.name === 'chart') {
     settings.chart = el.value; saveSettings();
     songList.querySelectorAll('.songrow').forEach(r => r.classList.toggle('sel', r.dataset.id === el.value));
-    bestLine();
+    renderSelInfo(); bestLine();
   } else if (el.dataset.audio) {
     const f = el.files && el.files[0]; if (!f) return;
     try { AUDIO[el.dataset.audio] = { buf: await decodeFile(f), name: f.name }; toast('音源を読み込みました'); }
@@ -1978,7 +1998,7 @@ songList.addEventListener('change', async e => {
     renderSongs();
   }
 });
-songList.addEventListener('click', e => {
+songBox.addEventListener('click', e => {
   const b = e.target.closest('[data-del]'); if (!b) return;
   const id = b.dataset.del;
   if (!b.classList.contains('warn')) {
