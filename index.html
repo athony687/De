@@ -1177,23 +1177,22 @@ const distTo = (p, x, y) => Math.hypot(p[0] - x, p[1] - y);
 function hitTouchGroup(first, t, near) {
   for (const n of scanCands(t, n => isTouch(n) && Math.abs(n.t - first.t) < .02 && near(n))) applyHit(n, t);
 }
-// 押した位置で受け付けるボタン。境目の近くなら隣のボタンも受け付ける（各ボタン ±42° くらい）
-const LANE_SLACK = .34;
-function lanesNear(nx, ny) {
-  if (Math.hypot(nx, ny) < .14) return [];
-  const a = Math.atan2(ny, nx), k = laneOfAngle(a);
-  let off = a - laneAng(k); off = Math.atan2(Math.sin(off), Math.cos(off));
-  const out = [k];
-  if (Math.abs(off) > Q / 2 - LANE_SLACK) out.push(mod8(k + (off > 0 ? 1 : -1)));
-  return out;
-}
+// 押した方向のボタンのノーツを最優先で取る。そのボタンに取れるノーツがないときだけ、
+// 境目のすぐ近く（NEIGHBOR_ZONE 以内）を押していれば隣のボタンのノーツも取る。
+// 隣から取るのは GREAT 幅以内のノーツだけにして、指のぶれや余計な指で隣のノーツを横取りしない
+// （横取りすると、そのノーツを叩きに来た本来の指が空振りしてミスになる）
+const NEIGHBOR_ZONE = .16;   // 境目から約9°以内
 function hitPointer(nx, ny, t) {
   const rg = regionAt(nx, ny); if (rg < 0) return;
-  // 境目の近くなら隣のボタンも候補にして、叩いた時刻にいちばん近いノーツを取る（速いトリルで隣のノーツを先取りしない）
   let tap = null;
-  for (const L of lanesNear(nx, ny)) {
-    const c = scanCands(t, n => isHead(n) && n.lane === L)[0];
-    if (c && (!tap || Math.abs(c.t - t) < Math.abs(tap.t - t) - 1e-4)) tap = c;
+  if (Math.hypot(nx, ny) >= .14) {
+    const a = Math.atan2(ny, nx), k = laneOfAngle(a);
+    let off = a - laneAng(k); off = Math.atan2(Math.sin(off), Math.cos(off));
+    tap = scanCands(t, n => isHead(n) && n.lane === k)[0] || null;
+    if (!tap && Math.abs(off) > Q / 2 - NEIGHBOR_ZONE) {
+      const L = mod8(k + (off > 0 ? 1 : -1));
+      tap = scanCands(t, n => isHead(n) && n.lane === L && Math.abs(t - n.t) <= W_G)[0] || null;
+    }
   }
   const tch = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR)[0];
   let pick = tap || tch;
