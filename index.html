@@ -2129,19 +2129,30 @@ $('#impForm').addEventListener('submit', e => {
 /* ================= pointer ================= */
 // 画面上のキャンバスの位置を毎回読み直す（iPad では文字入力のあとにページがずれることがあるため）
 function freshRect() { const r = cv.getBoundingClientRect(); ar = { left: r.left, top: r.top, width: r.width, height: r.height }; }
-cv.addEventListener('pointerdown', e => {
+// iPad / iPhone の指は Touch Events で受ける。Pointer Events のままだと、ホールドやスライドで1本目の指を
+// 置いたまま2本目で叩いたとき、Safari が2本指の操作（拡大など）と見なして、指の入力を取り消したり
+// 届けなかったりすることがある。touchstart を preventDefault すれば、画面上の指はすべてゲームが受け取れる。
+// マウスやペンはこれまでどおり Pointer Events で受ける
+const TOUCH_EV = 'ontouchstart' in window;
+const fromTouch = e => TOUCH_EV && e.pointerType === 'touch';
+function fingerDown(id, clientX, clientY, ev) {
   if (mode !== 'play' || !run || run.paused) return;
-  e.preventDefault();
   freshRect();
-  const x = e.clientX - ar.left, y = e.clientY - ar.top, nx = (x - cx) / R, ny = (y - cy) / R;
+  const x = clientX - ar.left, y = clientY - ar.top, nx = (x - cx) / R, ny = (y - cy) / R;
   const rg = regionAt(nx, ny);
   const lane0 = rg >= 0 && rg < 8 ? rg : -1;
-  ptrs.set(e.pointerId, { x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false });
-  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+  ptrs.set(id, { x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false });
   if (rg < 0) return;
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
-  hitPointer(nx, ny, inT(e));
+  hitPointer(nx, ny, inT(ev));
+}
+cv.addEventListener('pointerdown', e => {
+  if (fromTouch(e)) return;
+  if (mode !== 'play' || !run || run.paused) return;
+  e.preventDefault();
+  fingerDown(e.pointerId, e.clientX, e.clientY, e);
+  try { cv.setPointerCapture(e.pointerId); } catch (_) {}
 });
 // 流し：リングの外側を指ですべらせて別のボタンの範囲に入ったら、そのボタンを叩いたことにする。
 // ただし指のぶれ（接触面の中心が数px〜十数pxずれる）で境目をまたいだだけのときは数えない。
@@ -2173,11 +2184,14 @@ function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
   }
 }
 cv.addEventListener('pointermove', e => {
-  const p = ptrs.get(e.pointerId); if (!p) return;
+  if (fromTouch(e)) return;
+  // 間引かれた細かい移動も拾って、速いスライドでも経路を取りこぼさない
+  fingerMove(e.pointerId, (e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e]);
+});
+function fingerMove(id, evs) {
+  const p = ptrs.get(id); if (!p) return;
   freshRect();
   const live = mode === 'play' && run && !run.paused && !run.auto && !run.over;
-  // 間引かれた細かい移動も拾って、速いスライドでも経路を取りこぼさない
-  const evs = (e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e];
   for (const ce of evs) {
     const x = ce.clientX - ar.left, y = ce.clientY - ar.top;
     if (live) {
@@ -2190,11 +2204,27 @@ cv.addEventListener('pointermove', e => {
     else if (p.moved) traverse(p.x, p.y, x, y);
     p.x = x; p.y = y;
   }
-});
-const up = e => { ptrs.delete(e.pointerId); };
+}
+const up = e => { if (!fromTouch(e)) ptrs.delete(e.pointerId); };
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
 cv.addEventListener('lostpointercapture', up);
+// 指（Touch Events）。identifier は Pointer の番号と混ざらないよう 't' を付けて区別する
+const tid = t => 't' + t.identifier;
+if (TOUCH_EV) {
+  cv.addEventListener('touchstart', e => {
+    if (mode !== 'play' || !run) return;
+    e.preventDefault();
+    for (const t of e.changedTouches) fingerDown(tid(t), t.clientX, t.clientY, e);
+  }, { passive: false });
+  cv.addEventListener('touchmove', e => {
+    e.preventDefault();
+    for (const t of e.changedTouches) fingerMove(tid(t), [{ clientX: t.clientX, clientY: t.clientY, timeStamp: e.timeStamp }]);
+  }, { passive: false });
+  const tEnd = e => { for (const t of e.changedTouches) ptrs.delete(tid(t)); };
+  cv.addEventListener('touchend', tEnd);
+  cv.addEventListener('touchcancel', tEnd);
+}
 cv.addEventListener('contextmenu', e => e.preventDefault());
 // iPad / iPhone の Safari：ピンチ拡大や、なぞったときの画面スクロールを止める
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
