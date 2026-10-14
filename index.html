@@ -333,6 +333,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <label class="check" for="jauto"><input type="checkbox" id="jauto" checked><span>判定タイミングを自動で合わせる <small>プレイのあと、叩いたタイミングの平均のずれに合わせて調整する</small></span></label>
           <label class="check" for="guide"><input type="checkbox" id="guide" checked><span>ガイド音 <small>読み込んだ譜面でノーツの位置に音を鳴らす</small></span></label>
           <label class="check" for="nagashi"><input type="checkbox" id="nagashi" checked><span>流し <small>リングに沿って指をすべらせ、入ったボタンのノーツも叩いた判定にする</small></span></label>
+          <label class="check" for="nassist"><input type="checkbox" id="nassist" checked><span>流しの補助 <small>すべらせた指がボタンに入るのが早すぎても遅すぎても、ノーツの時刻にそのボタンにいれば叩いた判定にする</small></span></label>
         </div>
       </details>
       <details>
@@ -998,7 +999,7 @@ function buildSong(ex) {
 }
 
 /* ================= charts registry ================= */
-const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, jofs: 0, jauto: true };
+const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, jofs: 0, jauto: true };
 // ノーツ速度 → ノーツが出てからリングに届くまでの秒数（7.0 で約 0.46 秒）
 const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
 let SONGS = null, IMPORTS = [];
@@ -1203,9 +1204,9 @@ function scanCands(t, pred) {
   }
   return out;
 }
-function applyHit(n, t) {
+function applyHit(n, t, assisted) {
   const d = t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
-  if (!run.auto && !run.demo && Number.isFinite(d)) run.devs.push(d / (run.rate || 1));
+  if (!run.auto && !run.demo && !assisted && Number.isFinite(d)) run.devs.push(d / (run.rate || 1));
   if (n.type === 'tap') { fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n); }
   else if (n.type === 'touch') { fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n); }
   else {
@@ -1334,6 +1335,7 @@ function update(now, pf) {
   if (r.auto) h = new Array(8).fill(false);
   else ({ h, S, P } = readInput());
   const notes = r.notes, nj = now - jShift();   // 判定用の時刻（判定タイミング補正の分ずらす）
+  if (!r.auto) assistSweeps(nj);
   for (let i = r.first; i < notes.length; i++) {
     const n = notes[i];
     if (n.t > now + .5) break;
@@ -1655,7 +1657,7 @@ async function startPlay() {
   run.base = -lead; run.acBase = AC.currentTime + .05;
   const au = !ch.synth && AUDIO[ch.id];
   if (au) playTrack(au.buf, ch.first, run.base, run.acBase, run.rate);
-  ptrs.clear(); keys.clear(); trail.length = 0; centerKey = false; lastPress.fill(-1e9);
+  ptrs.clear(); keys.clear(); trail.length = 0; sweeps.length = 0; centerKey = false; lastPress.fill(-1e9);
   pMarks.innerHTML = ''; pSeek.max = run.endT; pSeek.value = 0;
   pOpen = false;
   setMode('play');
@@ -1686,7 +1688,7 @@ function pause(menu = true) {
   if (mode !== 'play' || !run || run.demo || run.paused || run.over) return;
   run.pausedAt = songAt(performance.now()); run.paused = true;
   try { AC.suspend(); } catch (e) {}
-  ptrs.clear(); keys.clear(); centerKey = false;
+  ptrs.clear(); keys.clear(); sweeps.length = 0; centerKey = false;
   if (menu) { pauseOv.hidden = false; $('#resumeBtn').focus({ preventScroll: true }); }
   updPracticeUI();
 }
@@ -1740,6 +1742,7 @@ const curSong = () => run.paused ? run.pausedAt + settings.ofs / 1000 : songRaw(
 // pos（曲の時刻）から再生し直す。resetNotes なら pos 以降のノーツを未判定に戻す
 function rebase(pos, resetNotes) {
   const r = run;
+  sweeps.length = 0;
   killBus(bus); bus = makeBus(); stopTrack(false);
   if (resetNotes) {
     for (const n of r.notes) {
@@ -2026,6 +2029,7 @@ function syncForm() {
   renderSongs();
   spdIn.value = settings.nspd; ofsIn.value = settings.ofs; autoIn.checked = !!settings.auto; guideIn.checked = settings.guide !== false;
   $('#nagashi').checked = settings.nagashi !== false;
+  $('#nassist').checked = settings.nassist !== false;
   $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
   ($('#m_' + (settings.practice ? 'prac' : 'play'))).checked = true;
   $('#prate').value = settings.prate;
@@ -2044,6 +2048,7 @@ ofsIn.addEventListener('input', () => { settings.ofs = +ofsIn.value; outs(); sav
 autoIn.addEventListener('change', () => { settings.auto = autoIn.checked; saveSettings(); });
 guideIn.addEventListener('change', () => { settings.guide = guideIn.checked; saveSettings(); });
 $('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); });
+$('#nassist').addEventListener('change', () => { settings.nassist = $('#nassist').checked; saveSettings(); });
 $('#jofs').addEventListener('input', () => { settings.jofs = +$('#jofs').value; outs(); saveSettings(); });
 $('#jauto').addEventListener('change', () => { settings.jauto = $('#jauto').checked; saveSettings(); });
 $('#setup').addEventListener('submit', e => { e.preventDefault(); startPlay(); });
@@ -2141,7 +2146,7 @@ function fingerDown(id, clientX, clientY, ev) {
   const x = clientX - ar.left, y = clientY - ar.top, nx = (x - cx) / R, ny = (y - cy) / R;
   const rg = regionAt(nx, ny);
   const lane0 = rg >= 0 && rg < 8 ? rg : -1;
-  ptrs.set(id, { x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false });
+  ptrs.set(id, { id, x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false });
   if (rg < 0) return;
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
@@ -2158,26 +2163,63 @@ cv.addEventListener('pointerdown', e => {
 // ただし指のぶれ（接触面の中心が数px〜十数pxずれる）で境目をまたいだだけのときは数えない。
 // 最後に叩いた位置から NAGASHI_MOVE 以上すべらせてはじめて、入ったボタンを叩いたことにする
 const NAGASHI_MOVE = .2;
+/* 流しの補助：すべらせた指が、どのボタンにいつからいつまでいたかを記録しておく（sweeps）。
+   ノーツの時刻にそのボタンにいた指があれば、ちょうどの時刻に叩いたことにする。
+   入るのが遅れた・早く抜けたときは、入った時刻・抜けた時刻とのずれで判定する（早すぎ・遅すぎでも取りこぼさない）。
+   ずっと同じボタンに置いたままの指では取れないよう、ノーツの ASSIST_EARLY 秒前より後に入った場合だけ数える。
+   1回入ったら取れるのはノーツ1つまで */
+const ASSIST_EARLY = .35;
+const sweeps = [];
+const assistOn = () => settings.nagashi !== false && settings.nassist !== false;
+function closeSweep(id, t) { for (const v of sweeps) if (v.id === id && v.tOut == null) v.tOut = t; }
+function assistSweeps(nj) {
+  for (let i = sweeps.length - 1; i >= 0; i--) { const v = sweeps[i]; if (v.tOut != null && v.tOut < nj - 1.5) sweeps.splice(i, 1); }
+  if (!sweeps.length || !assistOn()) return;
+  const ns = run.notes;
+  for (let i = run.first; i < ns.length; i++) {
+    const n = ns[i];
+    if (n.t > nj) break;
+    if (n.fin || n.type !== 'tap' || nj > n.t + W_D) continue;
+    let best = null, bd = 1e9;
+    for (const v of sweeps) {
+      if (v.used || v.lane !== n.lane) continue;
+      const out = v.tOut == null ? nj : v.tOut;
+      if (v.tIn < n.t - ASSIST_EARLY || v.tIn > n.t + W_D || out < n.t - W_D) continue;
+      const ht = clamp(n.t, v.tIn, out), d = Math.abs(ht - n.t);
+      if (d < bd) { bd = d; best = { v, ht }; }
+    }
+    if (!best) continue;
+    // ノーツの時刻にボタンにいなかったときは、別の指で直接叩くのを GREAT の幅まで待ってから使う
+    if (bd > W_P && nj < n.t + W_G) continue;
+    best.v.used = true;
+    applyHit(n, best.ht, true);
+  }
+}
 function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
+  const assist = live && assistOn();
   const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (R * .05)));
   for (let i = 1; i <= steps; i++) {
     const nx = (x0 + (x1 - x0) * i / steps - cx) / R, ny = (y0 + (y1 - y0) * i / steps - cy) / R, d = Math.hypot(nx, ny);
     let lane = -1;
-    if (d >= .62 && d <= 1.9) {
+    // 流しの補助がオンなら、リングの内側（中央を除く）をすべらせても、その向きのボタンに入ったことにする
+    if (d >= (assist ? .3 : .62) && d <= 1.9) {
       const a = Math.atan2(ny, nx); lane = laneOfAngle(a);
       if (p.lane >= 0 && lane !== p.lane) {
         let off = a - laneAng(lane); off = Math.atan2(Math.sin(off), Math.cos(off));
         if (Math.abs(off) > Q / 2 - .07) lane = p.lane;   // 境目ぎりぎりでは切り替えない（二重判定を防ぐ）
       }
     }
-    if (lane !== p.lane) { p.lane = lane; p.pend = lane >= 0 && lane !== p.hitLane; }
+    if (lane !== p.lane) {
+      p.lane = lane; p.pend = lane >= 0 && lane !== p.hitLane;
+      if (live) { closeSweep(p.id, t); if (lane >= 0) sweeps.push({ id: p.id, lane, tIn: t, tOut: null, used: false }); }
+    }
     if (lane < 0 || !p.pend) continue;
     const px = x0 + (x1 - x0) * i / steps, py = y0 + (y1 - y0) * i / steps;
     if (Math.hypot(px - p.hx, py - p.hy) < R * NAGASHI_MOVE) continue;
     // 十分すべらせてこのボタンに入った
     p.pend = false; p.hitLane = lane; p.hx = px; p.hy = py;
     press(lane, performance.now());
-    if (live && settings.nagashi !== false) {
+    if (live && settings.nagashi !== false && !assistOn()) {
       const n = scanCands(t, n => isHead(n) && n.lane === lane)[0];
       if (n) applyHit(n, t);
     }
@@ -2205,7 +2247,9 @@ function fingerMove(id, evs) {
     p.x = x; p.y = y;
   }
 }
-const up = e => { if (!fromTouch(e)) ptrs.delete(e.pointerId); };
+const liveT = e => (mode === 'play' && run && !run.paused && !run.auto && !run.over) ? inT(e) : null;
+function fingerUp(id, e) { if (!ptrs.has(id)) return; ptrs.delete(id); const t = liveT(e); if (t != null) closeSweep(id, t); else sweeps.length = 0; }
+const up = e => { if (!fromTouch(e)) fingerUp(e.pointerId, e); };
 cv.addEventListener('pointerup', up);
 cv.addEventListener('pointercancel', up);
 cv.addEventListener('lostpointercapture', up);
@@ -2221,7 +2265,7 @@ if (TOUCH_EV) {
     e.preventDefault();
     for (const t of e.changedTouches) fingerMove(tid(t), [{ clientX: t.clientX, clientY: t.clientY, timeStamp: e.timeStamp }]);
   }, { passive: false });
-  const tEnd = e => { for (const t of e.changedTouches) ptrs.delete(tid(t)); };
+  const tEnd = e => { for (const t of e.changedTouches) fingerUp(tid(t), e); };
   cv.addEventListener('touchend', tEnd);
   cv.addEventListener('touchcancel', tEnd);
 }
