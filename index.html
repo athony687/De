@@ -334,6 +334,11 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <label class="check" for="guide"><input type="checkbox" id="guide" checked><span>ガイド音 <small>読み込んだ譜面でノーツの位置に音を鳴らす</small></span></label>
           <label class="check" for="nagashi"><input type="checkbox" id="nagashi" checked><span>流し <small>リングに沿って指をすべらせ、入ったボタンのノーツも叩いた判定にする</small></span></label>
           <label class="check" for="nassist"><input type="checkbox" id="nassist" checked><span>流しの補助 <small>すべらせた指がボタンに入るのが早すぎても遅すぎても、ノーツの時刻にそのボタンにいれば叩いた判定にする</small></span></label>
+          <div class="field">
+            <label for="nlv">流しの補助の強さ</label><output id="nlvOut" for="nlv">100%</output>
+            <input type="range" id="nlv" min="0" max="100" step="25" value="100">
+          </div>
+          <label class="check" for="nauto"><input type="checkbox" id="nauto" checked><span>うまくなったら補助を自動で弱める <small>通しプレイのあと、流しを補助なしで取れた割合に合わせて強さを上げ下げする</small></span></label>
         </div>
       </details>
       <details>
@@ -424,7 +429,9 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <p class="meta"><span>MAX COMBO <b id="resCombo">0</b></span><span>FAST <b id="resFast">0</b> / LATE <b id="resLate">0</b></span></p>
       <p class="best" id="resBest"></p>
       <p class="best" id="resTim" hidden></p>
+      <p class="best" id="resNag" hidden></p>
       <div class="btnrow">
+        <button type="button" class="play" id="drillBtn" hidden>流し地帯を練習</button>
         <button type="button" class="play" id="retryBtn">もう一度</button>
         <button type="button" class="ghost" id="backBtn">曲選択へ</button>
       </div>
@@ -999,7 +1006,7 @@ function buildSong(ex) {
 }
 
 /* ================= charts registry ================= */
-const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, jofs: 0, jauto: true };
+const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true };
 // ノーツ速度 → ノーツが出てからリングに届くまでの秒数（7.0 で約 0.46 秒）
 const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
 let SONGS = null, IMPORTS = [];
@@ -1080,8 +1087,24 @@ function saveSettings() { try { localStorage.setItem('ringbeat:settings', JSON.s
 function getBest(k) { try { return JSON.parse(localStorage.getItem('ringbeat:best2:' + k) || 'null'); } catch (e) { return null; } }
 function setBest(k, v) { try { localStorage.setItem('ringbeat:best2:' + k, JSON.stringify(v)); } catch (e) {} }
 
+// 流し地帯のノーツに印を付ける：隣のボタンへ同じ向きに短い間隔で3つ以上続く単独のタップ
+function markSweeps(notes) {
+  const cnt = new Map();
+  for (const n of notes) if (n.type === 'tap' || n.type === 'hold') { const k = Math.round(n.t * 1000); cnt.set(k, (cnt.get(k) || 0) + 1); }
+  const taps = notes.filter(n => n.type === 'tap' && !n.star && cnt.get(Math.round(n.t * 1000)) === 1);
+  let cur = [];
+  const flush = () => { if (cur.length >= 3) for (const n of cur) n.sw = true; };
+  for (const n of taps) {
+    const p = cur[cur.length - 1], dt = p ? n.t - p.t : 0;
+    const ok = p && dt > .001 && dt <= .11 && Math.abs(mod8(n.lane - p.lane + 4) - 4) === 1
+      && (cur.length < 2 || mod8(n.lane - p.lane) === mod8(p.lane - cur[cur.length - 2].lane));
+    if (ok) cur.push(n); else { flush(); cur = [n]; }
+  }
+  flush();
+}
 function newRun(song, opt) {
   const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0, rel: 0, lastT: null }));
+  markSweeps(notes);
   return { notes, first: 0, mus: song.mus || [], ei: 0, endT: song.endT, units: song.units, app: approachOf(settings.nspd),
     beat: 60 / (song.bpm || 150), demo: !!opt.demo, auto: !!opt.auto, guide: false,
     practice: !!opt.practice, rate: 1, base: 0, acBase: 0, startPos: 0, loopA: null, loopB: null, misses: [],
@@ -1298,7 +1321,8 @@ function achieve(r, live) {
 function judge(j, d, px, py, col, kind, n) {
   const r = run;
   let q = subTier(j, d, kind);
-  if (n && n.ex && j < 3) { j = 0; q = 0; }             // EXノーツ
+  if (n && n.ex && j < 3) { j = 0; q = 0; }
+  if (n) n.jr = j;             // EXノーツ
   const crit = j === 0 && q === 0, w = n ? noteW(n) : 1;
   r.cnt[j]++; r.jn++; r.gotW += w;
   if (n && n.brk) { r.got += w * BRK_BASE[j][q]; r.bonus += BRK_BONUS[j][q]; r.bjn++; }
@@ -1388,7 +1412,7 @@ function update(now, pf) {
   }
   while (r.first < notes.length && notes[r.first].fin) r.first++;
   r.held = h;
-  if (now > r.endT) finish();
+  if (now > r.endT || (r.drill && now > r.drill.B + .6)) finish();
 }
 
 /* ================= drawing ================= */
@@ -1746,7 +1770,7 @@ function rebase(pos, resetNotes) {
   killBus(bus); bus = makeBus(); stopTrack(false);
   if (resetNotes) {
     for (const n of r.notes) {
-      if (n.t >= pos) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.rel = 0; n.lastT = null; }
+      if (n.t >= pos) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.rel = 0; n.lastT = null; n.jr = null; n.asRaw = null; n.asInner = false; }
       else n.fin = true;
     }
     r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
@@ -1860,7 +1884,8 @@ function showResult(r) {
   const rEl = $('#resRank'); rEl.textContent = rk; rEl.className = 'rank ' + cls + (rk.length > 2 ? ' long' : '');
   $('#resAcc').textContent = fmtAcc(acc) + '%';
   const b = $('#resBadge');
-  if (r.practice) { b.textContent = 'PRACTICE ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
+  if (r.drill) { b.textContent = '流し練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
+  else if (r.practice) { b.textContent = 'PRACTICE ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.auto) { b.textContent = 'AUTO PLAY'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.cp === r.units) { b.textContent = 'ALL PERFECT+'; b.className = 'badge'; b.hidden = false; }
   else if (r.cnt[0] === r.units) { b.textContent = 'ALL PERFECT'; b.className = 'badge'; b.hidden = false; }
@@ -1881,6 +1906,7 @@ function showResult(r) {
   }
   $('#resBest').textContent = msg;
   timingResult(r);
+  sweepResult(r);
   setMode('result');
   $('#retryBtn').focus({ preventScroll: true });
 }
@@ -1898,6 +1924,93 @@ function timingResult(r) {
     el.textContent = `叩いたタイミング：${tend} → 判定タイミングを ${fmtMs(nv)} に自動で合わせました`;
   } else el.textContent = `叩いたタイミング：${tend}（判定タイミング ${fmtMs(jofsMs())}）`;
   el.hidden = false;
+}
+/* ================= 流しのコーチ =================
+   リザルトで、流し地帯を補助なしでも取れた割合（自力率）と、直すところを1つだけ伝える。
+   通しプレイのあと、自力率に合わせて補助の強さを上げ下げする（85%以上で 25% 弱める、50%未満で 25% 強める）。
+   取れていない所があれば、そこだけを遅い速さで練習する「流し練習」に誘う。
+   流し練習で取れたら少し速く、取れなければ少し遅くして、1.0倍で取れたら通しプレイへ戻す */
+let nextDrill = null;
+function sweepStats(r, from = -1e9, to = 1e9) {
+  const st = { n: 0, ok: 0, inner: 0, raw: [], fails: [] };
+  for (const n of r.notes) {
+    if (!n.sw || n.jr == null || n.t < from || n.t > to) continue;
+    st.n++;
+    const ok = n.jr <= 1 && (n.asRaw == null || (!n.asInner && Math.abs(n.asRaw) <= W_G));
+    if (ok) st.ok++; else st.fails.push(n.t);
+    if (n.asRaw != null) { if (n.asInner) st.inner++; else st.raw.push(n.asRaw); }
+  }
+  return st;
+}
+function sweepAdvice(st) {
+  const rate = st.ok / st.n, raw = st.raw.slice().sort((a, b) => a - b), med = raw.length ? raw[raw.length >> 1] * 1000 : 0;
+  if (st.inner >= Math.max(3, st.n * .2)) return 'リングの内側をなぞっています。ボタンの上（白い輪の上）をなぞると、補助なしでも取れます';
+  const pre = rate >= .85 ? 'ほぼ取れています。さらに合わせるなら、' : '';
+  if (raw.length >= 5 && med < -45) return pre + `指が早く着きすぎています（平均 ${Math.round(-med)}ms 早い）。回す速さを少しゆっくりに`;
+  if (raw.length >= 5 && med > 45) return pre + `指が遅れています（平均 ${Math.round(med)}ms 遅い）。出だしを早めに、回すのも少し速く`;
+  if (rate < .85) return '速さがばらついています。最初の1つで速さを決めて、同じ速さで回しきりましょう';
+  return 'いい流しです';
+}
+// 取れなかった流しが一番集まっている所（2小節ぶん）
+function worstSweep(r, st) {
+  const f = st.fails.slice().sort((a, b) => a - b), w = Math.max(measure() * 2, 1.5);
+  let bi = 0, bc = 0;
+  for (let i = 0, j = 0; i < f.length; i++) { while (j < f.length && f[j] <= f[i] + w) j++; if (j - i > bc) { bc = j - i; bi = i; } }
+  let last = f[bi]; for (let k = bi; k < f.length && f[k] <= f[bi] + w; k++) last = f[k];
+  // 流しの列の途中から始めないよう、その列の最初と最後まで広げる
+  let A = f[bi], B = last;
+  for (const n of r.notes) if (n.sw && n.t < A && A - n.t < .5) A = Math.min(A, n.t);
+  for (const n of r.notes) if (n.sw && n.t > B && n.t - B < .5) B = Math.max(B, n.t);
+  return { A: Math.max(0, A - run.beat), B: B + run.beat * .5 };
+}
+async function startDrill(d) {
+  const prevP = settings.practice, prevR = settings.prate;
+  settings.practice = true; settings.prate = d.rate;
+  await startPlay();
+  settings.practice = prevP; settings.prate = prevR;
+  const r = run; if (!r || !r.practice) return;
+  r.drill = { A: d.A, B: d.B, rate: d.rate };
+  seekTo(d.A);
+  // 練習する所だけで採点する
+  for (const n of r.notes) if (n.t < d.A - .01 || (n.type === 'slide' ? n.s1 : n.t) > d.B) n.fin = true;
+  r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
+  const live = r.notes.filter(n => !n.fin);
+  r.units = live.length || 1; r.totalW = live.reduce((a, n) => a + noteW(n), 0) || 1; r.nBrk = live.filter(n => n.brk).length;
+  updPracticeUI();
+  toast(`流し練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${fmtTime(d.A)}〜${fmtTime(d.B)}`);
+}
+function sweepResult(r) {
+  const el = $('#resNag'), btn = $('#drillBtn');
+  el.hidden = true; btn.hidden = true; nextDrill = null;
+  if (r.auto || r.demo || settings.nagashi === false) return;
+  const st = r.drill ? sweepStats(r, r.drill.A, r.drill.B) : sweepStats(r);
+  if (st.n < (r.drill ? 3 : 8)) return;
+  const rate = st.ok / st.n, pct = Math.round(rate * 100), on = assistOn();
+  let line = `流し：${st.n}個中 ${st.ok}個を補助なしでも取れました（自力 ${pct}%）。${sweepAdvice(st)}`;
+  // 通しプレイ：補助の強さを自動で調整
+  if (!r.practice && on && settings.nauto !== false && st.n >= 12) {
+    const cur = nlvPct(), nv = rate >= .85 ? Math.max(0, cur - 25) : rate < .5 ? Math.min(100, cur + 25) : cur;
+    if (nv !== cur) { settings.nlv = nv; saveSettings(); outs(); $('#nlv').value = nv; line += `\n→ 補助の強さを ${cur}% から ${nv}% に${nv < cur ? '下げました' : '上げました'}`; }
+    else if (cur === 0 && rate >= .85) line += '\n→ 補助なしで流せています！補助をオフにしても大丈夫です';
+    else line += `\n（補助の強さ ${cur}%）`;
+  } else if (on) line += `\n（補助の強さ ${nlvPct()}%）`;
+  // 次の練習に誘う
+  if (r.drill) {
+    const cr = r.drill.rate;
+    if (rate >= .85 && cr >= 1) { nextDrill = 'full'; btn.textContent = '通しで挑戦'; line += '\nこの速さで取れました。通しプレイで試してみましょう'; }
+    else {
+      const nr = rate >= .85 ? Math.min(1, cr + .1) : rate < .5 ? Math.max(.5, cr - .1) : cr;
+      nextDrill = { A: r.drill.A, B: r.drill.B, rate: Math.round(nr * 20) / 20 };
+      btn.textContent = nr > cr ? `速くして練習（${nextDrill.rate.toFixed(2).replace(/0$/, '')}倍）` : nr < cr ? `遅くして練習（${nextDrill.rate.toFixed(2).replace(/0$/, '')}倍）` : `もう一度練習（${cr.toFixed(2).replace(/0$/, '')}倍）`;
+    }
+    btn.hidden = false;
+  } else if (rate < .85 && st.fails.length) {
+    const w = worstSweep(r, st), dr = rate < .4 ? .7 : rate < .7 ? .8 : .9;
+    nextDrill = { A: w.A, B: w.B, rate: dr };
+    btn.textContent = `苦手な流しを練習（${fmtTime(w.A)}〜・${dr.toFixed(2).replace(/0$/, '')}倍）`;
+    btn.hidden = false;
+  }
+  el.textContent = line; el.style.whiteSpace = 'pre-line'; el.hidden = false;
 }
 let hudAccTxt = '';
 function hud(now) {
@@ -2020,6 +2133,7 @@ function outs() {
   const o = +settings.ofs; ofsOut.textContent = (o > 0 ? '+' : o < 0 ? '−' : '±') + Math.abs(o) + ' ms';
   $('#jofsOut').textContent = fmtMs(jofsMs());
   $('#prateOut').textContent = (+settings.prate).toFixed(2).replace(/0$/, '') + 'x';
+  $('#nlvOut').textContent = nlvPct() + '%';
 }
 function bestLine() {
   const ch = currentChart(), b = getBest(ch.bestKey);
@@ -2030,6 +2144,7 @@ function syncForm() {
   spdIn.value = settings.nspd; ofsIn.value = settings.ofs; autoIn.checked = !!settings.auto; guideIn.checked = settings.guide !== false;
   $('#nagashi').checked = settings.nagashi !== false;
   $('#nassist').checked = settings.nassist !== false;
+  $('#nlv').value = nlvPct(); $('#nauto').checked = settings.nauto !== false;
   $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
   ($('#m_' + (settings.practice ? 'prac' : 'play'))).checked = true;
   $('#prate').value = settings.prate;
@@ -2049,6 +2164,8 @@ autoIn.addEventListener('change', () => { settings.auto = autoIn.checked; saveSe
 guideIn.addEventListener('change', () => { settings.guide = guideIn.checked; saveSettings(); });
 $('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); });
 $('#nassist').addEventListener('change', () => { settings.nassist = $('#nassist').checked; saveSettings(); });
+$('#nlv').addEventListener('input', () => { settings.nlv = +$('#nlv').value; outs(); saveSettings(); });
+$('#nauto').addEventListener('change', () => { settings.nauto = $('#nauto').checked; saveSettings(); });
 $('#jofs').addEventListener('input', () => { settings.jofs = +$('#jofs').value; outs(); saveSettings(); });
 $('#jauto').addEventListener('change', () => { settings.jauto = $('#jauto').checked; saveSettings(); });
 $('#setup').addEventListener('submit', e => { e.preventDefault(); startPlay(); });
@@ -2056,7 +2173,8 @@ onTap($('#pauseBtn'), () => pause());
 onTap($('#resumeBtn'), () => resume());
 onTap($('#restartBtn'), () => startPlay());
 onTap($('#quitBtn'), () => setMode('title'));
-$('#retryBtn').addEventListener('click', () => startPlay());
+$('#retryBtn').addEventListener('click', () => { if (run && run.drill) startDrill(run.drill); else startPlay(); });
+$('#drillBtn').addEventListener('click', () => { if (nextDrill === 'full') startPlay(); else if (nextDrill) startDrill(nextDrill); });
 $('#backBtn').addEventListener('click', () => setMode('title'));
 
 /* ================= import ================= */
@@ -2171,28 +2289,36 @@ const NAGASHI_MOVE = .2;
 const ASSIST_EARLY = .35;
 const sweeps = [];
 const assistOn = () => settings.nagashi !== false && settings.nassist !== false;
+const nlvPct = () => clamp(Math.round((settings.nlv == null ? 100 : +settings.nlv) / 25) * 25, 0, 100);
+/* 補助の強さ（0〜1）。1 ならノーツの時刻ちょうどに合わせる。弱めるほど、実際にボタンに入った時刻のずれが判定に残る。
+   0 なら補助なしと同じ判定（リングの内側のなぞりも数えない）。流しの成績は記録して、リザルトで直すところを伝える */
+const assistLv = () => nlvPct() / 100;
 function closeSweep(id, t) { for (const v of sweeps) if (v.id === id && v.tOut == null) v.tOut = t; }
 function assistSweeps(nj) {
   for (let i = sweeps.length - 1; i >= 0; i--) { const v = sweeps[i]; if (v.tOut != null && v.tOut < nj - 1.5) sweeps.splice(i, 1); }
   if (!sweeps.length || !assistOn()) return;
-  const ns = run.notes;
+  const ns = run.notes, lv = assistLv();
   for (let i = run.first; i < ns.length; i++) {
     const n = ns[i];
     if (n.t > nj) break;
     if (n.fin || n.type !== 'tap' || nj > n.t + W_D) continue;
-    let best = null, bd = 1e9;
+    let best = null;
     for (const v of sweeps) {
-      if (v.used || v.lane !== n.lane) continue;
+      if (v.used || v.lane !== n.lane || (v.inner && lv <= 0)) continue;
       const out = v.tOut == null ? nj : v.tOut;
-      if (v.tIn < n.t - ASSIST_EARLY || v.tIn > n.t + W_D || out < n.t - W_D) continue;
-      const ht = clamp(n.t, v.tIn, out), d = Math.abs(ht - n.t);
-      if (d < bd) { bd = d; best = { v, ht }; }
+      if (v.tIn < n.t - ASSIST_EARLY || v.tIn > n.t + W_D || out < n.t - W_D - .2 * lv) continue;
+      // raw：実際にボタンに入った時刻のずれ。snap：ノーツの時刻に一番近い、指がそのボタンにいた時刻のずれ。
+      // 強さ100%ならずれなし、0%なら raw のまま。間は raw と snap を混ぜて、強さが下がるほどずれが残る
+      const snap = clamp(n.t, v.tIn, out) - n.t, raw = v.tIn - n.t, d = (1 - lv) * (raw * (1 - lv) + snap * lv);
+      if (Math.abs(d) > W_D) continue;
+      if (!best || Math.abs(d) < Math.abs(best.d)) best = { v, d, raw };
     }
     if (!best) continue;
-    // ノーツの時刻にボタンにいなかったときは、別の指で直接叩くのを GREAT の幅まで待ってから使う
-    if (bd > W_P && nj < n.t + W_G) continue;
+    // ずれが残るときは、別の指で直接叩くのを GREAT の幅まで待ってから使う
+    if (Math.abs(best.d) > W_P && nj < n.t + W_G) continue;
     best.v.used = true;
-    applyHit(n, best.ht, true);
+    n.asRaw = best.raw; n.asInner = best.v.inner;
+    applyHit(n, n.t + best.d, true);
   }
 }
 function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
@@ -2211,7 +2337,7 @@ function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
     }
     if (lane !== p.lane) {
       p.lane = lane; p.pend = lane >= 0 && lane !== p.hitLane;
-      if (live) { closeSweep(p.id, t); if (lane >= 0) sweeps.push({ id: p.id, lane, tIn: t, tOut: null, used: false }); }
+      if (live) { closeSweep(p.id, t); if (lane >= 0) sweeps.push({ id: p.id, lane, tIn: t, tOut: null, used: false, inner: d < .62 }); }
     }
     if (lane < 0 || !p.pend) continue;
     const px = x0 + (x1 - x0) * i / steps, py = y0 + (y1 - y0) * i / steps;
