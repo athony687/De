@@ -1539,15 +1539,26 @@ function drawCenter(now, pf) {
     g.fillText('READY', cx, cy);
     g.globalAlpha = 1;
   }
-  if (r.combo >= 3) {
-    const k = clamp((pf - r.comboAt) / 120, 0, 1), sc = reduceMotion ? 1 : 1 + .16 * (1 - k);
-    g.save(); g.translate(cx, cy - R * .02); g.scale(sc, sc); g.globalAlpha = .8;
-    g.font = `900 ${Math.round(R * .14)}px ${DISP}`;
-    const lg = g.createLinearGradient(0, -R * .07, 0, R * .07);
-    lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
-    g.fillStyle = lg; g.fillText(String(r.combo), 0, 0);
-    g.font = `800 ${Math.round(R * .045)}px ${BODY}`; g.fillStyle = 'rgba(245,240,255,.7)';
-    g.fillText('COMBO', 0, R * .11);
+  // 真ん中は COMBO ではなく達成率（maimai でらっくす と同じく 101% から減っていく表示）
+  const rd = !r.demo && !r.seeked && now < 1.4;
+  if (!r.demo) {
+    const t = fmtAcc(Math.max(0, achieve(r, true)));
+    g.save(); g.translate(cx, cy - R * .02);
+    g.globalAlpha = .85 * (rd ? clamp(now - .9, 0, .5) / .5 : 1);
+    if (g.globalAlpha > 0) {
+      const big = Math.round(R * .105), sm = Math.round(R * .05);
+      g.font = `900 ${big}px ${DISP}`; const w1 = g.measureText(t).width;
+      g.font = `800 ${sm}px ${DISP}`; const w2 = g.measureText('%').width;
+      const x0 = -(w1 + w2 + R * .008) / 2;
+      const lg = g.createLinearGradient(0, -R * .06, 0, R * .06);
+      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
+      g.textAlign = 'left'; g.fillStyle = lg;
+      g.font = `900 ${big}px ${DISP}`; g.fillText(t, x0, 0);
+      g.font = `800 ${sm}px ${DISP}`; g.fillText('%', x0 + w1 + R * .008, R * .02);
+      g.textAlign = 'center';
+      g.font = `800 ${Math.round(R * .04)}px ${BODY}`; g.fillStyle = 'rgba(245,240,255,.7)';
+      g.fillText('ACHIEVEMENT', 0, R * .1);
+    }
     g.restore();
   }
 }
