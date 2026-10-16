@@ -1174,13 +1174,15 @@ function saveSettings() { try { localStorage.setItem('ringbeat:settings', JSON.s
 function getBest(k) { try { return JSON.parse(localStorage.getItem('ringbeat:best2:' + k) || 'null'); } catch (e) { return null; } }
 function setBest(k, v) { try { localStorage.setItem('ringbeat:best2:' + k, JSON.stringify(v)); } catch (e) {} }
 
-// 流し地帯のノーツに印を付ける：隣のボタンへ同じ向きに短い間隔で3つ以上続く単独のタップ
+// 流し地帯のノーツに印を付ける：隣のボタンへ同じ向きに短い間隔で3〜5個続く単独のタップ（8,7,6 や 1,2,3 のような短い列）。
+// 同じ向きに6個以上続くものは回転なので流しにしない
+const SWEEP_MIN = 3, SWEEP_MAX = 5;
 function markSweeps(notes) {
   const cnt = new Map();
   for (const n of notes) if (n.type === 'tap' || n.type === 'hold') { const k = Math.round(n.t * 1000); cnt.set(k, (cnt.get(k) || 0) + 1); }
   const taps = notes.filter(n => n.type === 'tap' && !n.star && cnt.get(Math.round(n.t * 1000)) === 1);
   let cur = [];
-  const flush = () => { if (cur.length >= 3) for (const n of cur) n.sw = true; };
+  const flush = () => { if (cur.length >= SWEEP_MIN && cur.length <= SWEEP_MAX) for (const n of cur) n.sw = true; };
   for (const n of taps) {
     const p = cur[cur.length - 1], dt = p ? n.t - p.t : 0;
     const ok = p && dt > .001 && dt <= .11 && Math.abs(mod8(n.lane - p.lane + 4) - 4) === 1
