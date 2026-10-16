@@ -310,7 +310,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         </div>
       </fieldset>
       <div class="field" id="prateField">
-        <label for="prate">再生速度（練習）</label><output id="prateOut" for="prate">0.75x</output>
+        <label for="prate">再生速度（練習・流しだけ練習）</label><output id="prateOut" for="prate">0.75x</output>
         <input type="range" id="prate" min="0.1" max="1" step="0.05" value="0.75">
       </div>
       <div class="field">
@@ -319,6 +319,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       </div>
       <label class="check" for="auto"><input type="checkbox" id="auto">オートプレイでお手本を見る</label>
       <button type="submit" class="play" id="playBtn">PLAY</button>
+      <button type="button" class="ghost" id="sweepBtn" hidden>流しだけ練習</button>
       <p class="best" id="bestTxt"></p>
       <details class="more">
         <summary>詳細設定</summary>
@@ -1898,7 +1899,7 @@ function rebase(pos, resetNotes) {
   killBus(bus); bus = makeBus(); stopTrack(false);
   if (resetNotes) {
     for (const n of r.notes) {
-      if (n.t >= pos) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.rel = 0; n.lastT = null; n.jr = null; n.asRaw = null; n.asInner = false; }
+      if (n.t >= pos && !n.skip) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.rel = 0; n.lastT = null; n.jr = null; n.asRaw = null; n.asInner = false; }
       else n.fin = true;
     }
     r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
@@ -2166,21 +2167,40 @@ function worstSweep(r, st) {
   for (const n of r.notes) if (n.sw && n.t > B && n.t - B < .5) B = Math.max(B, n.t);
   return { A: Math.max(0, A - run.beat), B: B + run.beat * .5 };
 }
+// 譜面の流し地帯を全部集める（3秒以内に続く流しは1か所にまとめる）
+function sweepSegs(song) {
+  const ns = song.notes.map(n => ({ ...n })); markSweeps(ns);
+  const ts = ns.filter(n => n.sw).map(n => n.t).sort((a, b) => a - b);
+  if (ts.length < 3) return [];
+  const beat = 60 / (song.bpm || 150), g = [];
+  for (const t of ts) { const s = g[g.length - 1]; if (s && t - s.last < 3) s.last = t; else g.push({ first: t, last: t }); }
+  return g.map(s => ({ A: Math.max(0, s.first - beat), B: s.last + beat * .5 }));
+}
+function updSweepBtn() {
+  const b = $('#sweepBtn'), ch = currentChart();
+  const sg = ch && ch.song && ch.song.notes.length && settings.nagashi !== false ? sweepSegs(ch.song) : [];
+  b.hidden = !sg.length;
+  $('#prateField').hidden = !settings.practice && !sg.length;
+  if (sg.length) b.textContent = `流しだけ練習（${sg.length}か所・${(+settings.prate).toFixed(2).replace(/0$/, '')}倍）`;
+}
 async function startDrill(d) {
   const prevP = settings.practice, prevR = settings.prate;
   settings.practice = true; settings.prate = d.rate;
   const ok = await startPlay();
   settings.practice = prevP; settings.prate = prevR;
   const r = run; if (!ok || !r || !r.practice) return;
-  r.drill = { A: d.A, B: d.B, rate: d.rate };
+  const segs = d.segs || [{ A: d.A, B: d.B }];
+  r.drill = { A: d.A, B: d.B, rate: d.rate, segs: d.segs || null };
   seekTo(d.A);
-  // 練習する所だけで採点する
-  for (const n of r.notes) if (n.t < d.A - .01 || (n.type === 'slide' ? n.s1 : n.t) > d.B) n.fin = true;
+  // 練習する所だけで採点する（それ以外のノーツは skip にして、巻き戻しても出てこないようにする）
+  const inSeg = n => { const e = n.type === 'slide' ? n.s1 : n.t; return segs.some(g => n.t >= g.A - .01 && e <= g.B); };
+  for (const n of r.notes) if (!inSeg(n)) { n.fin = true; n.skip = true; }
   r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
   const live = r.notes.filter(n => !n.fin);
   r.units = live.length || 1; r.totalW = live.reduce((a, n) => a + noteW(n), 0) || 1; r.nBrk = live.filter(n => n.brk).length;
   updPracticeUI();
-  toast(`流し練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${fmtTime(d.A)}〜${fmtTime(d.B)}`);
+  toast(d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
+    : `流し練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${fmtTime(d.A)}〜${fmtTime(d.B)}`);
 }
 function sweepResult(r) {
   const el = $('#resNag'), btn = $('#drillBtn');
@@ -2203,7 +2223,7 @@ function sweepResult(r) {
     if (rate >= .85 && cr >= 1) { nextDrill = 'full'; btn.textContent = '通しで挑戦'; line += '\nこの速さで取れました。通しプレイで試してみましょう'; }
     else {
       const nr = rate >= .85 ? Math.min(1, cr + .1) : rate < .5 ? Math.max(.5, cr - .1) : cr;
-      nextDrill = { A: r.drill.A, B: r.drill.B, rate: Math.round(nr * 20) / 20 };
+      nextDrill = { A: r.drill.A, B: r.drill.B, segs: r.drill.segs, rate: Math.round(nr * 20) / 20 };
       btn.textContent = nr > cr ? `速くして練習（${nextDrill.rate.toFixed(2).replace(/0$/, '')}倍）` : nr < cr ? `遅くして練習（${nextDrill.rate.toFixed(2).replace(/0$/, '')}倍）` : `もう一度練習（${cr.toFixed(2).replace(/0$/, '')}倍）`;
     }
     btn.hidden = false;
@@ -2237,6 +2257,11 @@ function frame(pf) {
     now = songAt(pf);
     // A-B ループ：B に来たら A の少し前から再開
     if (run.practice && !run.paused && mode === 'play' && run.loopA !== null && run.loopB !== null && now >= run.loopB) { seekTo(run.loopA); now = songAt(pf); }
+    // 流しだけ練習：流し地帯のあいだは飛ばして、次の流し地帯の少し前から再開
+    else if (run.drill && run.drill.segs && !run.paused && !run.over && mode === 'play') {
+      const pre = run.app + .8 * Math.min(1, run.rate * 2), g = run.drill.segs.find(x => now <= x.B + .3);
+      if (g && now < g.A - pre - .5) { rebase(g.A - pre, false); updPracticeUI(); now = songAt(pf); }
+    }
     update(now, pf);
   }
   pump();
@@ -2298,6 +2323,7 @@ function renderSongs() {
   }
 }
 function renderSelInfo() {
+  updSweepBtn();
   const r = ROWS.find(x => x.id === settings.chart); if (!r) { $('#selInfo').innerHTML = ''; return; }
   const audio = `<label class="mini">音源<input type="file" accept="audio/*,.mp3,.ogg,.wav,.m4a" data-audio="${esc(r.id)}" aria-label="${esc(r.title)} の音源を選ぶ"></label>`;
   $('#selInfo').innerHTML = `<span><span class="lv" style="color:${r.lvCol}">${esc(r.label)}</span> · ${esc(r.sub)}</span>` +
@@ -2355,21 +2381,21 @@ function syncForm() {
   $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
   ($('#m_' + (settings.practice ? 'prac' : 'play'))).checked = true;
   $('#prate').value = settings.prate;
-  $('#prateField').hidden = !settings.practice;
+  updSweepBtn();
   $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
   outs(); bestLine();
 }
 document.querySelectorAll('input[name=pmode]').forEach(el => el.addEventListener('change', () => {
   settings.practice = el.value === 'practice'; saveSettings();
-  $('#prateField').hidden = !settings.practice;
+  updSweepBtn();
   $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
 }));
-$('#prate').addEventListener('input', () => { settings.prate = +$('#prate').value; outs(); saveSettings(); });
+$('#prate').addEventListener('input', () => { settings.prate = +$('#prate').value; outs(); saveSettings(); updSweepBtn(); });
 spdIn.addEventListener('input', () => { settings.nspd = +spdIn.value; outs(); saveSettings(); if (run && run.demo) run.app = approachOf(settings.nspd); });
 ofsIn.addEventListener('input', () => { settings.ofs = +ofsIn.value; outs(); saveSettings(); });
 autoIn.addEventListener('change', () => { settings.auto = autoIn.checked; saveSettings(); });
 guideIn.addEventListener('change', () => { settings.guide = guideIn.checked; saveSettings(); });
-$('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); });
+$('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); updSweepBtn(); });
 $('#nassist').addEventListener('change', () => { settings.nassist = $('#nassist').checked; saveSettings(); });
 $('#nlv').addEventListener('input', () => { settings.nlv = +$('#nlv').value; outs(); saveSettings(); });
 $('#nauto').addEventListener('change', () => { settings.nauto = $('#nauto').checked; saveSettings(); });
@@ -2381,6 +2407,10 @@ onTap($('#resumeBtn'), () => resume());
 onTap($('#restartBtn'), () => startPlay());
 onTap($('#quitBtn'), () => setMode('title'));
 $('#retryBtn').addEventListener('click', () => { if (run && run.drill) startDrill(run.drill); else startPlay(); });
+$('#sweepBtn').addEventListener('click', () => {
+  const sg = sweepSegs(currentChart().song); if (!sg.length) return;
+  startDrill({ A: sg[0].A, B: sg[sg.length - 1].B, segs: sg, rate: Math.round(clamp(+settings.prate || .75, .1, 1) * 20) / 20 });
+});
 $('#drillBtn').addEventListener('click', () => { if (nextDrill === 'full') startPlay(); else if (nextDrill) startDrill(nextDrill); });
 $('#backBtn').addEventListener('click', () => setMode('title'));
 
