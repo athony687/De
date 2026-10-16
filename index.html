@@ -2126,6 +2126,7 @@ function timingResult(r) {
 }
 /* ================= 流しのコーチ =================
    リザルトで、流し地帯を補助なしでも取れた割合（自力率）と、直すところを1つだけ伝える。
+   取れた＝PERFECT（CRITICAL PERFECT を含む）だけ。GREAT 以下は取れていない扱い。
    通しプレイのあと、自力率に合わせて補助の強さを上げ下げする（85%以上で 25% 弱める、50%未満で 25% 強める）。
    取れていない所があれば、そこだけを遅い速さで練習する「流し練習」に誘う。
    流し練習で取れたら少し速く、取れなければ少し遅くして、1.0倍で取れたら通しプレイへ戻す */
@@ -2135,7 +2136,8 @@ function sweepStats(r, from = -1e9, to = 1e9) {
   for (const n of r.notes) {
     if (!n.sw || n.jr == null || n.t < from || n.t > to) continue;
     st.n++;
-    const ok = n.jr <= 1 && (n.asRaw == null || (!n.asInner && Math.abs(n.asRaw) <= W_G));
+    // PERFECT（CRITICAL を含む）のときだけ取れたことにする。補助で取った流しは、指が実際にボタンに入った時刻も PERFECT の幅に入っていること
+    const ok = n.jr === 0 && (n.asRaw == null || (!n.asInner && Math.abs(n.asRaw) <= W_P));
     if (ok) st.ok++; else st.fails.push(n.t);
     if (n.asRaw != null) { if (n.asInner) st.inner++; else st.raw.push(n.asRaw); }
   }
@@ -2185,7 +2187,7 @@ function sweepResult(r) {
   const st = r.drill ? sweepStats(r, r.drill.A, r.drill.B) : sweepStats(r);
   if (st.n < (r.drill ? 3 : 8)) return;
   const rate = st.ok / st.n, pct = Math.round(rate * 100), on = assistOn();
-  let line = `流し：${st.n}個中 ${st.ok}個を補助なしでも取れました（自力 ${pct}%）。${sweepAdvice(st)}`;
+  let line = `流し：${st.n}個中 ${st.ok}個を補助なしでも PERFECT で取れました（自力 ${pct}%）。${sweepAdvice(st)}`;
   // 通しプレイ：補助の強さを自動で調整
   if (!r.practice && on && settings.nauto !== false && st.n >= 12) {
     const cur = nlvPct(), nv = rate >= .85 ? Math.max(0, cur - 25) : rate < .5 ? Math.min(100, cur + 25) : cur;
