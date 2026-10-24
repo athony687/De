@@ -1,5 +1,5 @@
 // Ring Beat: オフラインでも起動できるように、本体とフォントをキャッシュする
-const CACHE = 'ringbeat-v40';
+const CACHE = 'ringbeat-v41';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
@@ -16,7 +16,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(req.url);
   // 本体：ネットにつながっていれば最新版、だめならキャッシュ
   if (url.origin === location.origin) {
-    e.respondWith(fetch(req).then(res => {
+    // ブラウザの一時保存（数分）も通さず、毎回いちばん新しい版を取りに行く
+    e.respondWith(fetch(req, { cache: 'no-store' }).then(res => {
       const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); return res;
     }).catch(() => caches.match(req).then(r => r || caches.match('./index.html'))));
     return;

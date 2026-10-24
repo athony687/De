@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム プロトタイプ</p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v41</span></p>
       <h1 class="logo">RING <span>BEAT</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1213,7 +1213,11 @@ function assignHands(notes) {
   const H = { L: { t: -9, x: -.7, y: 0, busy: -9 }, R: { t: -9, x: .7, y: 0, busy: -9 } };
   const endOf = n => {
     if (n.type === 'hold' || n.type === 'thold') return n.t + (n.dur || 0);
-    if (n.type === 'tap' && n.star) { const sl = slides.find(v => v.lane === n.lane && Math.abs(v.t - n.t) < .005); if (sl) { n.slideRef = sl; return sl.s1; } }
+    if (n.type === 'tap' && n.star) {
+      // 1つの☆から何本も出るスライドも、全部同じ手でなぞる
+      const sls = slides.filter(v => v.lane === n.lane && Math.abs(v.t - n.t) < .005);
+      if (sls.length) { n.slideRefs = sls; n.slideRef = sls.reduce((a, b) => b.s1 > a.s1 ? b : a); return n.slideRef.s1; }
+    }
     return n.t;
   };
   const cost = (h, n) => {
@@ -1229,7 +1233,7 @@ function assignHands(notes) {
   const take = (h, n) => {
     const [x, y] = notePos(n);
     n.hand = h; Object.assign(H[h], { t: n.t, x, y, busy: endOf(n) });
-    if (n.slideRef) { n.slideRef.hand = h; const e = n.slideRef.end; H[h].x = e[0]; H[h].y = e[1]; }
+    if (n.slideRef) { for (const v of n.slideRefs) v.hand = h; const e = n.slideRef.end; H[h].x = e[0]; H[h].y = e[1]; }
   };
   let prevSw = null;
   for (let i = 0; i < items.length;) {
