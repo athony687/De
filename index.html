@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v43</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v44</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1185,10 +1185,26 @@ function setBest(k, v) { try { localStorage.setItem('ringbeat:best2:' + k, JSON.
 // 流し地帯のノーツに印を付ける：隣のボタンへ同じ向きに短い間隔で3〜5個続く単独のタップ（8,7,6 や 1,2,3 のような短い列）。
 // 同じ向きに6個以上続くものは回転なので流しにしない
 const SWEEP_MIN = 3, SWEEP_MAX = 5;
+// 回転：同じ向きに隣（1つ飛ばしも含む）のボタンへ短い間隔で6個以上続く単独のタップ（1→2→…→8 のようにリングを回るもの）。
+// 1本の手でリングに沿ってすべらせて取る。n.rot に回転ごとの番号を入れる
+const ROT_MIN = 6, ROT_DT = .16;
+function markRotations(notes, taps) {
+  let cur = [], id = 0;
+  const flush = () => { if (cur.length >= ROT_MIN) { id++; for (const n of cur) n.rot = id; } };
+  for (const n of taps) {
+    const p = cur[cur.length - 1], dt = p ? n.t - p.t : 0, st = p ? mod8(n.lane - p.lane) : 0;
+    const dir = st === 1 || st === 2 ? 1 : st === 7 || st === 6 ? -1 : 0;
+    const ok = p && dt > .001 && dt <= ROT_DT && dir && (cur.length < 2 || dir === cur.dir);
+    if (ok) { cur.push(n); cur.dir = dir; } else { flush(); cur = [n]; }
+  }
+  flush();
+}
 function markSweeps(notes) {
   const cnt = new Map();
   for (const n of notes) if (n.type === 'tap' || n.type === 'hold') { const k = Math.round(n.t * 1000); cnt.set(k, (cnt.get(k) || 0) + 1); }
-  const taps = notes.filter(n => n.type === 'tap' && !n.star && cnt.get(Math.round(n.t * 1000)) === 1);
+  const single = notes.filter(n => n.type === 'tap' && cnt.get(Math.round(n.t * 1000)) === 1);
+  markRotations(notes, single);
+  const taps = single.filter(n => !n.star && !n.rot);
   let cur = [];
   const flush = () => { if (cur.length >= SWEEP_MIN && cur.length <= SWEEP_MAX) for (const n of cur) n.sw = true; };
   for (const n of taps) {
@@ -1204,6 +1220,7 @@ function markSweeps(notes) {
    ・ホールドやスライドで手がふさがっている間は、もう片方の手で取る
    ・速い連打で場所が変わるときは、左右交互に取る（同じ手で追いかけない）
    ・流し（3〜5個の短い列）は1本の手ですべらせる
+   ・回転（6個以上リングを回る列）も1本の手でリングに沿ってすべらせる（左右交互にはしない）
    ・同時押しは、右にある方を右手、左にある方を左手 */
 const HAND_JP = { L: '左', R: '右' }, HAND_COL = { L: '#3ee68a', R: '#b49bff' };
 function notePos(n) { return (n.type === 'touch' || n.type === 'thold') ? n.pos : lanePt(n.lane); }
@@ -1235,12 +1252,24 @@ function assignHands(notes) {
     n.hand = h; Object.assign(H[h], { t: n.t, x, y, busy: endOf(n) });
     if (n.slideRef) { for (const v of n.slideRefs) v.hand = h; const e = n.slideRef.end; H[h].x = e[0]; H[h].y = e[1]; }
   };
-  let prevSw = null;
+  let prevSw = null; const rotHand = new Map();
   for (let i = 0; i < items.length;) {
     let j = i; while (j < items.length && items[j].t - items[i].t < .006) j++;
     const grp = items.slice(i, j); i = j;
     if (grp.length === 1) {
       const n = grp[0];
+      // 回転は最初のノーツで決めた手のまま最後まですべらせる（手は動き続けるので busy にしておく）
+      if (n.rot) {
+        let r = rotHand.get(n.rot);
+        if (!r) {
+          let e = n.t; for (const v of items) if (v.rot === n.rot) e = v.t;
+          // 回転の間に空いている手を選ぶ。どちらも空いていれば、1つ目を取りやすい方
+          r = { h: cost('L', n) <= cost('R', n) ? 'L' : 'R', e };
+          rotHand.set(n.rot, r);
+        }
+        take(r.h, n); H[r.h].busy = Math.max(H[r.h].busy, r.e);
+        prevSw = null; continue;
+      }
       // 流しは前のノーツと同じ手ですべらせる
       if (n.sw && prevSw && n.t - prevSw.t <= .12 && H[prevSw.hand].busy <= n.t + .03) { take(prevSw.hand, n); prevSw = n; continue; }
       const h = cost('L', n) <= cost('R', n) ? 'L' : 'R';
@@ -1264,6 +1293,16 @@ function assignHands(notes) {
       tips.push({ t: n.t, e: run[run.length - 1].t, txt: `${HAND_JP[n.hand]}手で流し ${run.map(v => v.lane + 1).join('→')}（指をすべらせる）` });
     }
   }
+  const rotSeen = new Set();
+  for (const n of items) {
+    if (!n.rot || rotSeen.has(n.rot)) continue;
+    rotSeen.add(n.rot);
+    const rn = items.filter(v => v.rot === n.rot);
+    // 何周するか（進んだボタンの数で数える）と向き（ボタンの番号が増える向き＝時計回り）
+    let steps = 0; for (let q = 1; q < rn.length; q++) { const st = mod8(rn[q].lane - rn[q - 1].lane); steps += st <= 2 ? st : 8 - st; }
+    const laps = Math.round(steps / 8 * 2) / 2, cw = mod8(rn[1].lane - rn[0].lane) <= 2;
+    tips.push({ t: n.t, e: rn[rn.length - 1].t, txt: `${HAND_JP[n.hand]}手で回転（${cw ? '時計回り' : '反時計回り'}${laps >= 1 ? `・${laps}周` : ''}）指をすべらせる` });
+  }
   for (let k = 0; k + 1 < items.length; k++) {
     const a = items[k], b = items[k + 1];
     if (Math.abs(a.t - b.t) < .006 && (k === 0 || Math.abs(items[k - 1].t - a.t) >= .006) && (k + 2 >= items.length || Math.abs(items[k + 2].t - a.t) >= .006))
@@ -1272,12 +1311,12 @@ function assignHands(notes) {
   // 左右交互（速い連打が4つ以上、手が交互に入れ替わる）
   for (let k = 0; k < items.length;) {
     let m = k;
-    while (m + 1 < items.length && !items[m + 1].sw && !items[m].sw && items[m + 1].t - items[m].t < .2 && items[m + 1].t - items[m].t > .006 && items[m + 1].hand !== items[m].hand) m++;
+    while (m + 1 < items.length && !items[m + 1].sw && !items[m].sw && !items[m + 1].rot && !items[m].rot && items[m + 1].t - items[m].t < .2 && items[m + 1].t - items[m].t > .006 && items[m + 1].hand !== items[m].hand) m++;
     if (m - k >= 3) tips.push({ t: items[k].t, e: items[m].t, txt: '左右の手で交互に（ノーツの「左・右」のとおり）' });
     k = m + 1;
   }
   // 配置の種類（リザルトの「苦手な配置」に使う）
-  for (const n of items) n.pk = n.sw ? '流し' : (n.type === 'tap' && n.star) ? 'スライド' : n.type === 'hold' ? 'ホールド' : (n.type === 'touch' || n.type === 'thold') ? 'タッチ' : 'タップ';
+  for (const n of items) n.pk = n.rot ? '回転' : n.sw ? '流し' : (n.type === 'tap' && n.star) ? 'スライド' : n.type === 'hold' ? 'ホールド' : (n.type === 'touch' || n.type === 'thold') ? 'タッチ' : 'タップ';
   for (let k = 0; k < items.length; k++) {
     const a = items[k];
     if ((items[k + 1] && Math.abs(items[k + 1].t - a.t) < .006) || (items[k - 1] && Math.abs(items[k - 1].t - a.t) < .006)) { if (a.pk === 'タップ') a.pk = '同時押し'; }
@@ -1285,7 +1324,7 @@ function assignHands(notes) {
   for (const v of slides) v.pk = 'スライド';
   for (let k = 0; k < items.length;) {
     let m = k;
-    while (m + 1 < items.length && !items[m + 1].sw && !items[m].sw && items[m + 1].t - items[m].t < .2 && items[m + 1].t - items[m].t > .006 && items[m + 1].hand !== items[m].hand) m++;
+    while (m + 1 < items.length && !items[m + 1].sw && !items[m].sw && !items[m + 1].rot && !items[m].rot && items[m + 1].t - items[m].t < .2 && items[m + 1].t - items[m].t > .006 && items[m + 1].hand !== items[m].hand) m++;
     if (m - k >= 3) for (let q = k; q <= m; q++) if (items[q].pk === 'タップ' || items[q].pk === 'タッチ') items[q].pk = '交互';
     k = m + 1;
   }
@@ -2444,6 +2483,7 @@ function sweepResult(r) {
 const PK_TIP = {
   '流し': '1本の指でボタンの上をすべらせる。1つ目を拍に合わせ、あとは同じ速さで',
   '交互': 'ノーツの「左・右」のとおりに手を入れ替える。同じ手で追いかけない',
+  '回転': '1本の指でボタンの上をぐるっとすべらせる。最初のボタンで拍に合わせ、同じ速さで回しきる',
   '同時押し': '両手を同時に下ろす。片方が先に着かないよう、手を構えてから',
   'スライド': '☆を押したら離さずに、☆が動き出すのを待ってから線をなぞる',
   'ホールド': '終わりまで押したまま。離すのは次のノーツのときでいい',
@@ -2826,14 +2866,19 @@ const nlvPct = () => clamp(Math.round((settings.nlv == null ? 100 : +settings.nl
    0 なら補助なしと同じ判定（リングの内側のなぞりも数えない）。流しの成績は記録して、リザルトで直すところを伝える */
 const assistLv = () => nlvPct() / 100;
 function closeSweep(id, t) { for (const v of sweeps) if (v.id === id && v.tOut == null) v.tOut = t; }
+// 回転（6個以上リングを回る列）は、流しの補助の設定や強さに関係なく、いつも強さ100%の補助で取る。
+// 流しの補助を自動で弱めていっても、回転だけは反応しなくならないようにする（リングの内側をなぞっても取れる）
+const nagashiOn = () => settings.nagashi !== false;
 function assistSweeps(nj) {
   for (let i = sweeps.length - 1; i >= 0; i--) { const v = sweeps[i]; if (v.tOut != null && v.tOut < nj - 1.5) sweeps.splice(i, 1); }
-  if (!sweeps.length || !assistOn()) return;
-  const ns = run.notes, lv = assistLv();
+  if (!sweeps.length || !nagashiOn()) return;
+  const ns = run.notes, aOn = assistOn(), lv0 = assistLv();
   for (let i = run.first; i < ns.length; i++) {
     const n = ns[i];
     if (n.t > nj) break;
     if (n.fin || n.type !== 'tap' || nj > n.t + W_D) continue;
+    if (!n.rot && !aOn) continue;
+    const lv = n.rot ? 1 : lv0;
     let best = null;
     for (const v of sweeps) {
       if (v.used || v.lane !== n.lane || (v.inner && lv <= 0)) continue;
@@ -2854,13 +2899,12 @@ function assistSweeps(nj) {
   }
 }
 function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
-  const assist = live && assistOn();
   const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (R * .05)));
   for (let i = 1; i <= steps; i++) {
     const nx = (x0 + (x1 - x0) * i / steps - cx) / R, ny = (y0 + (y1 - y0) * i / steps - cy) / R, d = Math.hypot(nx, ny);
     let lane = -1;
-    // 流しの補助がオンなら、リングの内側（中央を除く）をすべらせても、その向きのボタンに入ったことにする
-    if (d >= (assist ? .3 : .62) && d <= 1.9) {
+    // リングの内側（中央を除く）をすべらせても、その向きのボタンに入ったことにする（回転はいつも。それ以外は流しの補助がオンのとき）
+    if (d >= (live && nagashiOn() ? .3 : .62) && d <= 1.9) {
       const a = Math.atan2(ny, nx); lane = laneOfAngle(a);
       if (p.lane >= 0 && lane !== p.lane) {
         let off = a - laneAng(lane); off = Math.atan2(Math.sin(off), Math.cos(off));
@@ -2877,8 +2921,8 @@ function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
     // 十分すべらせてこのボタンに入った
     p.pend = false; p.hitLane = lane; p.hx = px; p.hy = py;
     press(lane, performance.now());
-    if (live && settings.nagashi !== false && !assistOn()) {
-      const n = scanCands(t, n => isHead(n) && n.lane === lane)[0];
+    if (live && settings.nagashi !== false && !assistOn() && Math.hypot(px - cx, py - cy) >= R * .62) {
+      const n = scanCands(t, n => isHead(n) && n.lane === lane && !n.rot)[0];
       if (n) applyHit(n, t);
     }
   }
