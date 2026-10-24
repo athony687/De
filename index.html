@@ -320,6 +320,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <input type="range" id="spd" min="1" max="10" step="0.25" value="7">
       </div>
       <label class="check" for="auto"><input type="checkbox" id="auto">オートプレイでお手本を見る</label>
+      <label class="check" for="hands"><input type="checkbox" id="hands" checked><span>運指ガイド <small>ノーツに「左・右」（取る手）を出し、取り方を画面の下に出す</small></span></label>
       <button type="submit" class="play" id="playBtn">PLAY</button>
       <button type="button" class="ghost" id="sweepBtn" hidden>流しだけ練習</button>
       <p class="best" id="bestTxt"></p>
@@ -1011,7 +1012,7 @@ function buildSong(ex) {
 }
 
 /* ================= charts registry ================= */
-const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true };
+const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true, hands: true };
 // ノーツ速度 → ノーツが出てからリングに届くまでの秒数（7.0 で約 0.46 秒）
 const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
 let SONGS = null, IMPORTS = [];
@@ -1194,10 +1195,89 @@ function markSweeps(notes) {
   }
   flush();
 }
+/* ================= 運指ガイド（どの手で取るか・どう取るか） =================
+   基本：右半分（ボタン1〜4）は右手、左半分（5〜8）は左手。
+   ・ホールドやスライドで手がふさがっている間は、もう片方の手で取る
+   ・速い連打で場所が変わるときは、左右交互に取る（同じ手で追いかけない）
+   ・流し（3〜5個の短い列）は1本の手ですべらせる
+   ・同時押しは、右にある方を右手、左にある方を左手 */
+const HAND_JP = { L: '左', R: '右' };
+function notePos(n) { return (n.type === 'touch' || n.type === 'thold') ? n.pos : lanePt(n.lane); }
+function assignHands(notes) {
+  const slides = notes.filter(n => n.type === 'slide');
+  const items = notes.filter(n => n.type === 'tap' || n.type === 'hold' || n.type === 'touch' || n.type === 'thold').sort((a, b) => a.t - b.t);
+  const H = { L: { t: -9, x: -.7, y: 0, busy: -9 }, R: { t: -9, x: .7, y: 0, busy: -9 } };
+  const endOf = n => {
+    if (n.type === 'hold' || n.type === 'thold') return n.t + (n.dur || 0);
+    if (n.type === 'tap' && n.star) { const sl = slides.find(v => v.lane === n.lane && Math.abs(v.t - n.t) < .005); if (sl) { n.slideRef = sl; return sl.s1; } }
+    return n.t;
+  };
+  const cost = (h, n) => {
+    const st = H[h], [x, y] = notePos(n);
+    if (st.busy > n.t + .03) return 1e9;
+    let c = 0;
+    if (Math.abs(x) > .08 && (x > 0) !== (h === 'R')) c += .7 + Math.abs(x) * .6;   // 反対側へ手を伸ばす
+    const dt = n.t - st.t, dist = Math.hypot(x - st.x, y - st.y);
+    if (dt < .35) c += dist * .06 / Math.max(dt, .03);                              // 短い時間で大きく動く
+    if (dt < .13 && dist > .15 && st.t >= H[h === 'L' ? 'R' : 'L'].t) c += 2.5;      // 速い連打は交互に（直前に使った手で続けない）
+    return c;
+  };
+  const take = (h, n) => {
+    const [x, y] = notePos(n);
+    n.hand = h; Object.assign(H[h], { t: n.t, x, y, busy: endOf(n) });
+    if (n.slideRef) { n.slideRef.hand = h; const e = n.slideRef.end; H[h].x = e[0]; H[h].y = e[1]; }
+  };
+  let prevSw = null;
+  for (let i = 0; i < items.length;) {
+    let j = i; while (j < items.length && items[j].t - items[i].t < .006) j++;
+    const grp = items.slice(i, j); i = j;
+    if (grp.length === 1) {
+      const n = grp[0];
+      // 流しは前のノーツと同じ手ですべらせる
+      if (n.sw && prevSw && n.t - prevSw.t <= .12 && H[prevSw.hand].busy <= n.t + .03) { take(prevSw.hand, n); prevSw = n; continue; }
+      const h = cost('L', n) <= cost('R', n) ? 'L' : 'R';
+      take(h, n); prevSw = n.sw ? n : null; continue;
+    }
+    prevSw = null;
+    if (grp.length === 2) {
+      const [a, b] = grp, c1 = cost('L', a) + cost('R', b), c2 = cost('R', a) + cost('L', b);
+      if (c1 <= c2) { take('L', a); take('R', b); } else { take('R', a); take('L', b); }
+      continue;
+    }
+    // 3つ以上（タッチのまとまりなど）：左右の位置で分ける
+    for (const n of grp) take(notePos(n)[0] < 0 ? 'L' : 'R', n);
+  }
+  // 取り方の説明（画面の下に出す）
+  const tips = [];
+  for (let k = 0; k < items.length; k++) {
+    const n = items[k];
+    if (n.sw && !(items[k - 1] && items[k - 1].sw && n.t - items[k - 1].t <= .12)) {
+      const run = [n]; for (let m = k + 1; m < items.length && items[m].sw && items[m].t - run[run.length - 1].t <= .12; m++) run.push(items[m]);
+      tips.push({ t: n.t, e: run[run.length - 1].t, txt: `${HAND_JP[n.hand]}手で流し ${run.map(v => v.lane + 1).join('→')}（指をすべらせる）` });
+    }
+  }
+  for (let k = 0; k + 1 < items.length; k++) {
+    const a = items[k], b = items[k + 1];
+    if (Math.abs(a.t - b.t) < .006 && (k === 0 || Math.abs(items[k - 1].t - a.t) >= .006) && (k + 2 >= items.length || Math.abs(items[k + 2].t - a.t) >= .006))
+      tips.push({ t: a.t, e: a.t, txt: '両手で同時押し' });
+  }
+  // 左右交互（速い連打が4つ以上、手が交互に入れ替わる）
+  for (let k = 0; k < items.length;) {
+    let m = k;
+    while (m + 1 < items.length && !items[m + 1].sw && !items[m].sw && items[m + 1].t - items[m].t < .2 && items[m + 1].t - items[m].t > .006 && items[m + 1].hand !== items[m].hand) m++;
+    if (m - k >= 3) tips.push({ t: items[k].t, e: items[m].t, txt: '左右の手で交互に（ノーツの「左・右」のとおり）' });
+    k = m + 1;
+  }
+  for (const v of slides) if (v.hand) tips.push({ t: v.t, e: v.s1, txt: `${HAND_JP[v.hand]}手で☆を押して、そのまま線をなぞる` });
+  for (const n of items) if (n.type === 'hold' && n.dur >= .3) tips.push({ t: n.t, e: n.t + n.dur, txt: `${HAND_JP[n.hand]}手で押したまま（離さない）` });
+  tips.sort((a, b) => a.t - b.t);
+  return tips;
+}
 function newRun(song, opt) {
   const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0, rel: 0, lastT: null }));
   markSweeps(notes);
-  return { notes, first: 0, mus: song.mus || [], ei: 0, endT: song.endT, units: song.units, app: approachOf(settings.nspd),
+  const tips = assignHands(notes);
+  return { notes, tips, first: 0, mus: song.mus || [], ei: 0, endT: song.endT, units: song.units, app: approachOf(settings.nspd),
     beat: 60 / (song.bpm || 150), demo: !!opt.demo, auto: !!opt.auto, guide: false,
     practice: !!opt.practice, rate: 1, base: 0, acBase: 0, startPos: 0, loopA: null, loopB: null, misses: [],
     cnt: [0, 0, 0, 0], got: 0, jn: 0, gotW: 0, bonus: 0, bjn: 0, cp: 0, dx: 0, combo: 0, maxc: 0, fast: 0, late: 0,
@@ -1522,6 +1602,31 @@ function drawTap(x, y, s, c, al, exn) {
   g.lineWidth = Math.max(1.2, s * .08); circle(x, y, s * .57); g.stroke();
   g.globalAlpha = 1;
 }
+const handsOn = () => settings.hands !== false && run && !run.demo;
+// 取る手の印（左＝緑、右＝紫）。ノーツの真ん中に出す
+function drawHand(x, y, s, h, al) {
+  if (!h || !handsOn()) return;
+  g.globalAlpha = al;
+  circle(x, y, s); g.fillStyle = h === 'L' ? '#16a35a' : '#7c4dff'; g.fill();
+  g.lineWidth = Math.max(1.5, s * .16); g.strokeStyle = '#fff'; g.stroke();
+  g.font = `900 ${Math.round(s * 1.25)}px ${BODY}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = '#fff'; g.fillText(HAND_JP[h], x, y + s * .05);
+  g.globalAlpha = 1;
+}
+function drawTips(now) {
+  if (!handsOn() || !run.tips || !run.tips.length) return;
+  const A = run.app;
+  let tip = null;
+  for (const v of run.tips) { if (v.e < now - .05) continue; if (v.t > now + A * .9) break; tip = v; break; }
+  if (!tip) return;
+  const y = cy + R * 1.13, fs = Math.round(clamp(R * .065, 13, 22));
+  g.font = `800 ${fs}px ${BODY}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  const w = g.measureText(tip.txt).width + fs * 1.4;
+  g.globalAlpha = .92; g.fillStyle = 'rgba(11,8,20,.85)';
+  g.beginPath(); g.roundRect ? g.roundRect(cx - w / 2, y - fs * .95, w, fs * 1.9, fs * .5) : g.rect(cx - w / 2, y - fs * .95, w, fs * 1.9); g.fill();
+  g.lineWidth = 1.5; g.strokeStyle = 'rgba(196,178,255,.35)'; g.stroke();
+  g.globalAlpha = 1; g.fillStyle = '#f5f0ff'; g.fillText(tip.txt, cx, y);
+}
 function starPath(x, y, ro, rot) {
   g.beginPath();
   for (let i = 0; i < 10; i++) {
@@ -1564,6 +1669,7 @@ function drawHold(n, now, pf) {
   g.lineWidth = w * .22; g.strokeStyle = c.main; g.stroke();
   g.lineWidth = Math.max(1.5, w * .06); g.strokeStyle = '#fff'; g.stroke();
   g.globalAlpha = 1;
+  if (!n.hh) { const a = laneAng(n.lane); drawHand(cx + Math.cos(a) * rh, cy + Math.sin(a) * rh, NS * .44 * s, n.hand, al); }
 }
 const CHEV = [[-.42, -.66], [-.04, -.66], [.42, 0], [-.04, .66], [-.42, .66], [.02, 0]];
 function drawSlidePath(n, now, pf) {
@@ -1592,6 +1698,7 @@ function drawSlideStar(n, now, pf) {
   if (now < n.t) return;
   const [x, y] = pathAt(n, (now - n.s0) / Math.max(n.s1 - n.s0, .001));
   drawStar(cx + x * R, cy + y * R, NS * 1.1, colOf(n), now < n.s0 ? .55 : .92, reduceMotion ? 0 : pf / 300);
+  drawHand(cx + x * R, cy + y * R, NS * .4, n.hand, now < n.s0 ? .55 : .92);
 }
 function drawTouch(n, now) {
   const A = run.app, ph = 1 - (n.t - now) / A;
@@ -1623,6 +1730,7 @@ function drawTouch(n, now) {
   }
   circle(x, y, NS * .2); g.fillStyle = '#fff'; g.fill();
   circle(x, y, NS * .12); g.fillStyle = c.main; g.fill();
+  if (!n.hh) drawHand(x, y, NS * .4, n.hand, al);
   if (n.fw) { g.fillStyle = 'rgba(255,255,255,.85)'; circle(x, y, NS * .08); g.fill(); }
   g.globalAlpha = 1;
 }
@@ -1725,9 +1833,11 @@ function draw(now, pf) {
     const a = laneAng(n.lane), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
     if (n.star) drawStar(x, y, NS * 1.2 * s, n.brk ? C.brk : n.each ? C.each : C.slide, al, reduceMotion ? 0 : pf / 400, n.ex);
     else drawTap(x, y, NS * s, colOf(n), al, n.ex);
+    drawHand(x, y, NS * .44 * s, n.hand, al);
   }
   for (let i = run.first; i < last; i++) { const n = notes[i]; if (n.type === 'slide' && !n.fin) drawSlideStar(n, now, pf); }
   drawTexts(pf);
+  drawTips(now);
 }
 
 /* ================= layout ================= */
@@ -2385,6 +2495,7 @@ function syncForm() {
   $('#nassist').checked = settings.nassist !== false;
   $('#nlv').value = nlvPct(); $('#nauto').checked = settings.nauto !== false;
   $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
+  $('#hands').checked = settings.hands !== false;
   ($('#m_' + (settings.practice ? 'prac' : 'play'))).checked = true;
   $('#prate').value = settings.prate;
   updSweepBtn();
@@ -2407,6 +2518,7 @@ $('#nlv').addEventListener('input', () => { settings.nlv = +$('#nlv').value; out
 $('#nauto').addEventListener('change', () => { settings.nauto = $('#nauto').checked; saveSettings(); });
 $('#jofs').addEventListener('input', () => { settings.jofs = +$('#jofs').value; outs(); saveSettings(); });
 $('#jauto').addEventListener('change', () => { settings.jauto = $('#jauto').checked; saveSettings(); });
+$('#hands').addEventListener('change', () => { settings.hands = $('#hands').checked; saveSettings(); });
 $('#setup').addEventListener('submit', e => { e.preventDefault(); startPlay(); });
 onTap($('#pauseBtn'), () => pause());
 onTap($('#resumeBtn'), () => resume());
