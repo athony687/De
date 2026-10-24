@@ -62,32 +62,34 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .logo span{background:linear-gradient(95deg,var(--pink) 10%,var(--gold) 90%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .stage{flex:1 1 auto;min-height:150px;width:100%}
 
-.card{width:min(440px,100%);flex:none;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;
+.card{width:min(520px,100%);flex:none;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;
   display:flex;flex-direction:column;gap:14px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   box-shadow:0 24px 64px rgba(0,0,0,.5)}
 .card.narrow{width:min(300px,100%);align-items:stretch}
 
 /* song list */
-.songscroll{max-height:min(286px,40vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+.songscroll{max-height:min(360px,46vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   margin-inline:-2px;padding:2px;border-radius:14px}
-.songs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;border:0;margin:0;padding:0;min-width:0}
-.songrow{position:relative;display:flex;align-items:center;padding:6px 8px;border-radius:12px;min-width:0;
-  border:1px solid var(--line);background:var(--panel-2);transition:border-color .15s,background .15s}
-.songrow.sel{border-color:var(--pink);background:rgba(255,61,154,.1)}
+.songs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:0;margin:0;padding:0;min-width:0}
+.songrow{position:relative;display:flex;align-items:center;padding:9px 10px;border-radius:14px;min-width:0;
+  border:1.5px solid var(--line);background:var(--panel-2);transition:border-color .15s,background .15s}
+.songrow.sel{border-color:var(--pink);background:rgba(255,61,154,.16);box-shadow:0 0 0 1px var(--pink),0 6px 18px rgba(255,61,154,.25)}
 .songrow input[type=radio]{position:absolute;opacity:0;pointer-events:none}
 .songmain{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;cursor:pointer}
 .songrow input:focus-visible + .songmain{outline:2px solid var(--gold);outline-offset:4px;border-radius:8px}
-.jk{--h:320;width:34px;height:34px;border-radius:9px;flex:none;
+.jk{--h:320;width:44px;height:44px;border-radius:11px;flex:none;
   background:radial-gradient(circle,#0b0814 0 30%,transparent 31%),
              radial-gradient(circle,transparent 0 42%,rgba(245,240,255,.9) 43% 47%,transparent 48%),
              conic-gradient(from 22deg,hsl(var(--h) 90% 62%),hsl(calc(var(--h) + 70) 90% 60%),hsl(calc(var(--h) + 170) 90% 62%),hsl(var(--h) 90% 62%));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
-.st{min-width:0;display:flex;flex-direction:column;gap:2px}
-.st b{font:600 13px/1.25 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.st .lv{font-weight:800;letter-spacing:.04em}
+.st{min-width:0;display:flex;flex-direction:column;gap:5px}
+.st b{font:700 15px/1.25 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.st small{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.st .lv{font-weight:800;letter-spacing:.04em;font-size:10px;padding:2px 7px;border-radius:6px;color:var(--c);
+  background:color-mix(in srgb,var(--c) 20%,transparent)}
+.st .lvn{font:800 15px/1 var(--display);color:var(--ink)}
 .acts{display:flex;gap:6px;margin-left:auto;flex:none}
-.selinfo{display:flex;align-items:center;gap:8px;min-height:30px;margin-top:-6px;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.selinfo{display:flex;align-items:center;gap:8px;min-height:30px;margin-top:-4px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .selinfo > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .selinfo .lv{font-weight:800;letter-spacing:.04em}
 .mini{appearance:none;position:relative;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:transparent;
@@ -96,16 +98,16 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .mini.warn{border-color:var(--pink);color:var(--pink)}
 .mini:focus-within{outline:2px solid var(--gold);outline-offset:2px}
 
-.field{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:13px;font-weight:700}
+.field{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;font-size:14px;font-weight:700}
 .field input[type=range]{grid-column:1/-1;width:100%;margin:0;accent-color:var(--pink);height:26px}
-.field output{font:600 12px var(--display);color:var(--gold);font-variant-numeric:tabular-nums}
+.field output{font:700 14px var(--display);color:var(--gold);font-variant-numeric:tabular-nums}
 .checks{display:flex;flex-direction:column;gap:10px}
-.check{display:flex;gap:10px;align-items:center;font-size:13px;font-weight:700;cursor:pointer}
-.check input{width:18px;height:18px;margin:0;accent-color:var(--pink);flex:none}
+.check{display:flex;gap:10px;align-items:center;font-size:14px;font-weight:700;cursor:pointer}
+.check input{width:22px;height:22px;margin:0;accent-color:var(--pink);flex:none}
 .check small{color:var(--muted);font-weight:500}
 
-.play{appearance:none;border:0;border-radius:14px;padding:15px 18px;cursor:pointer;
-  font:900 18px/1 var(--display);letter-spacing:.1em;color:#fff;
+.play{appearance:none;border:0;border-radius:16px;padding:19px 18px;cursor:pointer;
+  font:900 21px/1 var(--display);letter-spacing:.1em;color:#fff;
   background:linear-gradient(135deg,#ff3d9a,#ff6b5a);box-shadow:0 10px 28px rgba(255,61,154,.35);
   transition:transform .08s,box-shadow .15s}
 .play:hover{box-shadow:0 12px 34px rgba(255,61,154,.5)}
@@ -119,8 +121,8 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 button:focus-visible,summary:focus-visible,.check input:focus-visible,.field input:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 button,label,summary,input[type=range]{touch-action:manipulation}
 
-.best{margin:0;font-size:12px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
-details{font-size:13px;color:var(--muted);line-height:1.65}
+.best{margin:0;font-size:13px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+details{font-size:14px;color:var(--muted);line-height:1.65}
 summary{cursor:pointer;color:var(--ink);font-weight:800;list-style-position:inside}
 details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:2px}
@@ -198,13 +200,13 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .sharerow{margin:-6px 0 0;display:flex;justify-content:center}
 
 /* segmented choices (mode / judge width) */
-.opt{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700;border:0;margin:0;padding:0;min-width:0}
+.opt{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700;border:0;margin:0;padding:0;min-width:0}
 .opt legend{padding:0;margin-bottom:6px}
 .segs{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px}
 .segs input{position:absolute;opacity:0;pointer-events:none}
-.segs label{display:flex;flex-direction:column;align-items:center;gap:1px;padding:8px 6px;border-radius:10px;border:1px solid var(--line);
-  background:var(--panel-2);cursor:pointer;text-align:center;font-size:13px;font-weight:800;transition:border-color .15s,background .15s}
-.segs label small{font-size:10px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.segs label{display:flex;flex-direction:column;align-items:center;gap:1px;padding:11px 6px;border-radius:12px;border:1.5px solid var(--line);
+  background:var(--panel-2);cursor:pointer;text-align:center;font-size:15px;font-weight:800;transition:border-color .15s,background .15s}
+.segs label small{font-size:11px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
 .segs input:checked + label{border-color:var(--pink);background:rgba(255,61,154,.13)}
 .segs input:focus-visible + label{outline:2px solid var(--gold);outline-offset:2px}
 .more{border-top:1px solid var(--line);padding-top:12px}
@@ -237,7 +239,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 
 @media (max-width:460px){ .fieldrow{grid-template-columns:1fr} }
 @media (min-width:900px) and (min-aspect-ratio:5/4){
-  .overlay.title{display:grid;grid-template-columns:minmax(0,1fr) 440px;grid-template-rows:auto minmax(0,1fr);
+  .overlay.title{display:grid;grid-template-columns:minmax(0,1fr) 500px;grid-template-rows:auto minmax(0,1fr);
     column-gap:40px;row-gap:8px;padding-inline:40px;padding-block:28px;align-items:center}
   .title .brand{grid-column:1;grid-row:1}
   .title .stage{grid-column:1;grid-row:2;height:100%}
@@ -2311,7 +2313,7 @@ function renderSongs() {
       <input type="radio" name="chart" id="ch_${esc(r.id)}" value="${esc(r.id)}"${r.id === settings.chart ? ' checked' : ''}>
       <label for="ch_${esc(r.id)}" class="songmain">
         <span class="jk" style="--h:${r.hue}"></span>
-        <span class="st"><b>${esc(r.title)}</b><small><span class="lv" style="color:${r.lvCol}">${esc(r.label)}</span>${r.lv ? ' ' + esc(r.lv.replace(/^Lv\./, '')) : ''}</small></span>
+        <span class="st"><b>${esc(r.title)}</b><small><span class="lv" style="--c:${r.lvCol}">${esc(r.label)}</span>${r.lv ? '<span class="lvn">' + esc(r.lv.replace(/^Lv\./, '')) + '</span>' : ''}</small></span>
       </label>
     </div>`).join('');
   renderSelInfo();
