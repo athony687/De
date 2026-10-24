@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v41</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v42</span></p>
       <h1 class="logo">RING <span>BEAT</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -2973,7 +2973,16 @@ if (HOT && typeof HOT.ready === 'function') {
 
 <script>
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  addEventListener('load', function () { navigator.serviceWorker.register('./sw.js').catch(function () {}); });
+  addEventListener('load', function () {
+    var had = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.register('./sw.js').then(function (reg) { reg.update().catch(function () {}); }).catch(function () {});
+    // 新しい版が届いたら、曲選択画面にいるときだけ自動で読み直す（プレイ中は邪魔しない）
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!had) return;
+      var tryReload = function () { if (document.getElementById('titleOv') && !document.getElementById('titleOv').hidden) location.reload(); else setTimeout(tryReload, 3000); };
+      tryReload();
+    });
+  });
 }
 </script>
 </body>
