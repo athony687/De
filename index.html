@@ -133,7 +133,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .sw.brk{border-radius:50%;border:3px solid var(--orange)}
 .sw.hold{width:10px;height:18px;border:3px solid var(--pink);border-radius:4px;clip-path:polygon(50% 0,100% 22%,100% 78%,50% 100%,0 78%,0 22%)}
 .sw.slide{background:var(--cyan);clip-path:polygon(50% 0,61% 35%,98% 35%,68% 57%,79% 91%,50% 70%,21% 91%,32% 57%,2% 35%,39% 35%)}
-.sw.touch{background:var(--violet);clip-path:polygon(50% 42%,30% 0,70% 0,50% 42%,58% 50%,100% 30%,100% 70%,58% 50%,50% 58%,70% 100%,30% 100%,50% 58%,42% 50%,0 70%,0 30%,42% 50%)}
+.sw.touch{background:#3d8bff;clip-path:polygon(50% 42%,30% 0,70% 0,50% 42%,58% 50%,100% 30%,100% 70%,58% 50%,50% 58%,70% 100%,30% 100%,50% 58%,42% 50%,0 70%,0 30%,42% 50%)}
 .kb{display:flex;gap:12px;align-items:center;margin-top:10px}
 .kb p{margin:0}
 .keys{display:grid;grid-template-columns:repeat(3,26px);gap:4px;flex:none}
@@ -519,7 +519,7 @@ const C = {
   each:  { main: '#ffc53d', dark: '#5c4000', rgb: '255,197,61' },
   brk:   { main: '#ff8a2a', dark: '#5c2600', rgb: '255,138,42' },
   slide: { main: '#3fd6ff', dark: '#07435a', rgb: '63,214,255' },
-  touch: { main: '#8d7dff', dark: '#221a5a', rgb: '141,125,255' },
+  touch: { main: '#3d8bff', dark: '#0a2456', rgb: '61,139,255' },
 };
 const KEYMAP = { KeyE:0, KeyD:1, KeyC:2, KeyX:3, KeyZ:4, KeyA:5, KeyQ:6, KeyW:7,
                  Numpad9:0, Numpad6:1, Numpad3:2, Numpad2:3, Numpad1:4, Numpad4:5, Numpad7:6, Numpad8:7 };
@@ -600,7 +600,7 @@ function segPoints(s) {
   }
 }
 function chevrons(p, mapL) {
-  const out = [], sp = .085;
+  const out = [], sp = .11;
   for (let L = sp * .9; L < p.len - .04; L += sp) { const [x, y, ang] = pathAt(p, L / p.len); out.push({ x, y, ang, L: mapL(L) }); }
   return out;
 }
@@ -1510,16 +1510,16 @@ function update(now, pf) {
 
 /* ================= drawing ================= */
 function circle(x, y, r) { g.beginPath(); g.arc(x, y, Math.max(.1, r), 0, TAU); }
+// 本家 maimai のタップ：太いリング＋内外の白いふち、真ん中は抜き。背景との境目に暗い影を入れて、どの色の上でも見えるようにする
 function drawTap(x, y, s, c, al, exn) {
   g.globalAlpha = al;
-  if (exn) { g.lineWidth = s * .22; g.strokeStyle = 'rgba(255,255,255,.55)'; circle(x, y, s * 1.3); g.stroke(); }
-  circle(x, y, s * .8);
-  g.lineWidth = s * .5; g.strokeStyle = c.dark; g.stroke();
-  g.lineWidth = s * .34; g.strokeStyle = c.main; g.stroke();
-  g.lineWidth = Math.max(1, s * .07); g.strokeStyle = 'rgba(255,255,255,.95)';
-  circle(x, y, s * 1.05); g.stroke();
-  circle(x, y, s * .55); g.stroke();
-  g.fillStyle = 'rgba(255,255,255,.9)'; circle(x, y, s * .12); g.fill();
+  if (exn) { g.lineWidth = s * .18; g.strokeStyle = 'rgba(255,255,255,.7)'; circle(x, y, s * 1.3); g.stroke(); }
+  circle(x, y, s * .8); g.lineWidth = s * .66; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke();
+  g.lineWidth = s * .42; g.strokeStyle = c.main; g.stroke();
+  circle(x, y, s * .9); g.lineWidth = s * .1; g.strokeStyle = 'rgba(255,255,255,.35)'; g.stroke();
+  g.lineWidth = Math.max(1.5, s * .11); g.strokeStyle = c === C.brk ? '#fff4c2' : '#ffffff';
+  circle(x, y, s * 1.04); g.stroke();
+  g.lineWidth = Math.max(1.2, s * .08); circle(x, y, s * .57); g.stroke();
   g.globalAlpha = 1;
 }
 function starPath(x, y, ro, rot) {
@@ -1533,11 +1533,12 @@ function starPath(x, y, ro, rot) {
 }
 function drawStar(x, y, s, c, al, rot, exn) {
   g.globalAlpha = al; g.lineJoin = 'round';
-  if (exn) { starPath(x, y, s * 1.2, rot); g.lineWidth = s * .2; g.strokeStyle = 'rgba(255,255,255,.5)'; g.stroke(); }
+  if (exn) { starPath(x, y, s * 1.22, rot); g.lineWidth = s * .16; g.strokeStyle = 'rgba(255,255,255,.65)'; g.stroke(); }
   starPath(x, y, s, rot);
-  g.lineWidth = s * .34; g.strokeStyle = c.dark; g.stroke();
+  g.lineWidth = s * .42; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke();
   g.fillStyle = c.main; g.fill();
-  g.lineWidth = Math.max(1, s * .08); g.strokeStyle = '#fff'; g.stroke();
+  g.lineWidth = Math.max(1.5, s * .13); g.strokeStyle = '#fff'; g.stroke();
+  starPath(x, y, s * .5, rot); g.fillStyle = 'rgba(255,255,255,.32)'; g.fill();
   g.globalAlpha = 1;
 }
 function hexPath(l, r1, r2, h, tip) {
@@ -1557,21 +1558,21 @@ function drawHold(n, now, pf) {
   const c = colOf(n), w = NS * 1.7 * s;
   hexPath(n.lane, rt, rh, w / 2, w * .42);
   g.globalAlpha = al; g.lineJoin = 'round';
-  g.fillStyle = n.holding ? `rgba(${c.rgb},${reduceMotion ? .45 : .38 + .2 * Math.sin(pf / 60)})` : 'rgba(10,6,20,.65)';
+  g.fillStyle = n.holding ? `rgba(${c.rgb},${reduceMotion ? .55 : .5 + .2 * Math.sin(pf / 60)})` : `rgba(${c.rgb},.3)`;
   g.fill();
-  g.lineWidth = w * .3; g.strokeStyle = c.dark; g.stroke();
-  g.lineWidth = w * .18; g.strokeStyle = c.main; g.stroke();
-  g.lineWidth = Math.max(1, w * .04); g.strokeStyle = 'rgba(255,255,255,.7)'; g.stroke();
+  g.lineWidth = w * .36; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke();
+  g.lineWidth = w * .22; g.strokeStyle = c.main; g.stroke();
+  g.lineWidth = Math.max(1.5, w * .06); g.strokeStyle = '#fff'; g.stroke();
   g.globalAlpha = 1;
 }
-const CHEV = [[-.35, -.6], [0, -.6], [.45, 0], [0, .6], [-.35, .6], [.1, 0]];
+const CHEV = [[-.42, -.66], [-.04, -.66], [.42, 0], [-.04, .66], [-.42, .66], [.02, 0]];
 function drawSlidePath(n, now, pf) {
   const A = run.app, ph = 1 - (n.t - now) / A;
   if (ph < -.25) return;
   const c = colOf(n);
-  let al = now < n.t ? clamp((ph + .25) / 1.25, 0, 1) * .85 : 1;
-  if (now >= n.t && now < n.s0 && !reduceMotion) al = .78 + .22 * Math.sin(pf / 70);
-  const s = NS * 1.05;
+  // 本家と同じく、☆が動き出すまでは薄め、動き出したらはっきり出す
+  let al = now < n.t ? clamp((ph + .25) / 1.25, 0, 1) * .6 : now < n.s0 ? .75 : 1;
+  const s = NS * .95;
   g.globalAlpha = al; g.lineJoin = 'round';
   for (const ch of n.chev) {
     if (ch.L < n.prog - .04) continue;
@@ -1580,8 +1581,9 @@ function drawSlidePath(n, now, pf) {
     g.beginPath();
     CHEV.forEach(([a, b], i) => i ? g.lineTo(a * s, b * s) : g.moveTo(a * s, b * s));
     g.closePath();
-    g.lineWidth = s * .2; g.strokeStyle = c.dark; g.stroke();
+    g.lineWidth = s * .3; g.strokeStyle = 'rgba(0,0,0,.45)'; g.stroke();
     g.fillStyle = c.main; g.fill();
+    g.lineWidth = Math.max(1, s * .09); g.strokeStyle = '#fff'; g.stroke();
   }
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.globalAlpha = 1;
@@ -1606,7 +1608,7 @@ function drawTouch(n, now) {
       const f = clamp((now - n.t) / Math.max(n.dur, .05), 0, 1);
       g.strokeStyle = c.main; g.beginPath(); g.arc(x, y, NS * 1.45, -Math.PI / 2, -Math.PI / 2 + TAU * f); g.stroke();
     }
-  } else { g.strokeStyle = `rgba(${c.rgb},.35)`; g.lineWidth = 1.5; circle(x, y, NS * 1.05); g.stroke(); }
+  } else { g.strokeStyle = `rgba(${c.rgb},.45)`; g.lineWidth = 2; circle(x, y, NS * 1.05); g.stroke(); }
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2 - Math.PI / 2, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
     const bx = x + ux * dist, by = y + uy * dist;
@@ -1615,11 +1617,12 @@ function drawTouch(n, now) {
     g.lineTo(bx + ux * s * .45 + vx * s * .62, by + uy * s * .45 + vy * s * .62);
     g.lineTo(bx + ux * s * .45 - vx * s * .62, by + uy * s * .45 - vy * s * .62);
     g.closePath();
-    g.fillStyle = n.holding ? `rgba(${c.rgb},.45)` : 'rgba(10,6,20,.7)'; g.fill();
-    g.lineWidth = s * .34; g.strokeStyle = c.dark; g.stroke();
-    g.lineWidth = s * .2; g.strokeStyle = c.main; g.stroke();
+    g.lineWidth = s * .36; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke();
+    g.fillStyle = c.main; g.fill();
+    g.lineWidth = Math.max(1.5, s * .14); g.strokeStyle = '#fff'; g.stroke();
   }
-  g.fillStyle = c.main; circle(x, y, NS * .16); g.fill();
+  circle(x, y, NS * .2); g.fillStyle = '#fff'; g.fill();
+  circle(x, y, NS * .12); g.fillStyle = c.main; g.fill();
   if (n.fw) { g.fillStyle = 'rgba(255,255,255,.85)'; circle(x, y, NS * .08); g.fill(); }
   g.globalAlpha = 1;
 }
@@ -1728,7 +1731,7 @@ function draw(now, pf) {
 }
 
 /* ================= layout ================= */
-function setSizes() { R0 = R * .2; NS = R * .085; }
+function setSizes() { R0 = R * .2; NS = R * .1; }
 function layoutRing() {
   if (mode === 'title' && !titleOv.hidden) {
     const s = stageEl.getBoundingClientRect();
