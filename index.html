@@ -121,6 +121,8 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 button:focus-visible,summary:focus-visible,.check input:focus-visible,.field input:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
 button,label,summary,input[type=range]{touch-action:manipulation}
 
+#coachBtn{font-size:17px;letter-spacing:.04em}
+.best.coach{color:var(--ink);text-align:left;line-height:1.7;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .best{margin:0;font-size:13px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
 details{font-size:14px;color:var(--muted);line-height:1.65}
 summary{cursor:pointer;color:var(--ink);font-weight:800;list-style-position:inside}
@@ -435,6 +437,8 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <p class="best" id="resBest"></p>
       <p class="best" id="resTim" hidden></p>
       <p class="best" id="resNag" hidden></p>
+      <p class="best coach" id="resCoach" hidden></p>
+      <button type="button" class="play" id="coachBtn" hidden>苦手な所を自動で練習</button>
       <div class="btnrow">
         <button type="button" class="play" id="drillBtn" hidden>流し地帯を練習</button>
         <button type="button" class="play" id="retryBtn">もう一度</button>
@@ -1201,7 +1205,7 @@ function markSweeps(notes) {
    ・速い連打で場所が変わるときは、左右交互に取る（同じ手で追いかけない）
    ・流し（3〜5個の短い列）は1本の手ですべらせる
    ・同時押しは、右にある方を右手、左にある方を左手 */
-const HAND_JP = { L: '左', R: '右' };
+const HAND_JP = { L: '左', R: '右' }, HAND_COL = { L: '#3ee68a', R: '#b49bff' };
 function notePos(n) { return (n.type === 'touch' || n.type === 'thold') ? n.pos : lanePt(n.lane); }
 function assignHands(notes) {
   const slides = notes.filter(n => n.type === 'slide');
@@ -1266,6 +1270,19 @@ function assignHands(notes) {
     let m = k;
     while (m + 1 < items.length && !items[m + 1].sw && !items[m].sw && items[m + 1].t - items[m].t < .2 && items[m + 1].t - items[m].t > .006 && items[m + 1].hand !== items[m].hand) m++;
     if (m - k >= 3) tips.push({ t: items[k].t, e: items[m].t, txt: '左右の手で交互に（ノーツの「左・右」のとおり）' });
+    k = m + 1;
+  }
+  // 配置の種類（リザルトの「苦手な配置」に使う）
+  for (const n of items) n.pk = n.sw ? '流し' : (n.type === 'tap' && n.star) ? 'スライド' : n.type === 'hold' ? 'ホールド' : (n.type === 'touch' || n.type === 'thold') ? 'タッチ' : 'タップ';
+  for (let k = 0; k < items.length; k++) {
+    const a = items[k];
+    if ((items[k + 1] && Math.abs(items[k + 1].t - a.t) < .006) || (items[k - 1] && Math.abs(items[k - 1].t - a.t) < .006)) { if (a.pk === 'タップ') a.pk = '同時押し'; }
+  }
+  for (const v of slides) v.pk = 'スライド';
+  for (let k = 0; k < items.length;) {
+    let m = k;
+    while (m + 1 < items.length && !items[m + 1].sw && !items[m].sw && items[m + 1].t - items[m].t < .2 && items[m + 1].t - items[m].t > .006 && items[m + 1].hand !== items[m].hand) m++;
+    if (m - k >= 3) for (let q = k; q <= m; q++) if (items[q].pk === 'タップ' || items[q].pk === 'タッチ') items[q].pk = '交互';
     k = m + 1;
   }
   for (const v of slides) if (v.hand) tips.push({ t: v.t, e: v.s1, txt: `${HAND_JP[v.hand]}手で☆を押して、そのまま線をなぞる` });
@@ -1678,7 +1695,7 @@ function drawSlidePath(n, now, pf) {
   const c = colOf(n);
   // 本家と同じく、☆が動き出すまでは薄め、動き出したらはっきり出す
   let al = now < n.t ? clamp((ph + .25) / 1.25, 0, 1) * .6 : now < n.s0 ? .75 : 1;
-  const s = NS * .95;
+  const s = NS * .95, hc = handsOn() && n.hand ? HAND_COL[n.hand] : null;
   g.globalAlpha = al; g.lineJoin = 'round';
   for (const ch of n.chev) {
     if (ch.L < n.prog - .04) continue;
@@ -1689,10 +1706,12 @@ function drawSlidePath(n, now, pf) {
     g.closePath();
     g.lineWidth = s * .3; g.strokeStyle = 'rgba(0,0,0,.45)'; g.stroke();
     g.fillStyle = c.main; g.fill();
-    g.lineWidth = Math.max(1, s * .09); g.strokeStyle = '#fff'; g.stroke();
+    g.lineWidth = Math.max(1, s * (hc ? .14 : .09)); g.strokeStyle = hc || '#fff'; g.stroke();
   }
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.globalAlpha = 1;
+  // 終点にも、なぞる手の印を出す（どっちの手のスライドか分かるように）
+  if (hc && n.prog < n.len - .1) drawHand(cx + n.end[0] * R * .86, cy + n.end[1] * R * .86, NS * .36, n.hand, al * .9);
 }
 function drawSlideStar(n, now, pf) {
   if (now < n.t) return;
@@ -2120,6 +2139,7 @@ function finish() {
   const r = run; if (r.over) return;
   r.over = true;
   if (r.demo) return;
+  if (r.coach && !r.auto) { setTimeout(() => { if (run === r && mode === 'play') coachNext(r); }, 500); return; }
   setTimeout(() => { if (run === r && mode === 'play') showResult(r); }, 700);
 }
 function showResult(r) {
@@ -2129,7 +2149,8 @@ function showResult(r) {
   const rEl = $('#resRank'); rEl.textContent = rk; rEl.className = 'rank ' + cls + (rk.length > 2 ? ' long' : '');
   $('#resAcc').textContent = fmtAcc(acc) + '%';
   const b = $('#resBadge');
-  if (r.drill) { b.textContent = '流し練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
+  if (r.coach) { b.textContent = 'コーチ練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
+  else if (r.drill) { b.textContent = '流し練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.practice) { b.textContent = 'PRACTICE ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.auto) { b.textContent = 'AUTO PLAY'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.cp === r.units) { b.textContent = 'ALL PERFECT+'; b.className = 'badge'; b.hidden = false; }
@@ -2152,6 +2173,7 @@ function showResult(r) {
   $('#resBest').textContent = msg;
   timingResult(r);
   sweepResult(r);
+  coachResult(r);
   setMode('result');
   prepShare(r, ch, acc, rk, b.hidden ? '' : b.textContent);
   $('#retryBtn').focus({ preventScroll: true });
@@ -2315,7 +2337,7 @@ async function startDrill(d) {
   const live = r.notes.filter(n => !n.fin);
   r.units = live.length || 1; r.totalW = live.reduce((a, n) => a + noteW(n), 0) || 1; r.nBrk = live.filter(n => n.brk).length;
   updPracticeUI();
-  toast(d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
+  toast(d.title ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)} を ${d.rate.toFixed(2).replace(/0$/, '')}倍で練習` : d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
     : `流し練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${fmtTime(d.A)}〜${fmtTime(d.B)}`);
 }
 function sweepResult(r) {
@@ -2350,6 +2372,91 @@ function sweepResult(r) {
     btn.hidden = false;
   }
   el.textContent = line; el.style.whiteSpace = 'pre-line'; el.hidden = false;
+}
+/* ================= コーチ（やるだけで上達する練習） =================
+   通しプレイのあと、ミスが集まった所（2小節ずつ）を最大3か所選び、苦手な配置とコツを出す。
+   「苦手な所を自動で練習」を押すと、その所だけを繰り返す。1回ごとに PERFECT の割合で速さを自動で上げ下げし、
+   等速で取れたら次の所へ進む。ボタンを押さなくても続けて回るので、叩き続けるだけで上達できる */
+const PK_TIP = {
+  '流し': '1本の指でボタンの上をすべらせる。1つ目を拍に合わせ、あとは同じ速さで',
+  '交互': 'ノーツの「左・右」のとおりに手を入れ替える。同じ手で追いかけない',
+  '同時押し': '両手を同時に下ろす。片方が先に着かないよう、手を構えてから',
+  'スライド': '☆を押したら離さずに、☆が動き出すのを待ってから線をなぞる',
+  'ホールド': '終わりまで押したまま。離すのは次のノーツのときでいい',
+  'タッチ': '指の腹でまっすぐ置く。三角が真ん中に集まった瞬間に',
+  'タップ': '叩く手を早めに近くへ構えておく',
+};
+let coachPlan = null;
+function weakSecs(r, max = 3) {
+  const w = Math.max(measure() * 2, 1.6), pts = [];
+  for (const n of r.notes) { if (n.skip || n.jr == null || n.jr === 0) continue; pts.push({ t: n.t, v: n.jr === 3 ? 3 : n.jr === 2 ? 2 : 1 }); }
+  pts.sort((a, b) => a.t - b.t);
+  const out = [];
+  while (out.length < max) {
+    let best = null;
+    for (let i = 0, j = 0, sum = 0; i < pts.length; i++) {
+      while (j < pts.length && pts[j].t <= pts[i].t + w) { sum += pts[j].v; j++; }
+      const A = pts[i].t - run.beat, B = pts[i].t + w + run.beat * .5;
+      if (!out.some(o => A < o.B && B > o.A) && (!best || sum > best.sc)) best = { A: Math.max(0, A), B, sc: sum };
+      sum -= pts[i].v;
+    }
+    if (!best || best.sc < 3) break;
+    out.push(best);
+  }
+  return out.sort((a, b) => a.A - b.A);
+}
+function pkStats(r, A = -1e9, B = 1e9) {
+  const m = {};
+  for (const n of r.notes) {
+    if (!n.pk || n.skip || n.jr == null || n.t < A || n.t > B) continue;
+    const k = m[n.pk] || (m[n.pk] = { n: 0, ok: 0 }); k.n++; if (n.jr === 0) k.ok++;
+  }
+  return Object.entries(m).filter(([, v]) => v.n >= 4).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n);
+}
+function coachResult(r) {
+  const el = $('#resCoach'), btn = $('#coachBtn');
+  el.hidden = true; btn.hidden = true;
+  if (r.auto || r.demo || r.drill) return;
+  const ps = pkStats(r).filter(([, v]) => v.ok / v.n < .9).slice(0, 2);
+  const secs = weakSecs(r);
+  const lines = [];
+  for (const [k, v] of ps) lines.push(`苦手：${k}（PERFECT ${v.ok}/${v.n}）→ ${PK_TIP[k]}`);
+  if (secs.length) {
+    const rate = r.cnt[3] > r.units * .1 ? .7 : .8;
+    coachPlan = { chart: playing.id, secs, idx: 0, rate, tries: 0 };
+    btn.textContent = `苦手な所を自動で練習（${secs.length}か所）`;
+    btn.hidden = false;
+    lines.push(`ミスが多い所：${secs.map(x => fmtTime(x.A)).join('、')}`);
+  }
+  if (!lines.length) return;
+  el.textContent = lines.join('\n'); el.style.whiteSpace = 'pre-line'; el.hidden = false;
+}
+async function startCoach(c) {
+  const g = c.secs[c.idx];
+  await startDrill({ A: g.A, B: g.B, rate: c.rate, title: `苦手な所 ${c.idx + 1}/${c.secs.length}` });
+  if (run && run.drill) { run.coach = c; hudDiff.textContent = `コーチ ${c.idx + 1}/${c.secs.length} · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
+}
+// 1回終わるごとに次を決める。結果画面を出さずに続けて始める
+function coachNext(r) {
+  const c = r.coach, live = r.notes.filter(n => !n.skip && n.jr != null), n = live.length || 1;
+  const pr = live.filter(x => x.jr === 0).length / n, miss = live.filter(x => x.jr === 3).length;
+  const sp = v => v.toFixed(2).replace(/0$/, '') + '倍';
+  let msg = `PERFECT ${Math.round(pr * 100)}%（ミス ${miss}）`;
+  const ps = pkStats(r).filter(([, v]) => v.ok / v.n < .8)[0];
+  if (pr >= .9) {
+    if (c.rate >= 1) { c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！次の苦手な所へ' : ''; }
+    else { c.rate = Math.min(1, Math.round((c.rate + .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に上げます`; }
+  } else if (pr < .6) { c.rate = Math.max(.5, Math.round((c.rate - .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に下げます`; }
+  else {
+    c.tries++;
+    if (c.tries >= 3 && pr >= .75) { c.rate = Math.min(1, Math.round((c.rate + .05) * 20) / 20); c.tries = 0; msg += ` → 少しだけ上げて${sp(c.rate)}`; }
+    else msg += ` → もう一度（${sp(c.rate)}）`;
+  }
+  if (ps) msg += `\nコツ（${ps[0]}）：${PK_TIP[ps[0]]}`;
+  if (c.idx >= c.secs.length) { coachPlan = null; showResult(r); $('#resCoach').textContent = '苦手な所を全部、等速で取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; return; }
+  stopTrack(true);
+  toast(msg); toastEl.style.whiteSpace = 'pre-line';
+  setTimeout(() => { if (run === r && mode === 'play') startCoach(c); }, 2200);
 }
 let hudAccTxt = '';
 function hud(now) {
@@ -2529,6 +2636,7 @@ $('#sweepBtn').addEventListener('click', () => {
   const sg = sweepSegs(currentChart().song); if (!sg.length) return;
   startDrill({ A: sg[0].A, B: sg[sg.length - 1].B, segs: sg, rate: Math.round(clamp(+settings.prate || .75, .1, 1) * 20) / 20 });
 });
+$('#coachBtn').addEventListener('click', () => { if (coachPlan) startCoach(coachPlan); });
 $('#drillBtn').addEventListener('click', () => { if (nextDrill === 'full') startPlay(); else if (nextDrill) startDrill(nextDrill); });
 $('#backBtn').addEventListener('click', () => setMode('title'));
 
