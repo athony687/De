@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v46</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v47</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -325,6 +325,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <label class="check" for="hands"><input type="checkbox" id="hands" checked><span>運指ガイド <small>ノーツに「左・右」（取る手）を出す</small></span></label>
       <button type="submit" class="play" id="playBtn">PLAY</button>
       <button type="button" class="ghost" id="sweepBtn" hidden>流しだけ練習</button>
+      <button type="button" class="ghost" id="reviewBtn" hidden>復習</button>
       <p class="best" id="bestTxt"></p>
       <details class="more">
         <summary>詳細設定</summary>
@@ -1190,7 +1191,7 @@ const SWEEP_MIN = 3, SWEEP_MAX = 5;
 const ROT_MIN = 6, ROT_DT = .16;
 function markRotations(notes, taps) {
   let cur = [], id = 0;
-  const flush = () => { if (cur.length >= ROT_MIN) { id++; for (const n of cur) n.rot = id; } };
+  const flush = () => { if (cur.length >= ROT_MIN) { id++; for (const n of cur) { n.rot = id; n.runT0 = cur[0].t; } } };
   for (const n of taps) {
     const p = cur[cur.length - 1], dt = p ? n.t - p.t : 0, st = p ? mod8(n.lane - p.lane) : 0;
     const dir = st === 1 || st === 2 ? 1 : st === 7 || st === 6 ? -1 : 0;
@@ -1206,7 +1207,7 @@ function markSweeps(notes) {
   markRotations(notes, single);
   const taps = single.filter(n => !n.star && !n.rot);
   let cur = [];
-  const flush = () => { if (cur.length >= SWEEP_MIN && cur.length <= SWEEP_MAX) for (const n of cur) n.sw = true; };
+  const flush = () => { if (cur.length >= SWEEP_MIN && cur.length <= SWEEP_MAX) for (const n of cur) { n.sw = true; n.runT0 = cur[0].t; } };
   for (const n of taps) {
     const p = cur[cur.length - 1], dt = p ? n.t - p.t : 0;
     const ok = p && dt > .001 && dt <= .11 && Math.abs(mod8(n.lane - p.lane + 4) - 4) === 1
@@ -2429,7 +2430,13 @@ function sweepSegs(song) {
   for (const t of ts) { const s = g[g.length - 1]; if (s && t - s.last < 3) s.last = t; else g.push({ first: t, last: t }); }
   return g.map(s => ({ A: Math.max(0, s.first - beat), B: s.last + beat * .5 }));
 }
+function updReviewBtn() {
+  const b = $('#reviewBtn'), ch = currentChart(), rv = ch ? getReview(ch.id) : [];
+  b.hidden = !rv.length;
+  if (rv.length) b.textContent = `復習（${rv.length}か所）`;
+}
 function updSweepBtn() {
+  updReviewBtn();
   const b = $('#sweepBtn'), ch = currentChart();
   const sg = ch && ch.song && ch.song.notes.length && settings.nagashi !== false ? sweepSegs(ch.song) : [];
   b.hidden = !sg.length;
@@ -2488,8 +2495,11 @@ function sweepResult(r) {
   }
   el.textContent = line; el.style.whiteSpace = 'pre-line'; el.hidden = false;
 }
-/* ================= コーチ（やるだけで上達する練習） =================
-   通しプレイのあと、PERFECT 以外（GREAT・GOOD・MISS）が出た所（2小節ずつ）を全部選び、苦手な配置とコツを出す。
+/* ================= 復習（やるだけで上達する練習） =================
+   譜面を2小節ずつに区切って、ノーツの密度と配置（回転・流し・同時押し・スライドなど）から難しい所を決めておく。
+   通しプレイのあと、難しい所で PERFECT 以外（GREAT・GOOD・MISS）が2つ以上出たら「復習」に入れる。
+   やさしい所のミスはケアレスミスとして入れない。復習は譜面ごとに保存して、次に遊ぶときも残す。
+   復習の所を等速で取れたら外す。通しプレイで全部 PERFECT だった所も外す。
    「苦手な所を自動で練習」を押すと、その所だけを繰り返す。1回ごとに PERFECT の割合で速さを自動で上げ下げし、
    等速で取れたら次の所へ進む。ボタンを押さなくても続けて回るので、叩き続けるだけで上達できる */
 const PK_TIP = {
@@ -2503,6 +2513,42 @@ const PK_TIP = {
   'タップ': '叩く手を早めに近くへ構えておく',
 };
 let coachPlan = null;
+// 譜面の難しい所（2小節ずつの区切りのうち、難しさが上位 4 割かつ中央値の 1.2 倍以上）
+function hardBlocks(notes, beat) {
+  const ns = notes.filter(n => !n.skip);
+  if (!ns.length) return [];
+  const w = Math.max(beat * 8, 1.6), t0 = ns[0].t, bl = [];
+  for (const n of ns) {
+    const k = Math.floor((n.t - t0) / w);
+    const b = bl[k] || (bl[k] = { k, A: t0 + k * w, B: t0 + (k + 1) * w, load: 0 });
+    // ノーツの重さ：スライドは☆と線で重め、回転・流しは指を速く動かすので少し重め、タッチは軽め
+    b.load += n.type === 'slide' ? 1.5 : isTouch(n) ? .7 : (n.rot || n.sw) ? 1.3 : n.type === 'hold' ? 1.2 : 1;
+  }
+  // 同時押しは1つ増しに数える
+  for (let i = 1; i < ns.length; i++) if (Math.abs(ns[i].t - ns[i - 1].t) < .006 && ns[i].type !== 'slide') { const b = bl[Math.floor((ns[i].t - t0) / w)]; if (b) b.load += .4; }
+  const ok = bl.filter(Boolean), ls = ok.map(b => b.load).sort((a, b) => a - b);
+  const med = ls[ls.length >> 1], p60 = ls[Math.floor(ls.length * .6)];
+  return ok.filter(b => b.load >= p60 && b.load >= med * 1.2);
+}
+const reviewKey = id => 'waiwai:review:' + id;
+function getReview(id) { try { return JSON.parse(localStorage.getItem(reviewKey(id)) || '[]'); } catch (e) { return []; } }
+function setReview(id, v) { try { v.length ? localStorage.setItem(reviewKey(id), JSON.stringify(v)) : localStorage.removeItem(reviewKey(id)); } catch (e) {} }
+// 通しプレイの結果で復習を入れ替える。返り値は今の復習（時刻順）
+function updateReview(r, id) {
+  let rv = getReview(id);
+  const same = (a, b) => Math.abs(a.A - b.A) < .05;
+  for (const b of hardBlocks(r.notes, r.beat)) {
+    const ns = r.notes.filter(n => !n.skip && n.t >= b.A && n.t < b.B);
+    if (!ns.length || ns.some(n => n.jr == null)) continue;   // 途中までしか遊んでいない所は動かさない
+    const bad = ns.filter(n => n.jr !== 0).length;
+    const sec = { A: Math.max(0, b.A - r.beat), B: b.B + r.beat * .5 };
+    if (bad >= 2) { if (!rv.some(x => same(x, sec))) rv.push(sec); }
+    else if (bad === 0) rv = rv.filter(x => !same(x, sec));
+  }
+  rv.sort((a, b) => a.A - b.A);
+  setReview(id, rv);
+  return rv;
+}
 function weakSecs(r, max = Infinity) {
   const w = Math.max(measure() * 2, 1.6), pts = [];
   // GREAT も GOOD も MISS と同じく「取れていない」に数える（PERFECT だけが合格）
@@ -2535,24 +2581,25 @@ function coachResult(r) {
   el.hidden = true; btn.hidden = true;
   if (r.auto || r.demo || r.drill) return;
   const ps = pkStats(r).filter(([, v]) => v.ok / v.n < .9).slice(0, 2);
-  const secs = weakSecs(r);
+  const secs = updateReview(r, playing.id);
   const lines = [];
   for (const [k, v] of ps) lines.push(`苦手：${k}（PERFECT ${v.ok}/${v.n}）→ ${PK_TIP[k]}`);
+  coachPlan = null;
   if (secs.length) {
-    const rate = r.cnt[3] > r.units * .1 ? .7 : .8;
-    coachPlan = { chart: playing.id, secs, idx: 0, rate, tries: 0 };
-    btn.textContent = `苦手な所を自動で練習（${secs.length}か所）`;
+    coachPlan = { chart: playing.id, secs, idx: 0, rate: .8, tries: 0 };
+    btn.textContent = `復習する（${secs.length}か所）`;
     btn.hidden = false;
     const ts = secs.map(x => fmtTime(x.A));
-    lines.push(`PERFECT 以外が出た所：${ts.length > 8 ? ts.slice(0, 8).join('、') + ` ほか${ts.length - 8}か所` : ts.join('、')}`);
+    lines.push(`復習：${ts.length > 8 ? ts.slice(0, 8).join('、') + ` ほか${ts.length - 8}か所` : ts.join('、')}（難しい所だけ。やさしい所のミスは入れません）`);
   }
+  updReviewBtn();
   if (!lines.length) return;
   el.textContent = lines.join('\n'); el.style.whiteSpace = 'pre-line'; el.hidden = false;
 }
 async function startCoach(c) {
   const g = c.secs[c.idx];
-  await startDrill({ A: g.A, B: g.B, rate: c.rate, title: `苦手な所 ${c.idx + 1}/${c.secs.length}` });
-  if (run && run.drill) { run.coach = c; hudDiff.textContent = `コーチ ${c.idx + 1}/${c.secs.length} · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
+  await startDrill({ A: g.A, B: g.B, rate: c.rate, title: `復習 ${c.idx + 1}/${c.secs.length}` });
+  if (run && run.drill) { run.coach = c; hudDiff.textContent = `復習 ${c.idx + 1}/${c.secs.length} · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
 }
 // 1回終わるごとに次を決める。結果画面を出さずに続けて始める
 function coachNext(r) {
@@ -2562,7 +2609,11 @@ function coachNext(r) {
   let msg = `PERFECT ${Math.round(pr * 100)}%（GREAT ${cntJ(1)}・GOOD ${cntJ(2)}・MISS ${cntJ(3)}）`;
   const ps = pkStats(r).filter(([, v]) => v.ok / v.n < .8)[0];
   if (pr >= .9) {
-    if (c.rate >= 1) { c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！次の苦手な所へ' : ''; }
+    if (c.rate >= 1) {
+      // 等速で取れたので復習から外す
+      const g = c.secs[c.idx]; setReview(c.chart, getReview(c.chart).filter(x => Math.abs(x.A - g.A) >= .05));
+      c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！復習から外して次へ' : '';
+    }
     else { c.rate = Math.min(1, Math.round((c.rate + .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に上げます`; }
   } else if (pr < .6) { c.rate = Math.max(.5, Math.round((c.rate - .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に下げます`; }
   else {
@@ -2571,7 +2622,7 @@ function coachNext(r) {
     else msg += ` → もう一度（${sp(c.rate)}）`;
   }
   if (ps) msg += `\nコツ（${ps[0]}）：${PK_TIP[ps[0]]}`;
-  if (c.idx >= c.secs.length) { coachPlan = null; showResult(r); $('#resCoach').textContent = '苦手な所を全部、等速で取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; return; }
+  if (c.idx >= c.secs.length) { coachPlan = null; showResult(r); $('#resCoach').textContent = '復習を全部、等速で取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; updReviewBtn(); return; }
   stopTrack(true);
   toast(msg); toastEl.style.whiteSpace = 'pre-line';
   setTimeout(() => { if (run === r && mode === 'play') startCoach(c); }, 2200);
@@ -2755,6 +2806,11 @@ $('#sweepBtn').addEventListener('click', () => {
   startDrill({ A: sg[0].A, B: sg[sg.length - 1].B, segs: sg, rate: Math.round(clamp(+settings.prate || .75, .1, 1) * 20) / 20 });
 });
 $('#coachBtn').addEventListener('click', () => { if (coachPlan) startCoach(coachPlan); });
+$('#reviewBtn').addEventListener('click', () => {
+  const ch = currentChart(), rv = ch ? getReview(ch.id) : []; if (!rv.length) return;
+  coachPlan = { chart: ch.id, secs: rv, idx: 0, rate: .8, tries: 0 };
+  startCoach(coachPlan);
+});
 $('#drillBtn').addEventListener('click', () => { if (nextDrill === 'full') startPlay(); else if (nextDrill) startDrill(nextDrill); });
 $('#backBtn').addEventListener('click', () => setMode('title'));
 
@@ -2883,20 +2939,32 @@ function closeSweep(id, t) { for (const v of sweeps) if (v.id === id && v.tOut =
 // 回転（6個以上リングを回る列）は、流しの補助の設定や強さに関係なく、いつも強さ100%の補助で取る。
 // 流しの補助を自動で弱めていっても、回転だけは反応しなくならないようにする（リングの内側をなぞっても取れる）
 const nagashiOn = () => settings.nagashi !== false;
+// 遅い速さの練習（1倍未満）。流し・回転はタイミングより、順番どおりに指を通すことを優先して判定する
+const slowRuns = () => run && run.practice && run.rate < .99;
 function assistSweeps(nj) {
   for (let i = sweeps.length - 1; i >= 0; i--) { const v = sweeps[i]; if (v.tOut != null && v.tOut < nj - 1.5) sweeps.splice(i, 1); }
   if (!sweeps.length || !nagashiOn()) return;
-  const ns = run.notes, aOn = assistOn(), lv0 = assistLv();
+  const ns = run.notes, aOn = assistOn(), lv0 = assistLv(), slow = slowRuns();
   for (let i = run.first; i < ns.length; i++) {
     const n = ns[i];
     if (n.t > nj) break;
     if (n.fin || n.type !== 'tap' || nj > n.t + W_D) continue;
-    if (!n.rot && !aOn) continue;
-    const lv = n.rot ? 1 : lv0;
+    const easy = slow && (n.rot || n.sw);
+    if (!n.rot && !aOn && !easy) continue;
+    const lv = n.rot || easy ? 1 : lv0;
     let best = null;
     for (const v of sweeps) {
       if (v.used || v.lane !== n.lane || (v.inner && lv <= 0)) continue;
       const out = v.tOut == null ? nj : v.tOut;
+      if (easy) {
+        // 列が始まってから、このノーツの GREAT の幅までにボタンを通っていれば取れたことにする。
+        // 早く通りすぎたのは PERFECT（遅い速さだと、ふだんの速さで指が先に行ってしまうため）、遅れて入ったのはそのぶん遅れ
+        const from = Math.max(n.runT0 - ASSIST_EARLY, n.t - .6);
+        if (v.tIn > n.t + W_G || out < from) continue;
+        const d = Math.max(0, v.tIn - n.t);
+        if (!best || v.tIn < best.v.tIn) best = { v, d, raw: d };
+        continue;
+      }
       if (v.tIn < n.t - ASSIST_EARLY || v.tIn > n.t + W_D || out < n.t - W_D - .2 * lv) continue;
       // raw：実際にボタンに入った時刻のずれ。snap：ノーツの時刻に一番近い、指がそのボタンにいた時刻のずれ。
       // 強さ100%ならずれなし、0%なら raw のまま。間は raw と snap を混ぜて、強さが下がるほどずれが残る
@@ -2936,7 +3004,7 @@ function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
     p.pend = false; p.hitLane = lane; p.hx = px; p.hy = py;
     press(lane, performance.now());
     if (live && settings.nagashi !== false && !assistOn() && Math.hypot(px - cx, py - cy) >= R * .62) {
-      const n = scanCands(t, n => isHead(n) && n.lane === lane && !n.rot)[0];
+      const slow = slowRuns(), n = scanCands(t, n => isHead(n) && n.lane === lane && !n.rot && !(slow && n.sw))[0];
       if (n) applyHit(n, t);
     }
   }
