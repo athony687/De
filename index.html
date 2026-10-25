@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v47</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v48</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1914,18 +1914,6 @@ function drawBg(pf) {
   }
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
 }
-// リングの中のマスコット（オリジナルのキャラクター）。ノーツの下に、少し薄めに出す
-const MASCOT = new Image(); let mascotOk = false;
-MASCOT.onload = () => { mascotOk = true; };
-MASCOT.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDQwIj4gPGcgc3Ryb2tlPSIjMmIyMjM4IiBzdHJva2Utd2lkdGg9IjciIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+IDxwYXRoIGQ9Ik0xNjggMzcyIHEtNiAzNCAtMiA0NiBoMzAgcTQgLTE0IDIgLTQ2IHoiIGZpbGw9IiNmZmUyY2YiLz4gPHBhdGggZD0iTTIwNiAzNzIgcS0yIDM0IDIgNDYgaDMwIHE0IC0xNCAtNCAtNDYgeiIgZmlsbD0iI2ZmZTJjZiIvPiA8cGF0aCBkPSJNMTYwIDQxMiBxMjAgLTEwIDQwIDAgcTIgMTQgLTQgMTggaC0zNCBxLTggLTQgLTIgLTE4IHoiIGZpbGw9IiNmZjZmOWMiLz4gPHBhdGggZD0iTTIwNCA0MTIgcTIwIC0xMCA0MCAwIHE0IDE0IC0yIDE4IGgtMzQgcS04IC00IC00IC0xOCB6IiBmaWxsPSIjZmY2ZjljIi8+IDxwYXRoIGQ9Ik0xNDYgMjYyIHE1NiAtMjIgMTEyIDAgbDE0IDEwNCBxLTcwIDIwIC0xNDAgMCB6IiBmaWxsPSIjZmZkMzRkIi8+IDxwYXRoIGQ9Ik0xNzYgMzMwIGg1MiIgZmlsbD0ibm9uZSIvPiA8cGF0aCBkPSJNMjAwIDI3MCB2NTIiIGZpbGw9Im5vbmUiLz4gPHBhdGggZD0iTTE1MCAyNzYgcS0zNCAyNCAtMzAgNjIgcTQgMTAgMTYgNiBxNCAtMzAgMjYgLTQ4IHoiIGZpbGw9IiNmZmQzNGQiLz4gPGNpcmNsZSBjeD0iMTI4IiBjeT0iMzQ2IiByPSIxNCIgZmlsbD0iI2ZmZTJjZiIvPiA8cGF0aCBkPSJNODQgMTY4IHEtNiA5MiA0MCAxMTIgaDE1MiBxNDYgLTIwIDQwIC0xMTIgeiIgZmlsbD0iI2YwOGEzYyIvPiA8ZWxsaXBzZSBjeD0iMjAwIiBjeT0iMTY4IiByeD0iMTEwIiByeT0iMTAwIiBmaWxsPSIjZmZlOGQ2Ii8+IDxwYXRoIGQ9Ik04OCAxNjAgcS00IC05NiAxMTIgLTEwMCBxMTE2IDQgMTEyIDEwMCBxLTIyIC0zMCAtNDAgLTM2IHEtNiAyNiAtMzAgMzAgcTQgLTIyIC02IC00MCBxLTMwIDM0IC03NiAzNiBxMTQgLTE2IDE2IC0zNiBxLTM2IDIyIC04OCA0NiB6IiBmaWxsPSIjZjA4YTNjIi8+IDxwYXRoIGQ9Ik04NCAxNTAgcTggLTEyMiAxMTYgLTEyNCBxMTA4IDIgMTE2IDEyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxNiIvPiA8cGF0aCBkPSJNODQgMTUwIHE4IC0xMjIgMTE2IC0xMjQgcTEwOCAyIDExNiAxMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzdjNGRmZiIgc3Ryb2tlLXdpZHRoPSI3Ii8+IDxyZWN0IHg9IjYyIiB5PSIxMzYiIHdpZHRoPSI0MCIgaGVpZ2h0PSI3MCIgcng9IjE4IiBmaWxsPSIjN2M0ZGZmIi8+IDxyZWN0IHg9IjI5OCIgeT0iMTM2IiB3aWR0aD0iNDAiIGhlaWdodD0iNzAiIHJ4PSIxOCIgZmlsbD0iIzdjNGRmZiIvPiA8Y2lyY2xlIGN4PSI4MiIgY3k9IjE3MSIgcj0iOSIgZmlsbD0iI2ZmZDM0ZCIgc3Ryb2tlLXdpZHRoPSI0Ii8+IDxjaXJjbGUgY3g9IjMxOCIgY3k9IjE3MSIgcj0iOSIgZmlsbD0iI2ZmZDM0ZCIgc3Ryb2tlLXdpZHRoPSI0Ii8+IDxwYXRoIGQ9Ik0yNDQgOTIgbDkgMTcgMTkgMyAtMTQgMTMgNCAxOSAtMTggLTkgLTE3IDkgMyAtMTkgLTE0IC0xMyAxOSAtMyB6IiBmaWxsPSIjZmZkMzRkIiBzdHJva2Utd2lkdGg9IjUiLz4gPHBhdGggZD0iTTI1MCAyODIgcTQwIC0yIDcyIC00NiBxLTQgLTE0IC0xOCAtMTQgcS0yNCAzMiAtNjAgMzQgeiIgZmlsbD0iI2ZmZDM0ZCIvPiA8cGF0aCBkPSJNMzE2IDIzMCBsNCAtMzQgTTMzMCAyMzQgbDE2IC0zMCIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxMyIvPiA8cGF0aCBkPSJNMzE2IDIzMCBsNCAtMzQgTTMzMCAyMzQgbDE2IC0zMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZlMmNmIiBzdHJva2Utd2lkdGg9IjUiLz4gPGNpcmNsZSBjeD0iMzIwIiBjeT0iMjM2IiByPSIxNSIgZmlsbD0iI2ZmZTJjZiIvPiA8L2c+IDxnIHN0cm9rZT0iIzJiMjIzOCIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHJva2UtbGluZWNhcD0icm91bmQiPiA8L2c+IDxlbGxpcHNlIGN4PSIxNjAiIGN5PSIxNzYiIHJ4PSIyMSIgcnk9IjI5IiBmaWxsPSIjMmIyMjM4Ii8+IDxlbGxpcHNlIGN4PSIyNDAiIGN5PSIxNzYiIHJ4PSIyMSIgcnk9IjI5IiBmaWxsPSIjMmIyMjM4Ii8+IDxlbGxpcHNlIGN4PSIxNjAiIGN5PSIxODQiIHJ4PSIxMyIgcnk9IjE1IiBmaWxsPSIjM2ZiOGZmIi8+IDxlbGxpcHNlIGN4PSIyNDAiIGN5PSIxODQiIHJ4PSIxMyIgcnk9IjE1IiBmaWxsPSIjM2ZiOGZmIi8+IDxjaXJjbGUgY3g9IjE1MyIgY3k9IjE2NCIgcj0iOCIgZmlsbD0iI2ZmZiIvPiA8Y2lyY2xlIGN4PSIyMzMiIGN5PSIxNjQiIHI9IjgiIGZpbGw9IiNmZmYiLz4gPGNpcmNsZSBjeD0iMTY2IiBjeT0iMTkwIiByPSIzIiBmaWxsPSIjZmZmIi8+IDxjaXJjbGUgY3g9IjI0NiIgY3k9IjE5MCIgcj0iMyIgZmlsbD0iI2ZmZiIvPiA8ZWxsaXBzZSBjeD0iMTI4IiBjeT0iMjEwIiByeD0iMTgiIHJ5PSIxMCIgZmlsbD0iI2ZmOWJiMyIgb3BhY2l0eT0iLjc1Ii8+IDxlbGxpcHNlIGN4PSIyNzIiIGN5PSIyMTAiIHJ4PSIxOCIgcnk9IjEwIiBmaWxsPSIjZmY5YmIzIiBvcGFjaXR5PSIuNzUiLz4gPHBhdGggZD0iTTE4NCAyMTQgcTE2IDIyIDMyIDAgeiIgZmlsbD0iI2U5NTA2ZiIgc3Ryb2tlPSIjMmIyMjM4IiBzdHJva2Utd2lkdGg9IjUiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4gPHBhdGggZD0iTTE5MiAyMjQgcTggNiAxNiAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZjliYjMiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+IDwvc3ZnPg==';
-function drawMascot() {
-  if (!mascotOk) return;
-  const h = R * .78, w = h * 400 / 440;
-  g.save(); circle(cx, cy, R * .985); g.clip();
-  g.globalAlpha = .42;
-  g.drawImage(MASCOT, cx - w / 2, cy + R * .97 - h, w, h);
-  g.restore(); g.globalAlpha = 1;
-}
 function draw(now, pf) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
@@ -1939,7 +1927,6 @@ function draw(now, pf) {
   for (let k = 0; k < 8; k++) { const a = laneAng(k); g.moveTo(cx + Math.cos(a) * R0, cy + Math.sin(a) * R0); g.lineTo(cx + Math.cos(a) * R * .97, cy + Math.sin(a) * R * .97); }
   g.stroke();
   circle(cx, cy, R0); g.strokeStyle = 'rgba(196,178,255,.14)'; g.stroke();
-  drawMascot();
 
   // リング（光らせない。拍に合わせた発光・ボタンを押したときの光・外周の小節時計はなし）
   circle(cx, cy, R); g.lineWidth = Math.max(2, R * .013); g.strokeStyle = '#f5f0ff'; g.stroke();
