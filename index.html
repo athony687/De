@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="waiwai">
-<meta name="theme-color" content="#e6e5e8">
+<meta name="theme-color" content="#0f0b1e">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
@@ -23,7 +23,7 @@ html,body{overscroll-behavior:none}
 <style>
 :root{
   color-scheme:dark;
-  --bg:#ecebec;
+  --bg:#0f0b1e;
   --panel:rgba(21,14,40,.88);
   --panel-2:rgba(255,255,255,.045);
   --ink:#f5f0ff;
@@ -57,9 +57,9 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .overlay.center{justify-content:center;background:rgba(8,5,16,.62)}
 .overlay.center > .card{margin-block:auto}
 .brand{text-align:center;display:flex;flex-direction:column;gap:6px;flex:none}
-.eyebrow{margin:0;font:700 11px/1.4 var(--body);letter-spacing:.16em;color:#6f6688;text-transform:uppercase}
-.logo{margin:0;font-family:var(--display);font-weight:900;font-size:clamp(36px,11vw,72px);line-height:.95;letter-spacing:-.02em;text-wrap:balance;color:#2a2340}
-.logo span{background:linear-gradient(95deg,var(--pink) 10%,#f0a010 90%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.eyebrow{margin:0;font:700 11px/1.4 var(--body);letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
+.logo{margin:0;font-family:var(--display);font-weight:900;font-size:clamp(36px,11vw,72px);line-height:.95;letter-spacing:-.02em;text-wrap:balance;color:var(--ink)}
+.logo span{background:linear-gradient(95deg,var(--pink) 10%,var(--gold) 90%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .stage{flex:1 1 auto;min-height:150px;width:100%}
 
 .card{width:min(520px,100%);flex:none;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;
@@ -166,12 +166,12 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:12px 16px;pointer-events:none}
 .icon-btn{pointer-events:auto;width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:12px;touch-action:none;
   border:1px solid var(--line);background:rgba(21,14,40,.7);color:var(--ink);cursor:pointer}
-.hud-song{display:flex;flex-direction:column;min-width:0;color:#2a2340}
+.hud-song{display:flex;flex-direction:column;min-width:0;color:var(--ink)}
 .hud-song strong{font:600 13px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.hud-song span{font:700 11px/1.4 var(--body);letter-spacing:.12em;color:#6f6688;white-space:nowrap}
-.hud-acc{margin-left:auto;color:#2a2340;font:900 22px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
-.hud-acc small{font-size:12px;margin-left:2px;color:#6f6688}
-.prog{position:absolute;left:16px;right:16px;bottom:12px;height:3px;border-radius:3px;background:rgba(60,40,100,.15);overflow:hidden;pointer-events:none}
+.hud-song span{font:700 11px/1.4 var(--body);letter-spacing:.12em;color:var(--muted);white-space:nowrap}
+.hud-acc{margin-left:auto;color:var(--ink);font:900 22px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.hud-acc small{font-size:12px;margin-left:2px;color:var(--muted)}
+.prog{position:absolute;left:16px;right:16px;bottom:12px;height:3px;border-radius:3px;background:rgba(196,178,255,.14);overflow:hidden;pointer-events:none}
 .prog i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--gold));transform-origin:left center;transform:scaleX(0)}
 
 /* ---------- pause / result ---------- */
@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v45</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v46</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1882,13 +1882,13 @@ function buildBg() {
   BG = document.createElement('canvas');
   BG.width = Math.max(1, Math.round(W * dpr)); BG.height = Math.max(1, Math.round(H * dpr));
   const x = BG.getContext('2d'); x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  // 上はやや灰色がかった白、下はあたたかいクリーム色
+  // まわりは暗め（白いと目が疲れてノーツやリングが見づらい）。上は紺、下は少しあたたかい紫
   const lg = x.createLinearGradient(0, 0, 0, H);
-  lg.addColorStop(0, '#dedfe3'); lg.addColorStop(.5, '#eceaea'); lg.addColorStop(1, '#f6f1e6');
+  lg.addColorStop(0, '#0d0a1c'); lg.addColorStop(.55, '#151027'); lg.addColorStop(1, '#221630');
   x.fillStyle = lg; x.fillRect(0, 0, W, H);
-  // 下の方からほんのり光
+  // 下の方からほんのり金色の光
   const rg = x.createRadialGradient(W * .55, H * 1.05, 0, W * .55, H * 1.05, Math.max(W, H) * .75);
-  rg.addColorStop(0, 'rgba(255,246,220,.85)'); rg.addColorStop(1, 'rgba(255,246,220,0)');
+  rg.addColorStop(0, 'rgba(255,190,90,.16)'); rg.addColorStop(1, 'rgba(255,190,90,0)');
   x.fillStyle = rg; x.fillRect(0, 0, W, H);
 }
 let bgLast = 0;
@@ -1930,7 +1930,7 @@ function draw(now, pf) {
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   drawBg(pf);
   // リングの外側にうっすら影（明るい背景からプレイ面を分ける）
-  circle(cx, cy, R * 1.018); g.lineWidth = R * .03; g.strokeStyle = 'rgba(40,30,70,.07)'; g.stroke();
+  circle(cx, cy, R * 1.018); g.lineWidth = R * .03; g.strokeStyle = 'rgba(196,178,255,.08)'; g.stroke();
   // プレイ面（リングの内側）はノーツが見やすいように暗いまま
   circle(cx, cy, R); g.fillStyle = 'rgba(14,10,28,.9)'; g.fill();
 
@@ -1945,7 +1945,7 @@ function draw(now, pf) {
   g.fillStyle = '#f5f0ff';
   for (let k = 0; k < 8; k++) { const a = laneAng(k); circle(cx + Math.cos(a) * R, cy + Math.sin(a) * R, R * .027); g.fill(); }
   if (mode === 'play' && finePointer) {
-    g.font = `800 ${Math.round(R * .05)}px ${BODY}`; g.fillStyle = 'rgba(80,70,110,.6)';
+    g.font = `800 ${Math.round(R * .05)}px ${BODY}`; g.fillStyle = 'rgba(165,158,200,.6)';
     g.textAlign = 'center'; g.textBaseline = 'middle';
     for (let k = 0; k < 8; k++) { const a = laneAng(k); g.fillText(KEYLBL[k], cx + Math.cos(a) * R * 1.19, cy + Math.sin(a) * R * 1.19); }
   }
