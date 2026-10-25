@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v48</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v49</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -2420,7 +2420,7 @@ function sweepSegs(song) {
 function updReviewBtn() {
   const b = $('#reviewBtn'), ch = currentChart(), rv = ch ? getReview(ch.id) : [];
   b.hidden = !rv.length;
-  if (rv.length) b.textContent = `復習（${rv.length}か所）`;
+  if (rv.length) b.textContent = `復習（${planSecs(rv).length}か所）`;
 }
 function updSweepBtn() {
   updReviewBtn();
@@ -2536,6 +2536,16 @@ function updateReview(r, id) {
   setReview(id, rv);
   return rv;
 }
+// 練習する区間：復習の所の前後を REVIEW_PAD 秒ずつ広げ、重なった所は1つにまとめる（src は元の復習の開始時刻）
+const REVIEW_PAD = 3;
+function planSecs(rv) {
+  const out = [];
+  for (const x of rv.slice().sort((a, b) => a.A - b.A)) {
+    const A = Math.max(0, x.A - REVIEW_PAD), B = x.B + REVIEW_PAD, p = out[out.length - 1];
+    if (p && A <= p.B) { p.B = Math.max(p.B, B); p.src.push(x.A); } else out.push({ A, B, src: [x.A] });
+  }
+  return out;
+}
 function weakSecs(r, max = Infinity) {
   const w = Math.max(measure() * 2, 1.6), pts = [];
   // GREAT も GOOD も MISS と同じく「取れていない」に数える（PERFECT だけが合格）
@@ -2573,10 +2583,10 @@ function coachResult(r) {
   for (const [k, v] of ps) lines.push(`苦手：${k}（PERFECT ${v.ok}/${v.n}）→ ${PK_TIP[k]}`);
   coachPlan = null;
   if (secs.length) {
-    coachPlan = { chart: playing.id, secs, idx: 0, rate: .8, tries: 0 };
-    btn.textContent = `復習する（${secs.length}か所）`;
+    coachPlan = { chart: playing.id, secs: planSecs(secs), idx: 0, rate: .8, tries: 0 };
+    btn.textContent = `復習する（${coachPlan.secs.length}か所）`;
     btn.hidden = false;
-    const ts = secs.map(x => fmtTime(x.A));
+    const ts = coachPlan.secs.map(x => fmtTime(x.A));
     lines.push(`復習：${ts.length > 8 ? ts.slice(0, 8).join('、') + ` ほか${ts.length - 8}か所` : ts.join('、')}（難しい所だけ。やさしい所のミスは入れません）`);
   }
   updReviewBtn();
@@ -2598,7 +2608,7 @@ function coachNext(r) {
   if (pr >= .9) {
     if (c.rate >= 1) {
       // 等速で取れたので復習から外す
-      const g = c.secs[c.idx]; setReview(c.chart, getReview(c.chart).filter(x => Math.abs(x.A - g.A) >= .05));
+      const g = c.secs[c.idx]; setReview(c.chart, getReview(c.chart).filter(x => !g.src.some(a => Math.abs(x.A - a) < .05)));
       c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！復習から外して次へ' : '';
     }
     else { c.rate = Math.min(1, Math.round((c.rate + .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に上げます`; }
@@ -2795,7 +2805,7 @@ $('#sweepBtn').addEventListener('click', () => {
 $('#coachBtn').addEventListener('click', () => { if (coachPlan) startCoach(coachPlan); });
 $('#reviewBtn').addEventListener('click', () => {
   const ch = currentChart(), rv = ch ? getReview(ch.id) : []; if (!rv.length) return;
-  coachPlan = { chart: ch.id, secs: rv, idx: 0, rate: .8, tries: 0 };
+  coachPlan = { chart: ch.id, secs: planSecs(rv), idx: 0, rate: .8, tries: 0 };
   startCoach(coachPlan);
 });
 $('#drillBtn').addEventListener('click', () => { if (nextDrill === 'full') startPlay(); else if (nextDrill) startDrill(nextDrill); });
