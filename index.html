@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v44</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v45</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -322,7 +322,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <input type="range" id="spd" min="1" max="10" step="0.25" value="7">
       </div>
       <label class="check" for="auto"><input type="checkbox" id="auto">オートプレイでお手本を見る</label>
-      <label class="check" for="hands"><input type="checkbox" id="hands" checked><span>運指ガイド <small>ノーツに「左・右」（取る手）を出し、取り方を画面の下に出す</small></span></label>
+      <label class="check" for="hands"><input type="checkbox" id="hands" checked><span>運指ガイド <small>ノーツに「左・右」（取る手）を出す</small></span></label>
       <button type="submit" class="play" id="playBtn">PLAY</button>
       <button type="button" class="ghost" id="sweepBtn" hidden>流しだけ練習</button>
       <p class="best" id="bestTxt"></p>
@@ -1913,6 +1913,18 @@ function drawBg(pf) {
   }
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
 }
+// リングの中のマスコット（オリジナルのキャラクター）。ノーツの下に、少し薄めに出す
+const MASCOT = new Image(); let mascotOk = false;
+MASCOT.onload = () => { mascotOk = true; };
+MASCOT.src = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0MDAgNDQwIj4gPGcgc3Ryb2tlPSIjMmIyMjM4IiBzdHJva2Utd2lkdGg9IjciIHN0cm9rZS1saW5lam9pbj0icm91bmQiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCI+IDxwYXRoIGQ9Ik0xNjggMzcyIHEtNiAzNCAtMiA0NiBoMzAgcTQgLTE0IDIgLTQ2IHoiIGZpbGw9IiNmZmUyY2YiLz4gPHBhdGggZD0iTTIwNiAzNzIgcS0yIDM0IDIgNDYgaDMwIHE0IC0xNCAtNCAtNDYgeiIgZmlsbD0iI2ZmZTJjZiIvPiA8cGF0aCBkPSJNMTYwIDQxMiBxMjAgLTEwIDQwIDAgcTIgMTQgLTQgMTggaC0zNCBxLTggLTQgLTIgLTE4IHoiIGZpbGw9IiNmZjZmOWMiLz4gPHBhdGggZD0iTTIwNCA0MTIgcTIwIC0xMCA0MCAwIHE0IDE0IC0yIDE4IGgtMzQgcS04IC00IC00IC0xOCB6IiBmaWxsPSIjZmY2ZjljIi8+IDxwYXRoIGQ9Ik0xNDYgMjYyIHE1NiAtMjIgMTEyIDAgbDE0IDEwNCBxLTcwIDIwIC0xNDAgMCB6IiBmaWxsPSIjZmZkMzRkIi8+IDxwYXRoIGQ9Ik0xNzYgMzMwIGg1MiIgZmlsbD0ibm9uZSIvPiA8cGF0aCBkPSJNMjAwIDI3MCB2NTIiIGZpbGw9Im5vbmUiLz4gPHBhdGggZD0iTTE1MCAyNzYgcS0zNCAyNCAtMzAgNjIgcTQgMTAgMTYgNiBxNCAtMzAgMjYgLTQ4IHoiIGZpbGw9IiNmZmQzNGQiLz4gPGNpcmNsZSBjeD0iMTI4IiBjeT0iMzQ2IiByPSIxNCIgZmlsbD0iI2ZmZTJjZiIvPiA8cGF0aCBkPSJNODQgMTY4IHEtNiA5MiA0MCAxMTIgaDE1MiBxNDYgLTIwIDQwIC0xMTIgeiIgZmlsbD0iI2YwOGEzYyIvPiA8ZWxsaXBzZSBjeD0iMjAwIiBjeT0iMTY4IiByeD0iMTEwIiByeT0iMTAwIiBmaWxsPSIjZmZlOGQ2Ii8+IDxwYXRoIGQ9Ik04OCAxNjAgcS00IC05NiAxMTIgLTEwMCBxMTE2IDQgMTEyIDEwMCBxLTIyIC0zMCAtNDAgLTM2IHEtNiAyNiAtMzAgMzAgcTQgLTIyIC02IC00MCBxLTMwIDM0IC03NiAzNiBxMTQgLTE2IDE2IC0zNiBxLTM2IDIyIC04OCA0NiB6IiBmaWxsPSIjZjA4YTNjIi8+IDxwYXRoIGQ9Ik04NCAxNTAgcTggLTEyMiAxMTYgLTEyNCBxMTA4IDIgMTE2IDEyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxNiIvPiA8cGF0aCBkPSJNODQgMTUwIHE4IC0xMjIgMTE2IC0xMjQgcTEwOCAyIDExNiAxMjQiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzdjNGRmZiIgc3Ryb2tlLXdpZHRoPSI3Ii8+IDxyZWN0IHg9IjYyIiB5PSIxMzYiIHdpZHRoPSI0MCIgaGVpZ2h0PSI3MCIgcng9IjE4IiBmaWxsPSIjN2M0ZGZmIi8+IDxyZWN0IHg9IjI5OCIgeT0iMTM2IiB3aWR0aD0iNDAiIGhlaWdodD0iNzAiIHJ4PSIxOCIgZmlsbD0iIzdjNGRmZiIvPiA8Y2lyY2xlIGN4PSI4MiIgY3k9IjE3MSIgcj0iOSIgZmlsbD0iI2ZmZDM0ZCIgc3Ryb2tlLXdpZHRoPSI0Ii8+IDxjaXJjbGUgY3g9IjMxOCIgY3k9IjE3MSIgcj0iOSIgZmlsbD0iI2ZmZDM0ZCIgc3Ryb2tlLXdpZHRoPSI0Ii8+IDxwYXRoIGQ9Ik0yNDQgOTIgbDkgMTcgMTkgMyAtMTQgMTMgNCAxOSAtMTggLTkgLTE3IDkgMyAtMTkgLTE0IC0xMyAxOSAtMyB6IiBmaWxsPSIjZmZkMzRkIiBzdHJva2Utd2lkdGg9IjUiLz4gPHBhdGggZD0iTTI1MCAyODIgcTQwIC0yIDcyIC00NiBxLTQgLTE0IC0xOCAtMTQgcS0yNCAzMiAtNjAgMzQgeiIgZmlsbD0iI2ZmZDM0ZCIvPiA8cGF0aCBkPSJNMzE2IDIzMCBsNCAtMzQgTTMzMCAyMzQgbDE2IC0zMCIgZmlsbD0ibm9uZSIgc3Ryb2tlLXdpZHRoPSIxMyIvPiA8cGF0aCBkPSJNMzE2IDIzMCBsNCAtMzQgTTMzMCAyMzQgbDE2IC0zMCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZlMmNmIiBzdHJva2Utd2lkdGg9IjUiLz4gPGNpcmNsZSBjeD0iMzIwIiBjeT0iMjM2IiByPSIxNSIgZmlsbD0iI2ZmZTJjZiIvPiA8L2c+IDxnIHN0cm9rZT0iIzJiMjIzOCIgc3Ryb2tlLXdpZHRoPSI3IiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBzdHJva2UtbGluZWNhcD0icm91bmQiPiA8L2c+IDxlbGxpcHNlIGN4PSIxNjAiIGN5PSIxNzYiIHJ4PSIyMSIgcnk9IjI5IiBmaWxsPSIjMmIyMjM4Ii8+IDxlbGxpcHNlIGN4PSIyNDAiIGN5PSIxNzYiIHJ4PSIyMSIgcnk9IjI5IiBmaWxsPSIjMmIyMjM4Ii8+IDxlbGxpcHNlIGN4PSIxNjAiIGN5PSIxODQiIHJ4PSIxMyIgcnk9IjE1IiBmaWxsPSIjM2ZiOGZmIi8+IDxlbGxpcHNlIGN4PSIyNDAiIGN5PSIxODQiIHJ4PSIxMyIgcnk9IjE1IiBmaWxsPSIjM2ZiOGZmIi8+IDxjaXJjbGUgY3g9IjE1MyIgY3k9IjE2NCIgcj0iOCIgZmlsbD0iI2ZmZiIvPiA8Y2lyY2xlIGN4PSIyMzMiIGN5PSIxNjQiIHI9IjgiIGZpbGw9IiNmZmYiLz4gPGNpcmNsZSBjeD0iMTY2IiBjeT0iMTkwIiByPSIzIiBmaWxsPSIjZmZmIi8+IDxjaXJjbGUgY3g9IjI0NiIgY3k9IjE5MCIgcj0iMyIgZmlsbD0iI2ZmZiIvPiA8ZWxsaXBzZSBjeD0iMTI4IiBjeT0iMjEwIiByeD0iMTgiIHJ5PSIxMCIgZmlsbD0iI2ZmOWJiMyIgb3BhY2l0eT0iLjc1Ii8+IDxlbGxpcHNlIGN4PSIyNzIiIGN5PSIyMTAiIHJ4PSIxOCIgcnk9IjEwIiBmaWxsPSIjZmY5YmIzIiBvcGFjaXR5PSIuNzUiLz4gPHBhdGggZD0iTTE4NCAyMTQgcTE2IDIyIDMyIDAgeiIgZmlsbD0iI2U5NTA2ZiIgc3Ryb2tlPSIjMmIyMjM4IiBzdHJva2Utd2lkdGg9IjUiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz4gPHBhdGggZD0iTTE5MiAyMjQgcTggNiAxNiAwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZjliYjMiIHN0cm9rZS13aWR0aD0iNCIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+IDwvc3ZnPg==';
+function drawMascot() {
+  if (!mascotOk) return;
+  const h = R * .78, w = h * 400 / 440;
+  g.save(); circle(cx, cy, R * .985); g.clip();
+  g.globalAlpha = .42;
+  g.drawImage(MASCOT, cx - w / 2, cy + R * .97 - h, w, h);
+  g.restore(); g.globalAlpha = 1;
+}
 function draw(now, pf) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
@@ -1926,6 +1938,7 @@ function draw(now, pf) {
   for (let k = 0; k < 8; k++) { const a = laneAng(k); g.moveTo(cx + Math.cos(a) * R0, cy + Math.sin(a) * R0); g.lineTo(cx + Math.cos(a) * R * .97, cy + Math.sin(a) * R * .97); }
   g.stroke();
   circle(cx, cy, R0); g.strokeStyle = 'rgba(196,178,255,.14)'; g.stroke();
+  drawMascot();
 
   // リング（光らせない。拍に合わせた発光・ボタンを押したときの光・外周の小節時計はなし）
   circle(cx, cy, R); g.lineWidth = Math.max(2, R * .013); g.strokeStyle = '#f5f0ff'; g.stroke();
@@ -1959,7 +1972,6 @@ function draw(now, pf) {
   }
   for (let i = run.first; i < last; i++) { const n = notes[i]; if (n.type === 'slide' && !n.fin) drawSlideStar(n, now, pf); }
   drawTexts(pf);
-  drawTips(now);
 }
 
 /* ================= layout ================= */
@@ -2477,7 +2489,7 @@ function sweepResult(r) {
   el.textContent = line; el.style.whiteSpace = 'pre-line'; el.hidden = false;
 }
 /* ================= コーチ（やるだけで上達する練習） =================
-   通しプレイのあと、ミスが集まった所（2小節ずつ）を最大3か所選び、苦手な配置とコツを出す。
+   通しプレイのあと、PERFECT 以外（GREAT・GOOD・MISS）が出た所（2小節ずつ）を全部選び、苦手な配置とコツを出す。
    「苦手な所を自動で練習」を押すと、その所だけを繰り返す。1回ごとに PERFECT の割合で速さを自動で上げ下げし、
    等速で取れたら次の所へ進む。ボタンを押さなくても続けて回るので、叩き続けるだけで上達できる */
 const PK_TIP = {
@@ -2491,9 +2503,10 @@ const PK_TIP = {
   'タップ': '叩く手を早めに近くへ構えておく',
 };
 let coachPlan = null;
-function weakSecs(r, max = 3) {
+function weakSecs(r, max = Infinity) {
   const w = Math.max(measure() * 2, 1.6), pts = [];
-  for (const n of r.notes) { if (n.skip || n.jr == null || n.jr === 0) continue; pts.push({ t: n.t, v: n.jr === 3 ? 3 : n.jr === 2 ? 2 : 1 }); }
+  // GREAT も GOOD も MISS と同じく「取れていない」に数える（PERFECT だけが合格）
+  for (const n of r.notes) { if (n.skip || n.jr == null || n.jr === 0) continue; pts.push({ t: n.t, v: 1 }); }
   pts.sort((a, b) => a.t - b.t);
   const out = [];
   while (out.length < max) {
@@ -2504,7 +2517,7 @@ function weakSecs(r, max = 3) {
       if (!out.some(o => A < o.B && B > o.A) && (!best || sum > best.sc)) best = { A: Math.max(0, A), B, sc: sum };
       sum -= pts[i].v;
     }
-    if (!best || best.sc < 3) break;
+    if (!best || best.sc < 1) break;
     out.push(best);
   }
   return out.sort((a, b) => a.A - b.A);
@@ -2530,7 +2543,8 @@ function coachResult(r) {
     coachPlan = { chart: playing.id, secs, idx: 0, rate, tries: 0 };
     btn.textContent = `苦手な所を自動で練習（${secs.length}か所）`;
     btn.hidden = false;
-    lines.push(`ミスが多い所：${secs.map(x => fmtTime(x.A)).join('、')}`);
+    const ts = secs.map(x => fmtTime(x.A));
+    lines.push(`PERFECT 以外が出た所：${ts.length > 8 ? ts.slice(0, 8).join('、') + ` ほか${ts.length - 8}か所` : ts.join('、')}`);
   }
   if (!lines.length) return;
   el.textContent = lines.join('\n'); el.style.whiteSpace = 'pre-line'; el.hidden = false;
@@ -2543,9 +2557,9 @@ async function startCoach(c) {
 // 1回終わるごとに次を決める。結果画面を出さずに続けて始める
 function coachNext(r) {
   const c = r.coach, live = r.notes.filter(n => !n.skip && n.jr != null), n = live.length || 1;
-  const pr = live.filter(x => x.jr === 0).length / n, miss = live.filter(x => x.jr === 3).length;
+  const pr = live.filter(x => x.jr === 0).length / n, cntJ = j => live.filter(x => x.jr === j).length;
   const sp = v => v.toFixed(2).replace(/0$/, '') + '倍';
-  let msg = `PERFECT ${Math.round(pr * 100)}%（ミス ${miss}）`;
+  let msg = `PERFECT ${Math.round(pr * 100)}%（GREAT ${cntJ(1)}・GOOD ${cntJ(2)}・MISS ${cntJ(3)}）`;
   const ps = pkStats(r).filter(([, v]) => v.ok / v.n < .8)[0];
   if (pr >= .9) {
     if (c.rate >= 1) { c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！次の苦手な所へ' : ''; }
