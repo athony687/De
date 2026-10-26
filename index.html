@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v52</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v53</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1191,9 +1191,23 @@ const SWEEP_MIN = 3, SWEEP_MAX = 5;
 // 回転：同じ向きに隣（1つ飛ばしも含む）のボタンへ短い間隔で6個以上続く単独のタップ（1→2→…→8 のようにリングを回るもの）。
 // 1本の手でリングに沿ってすべらせて取る。n.rot に回転ごとの番号を入れる
 const ROT_MIN = 6, ROT_DT = .16;
+// 回転・流しのすぐ後に同じ向きへ続くホールド（終点のホールド）に印を付ける（n.runEnd = 'rot' / 'sw'）。
+// 指はすべらせたままホールドのボタンに入るので、叩き直さなくても始点を取れるようにする
+function markEndHold(notes, cur, kind, steps, gap) {
+  const a = cur[cur.length - 2], b = cur[cur.length - 1]; if (!a || !b) return;
+  const st = mod8(b.lane - a.lane), dir = st <= 2 ? 1 : -1;
+  const same = notes.filter(n => (n.type === 'tap' || n.type === 'hold') && Math.abs(n.t - b.t) > .001);
+  for (const n of notes) {
+    if (n.type !== 'hold' || n.t <= b.t + .001 || n.t > b.t + gap) continue;
+    const s2 = mod8((n.lane - b.lane) * dir);
+    if (!steps.includes(s2)) continue;
+    if (same.some(m => m !== n && Math.abs(m.t - n.t) < .001)) continue;   // 同時押しのホールドは対象外
+    n.runEnd = kind; n.runT0 = cur[0].t; break;
+  }
+}
 function markRotations(notes, taps) {
   let cur = [], id = 0;
-  const flush = () => { if (cur.length >= ROT_MIN) { id++; for (const n of cur) { n.rot = id; n.runT0 = cur[0].t; } } };
+  const flush = () => { if (cur.length >= ROT_MIN) { id++; for (const n of cur) { n.rot = id; n.runT0 = cur[0].t; } markEndHold(notes, cur, 'rot', [1, 2], ROT_DT + .04); } };
   for (const n of taps) {
     const p = cur[cur.length - 1], dt = p ? n.t - p.t : 0, st = p ? mod8(n.lane - p.lane) : 0;
     const dir = st === 1 || st === 2 ? 1 : st === 7 || st === 6 ? -1 : 0;
@@ -1209,7 +1223,7 @@ function markSweeps(notes) {
   markRotations(notes, single);
   const taps = single.filter(n => !n.star && !n.rot);
   let cur = [];
-  const flush = () => { if (cur.length >= SWEEP_MIN && cur.length <= SWEEP_MAX) for (const n of cur) { n.sw = true; n.runT0 = cur[0].t; } };
+  const flush = () => { if (cur.length >= SWEEP_MIN && cur.length <= SWEEP_MAX) { for (const n of cur) { n.sw = true; n.runT0 = cur[0].t; } markEndHold(notes, cur, 'sw', [1], .16); } };
   for (const n of taps) {
     const p = cur[cur.length - 1], dt = p ? n.t - p.t : 0;
     const ok = p && dt > .001 && dt <= .11 && Math.abs(mod8(n.lane - p.lane + 4) - 4) === 1
@@ -1439,6 +1453,8 @@ function advanceSlide(n, S) {
     n.prog = Math.min(n.len, best * n.ss);
   }
 }
+// すべらせてそのボタンに入った指が、まだそのボタンにいるか（境目付近で指がぶれてもホールドが抜けないように）
+function laneHeld(lane) { for (const p of ptrs.values()) if (p.lane === lane) return true; return false; }
 function touchHeld(n, P) {
   for (const p of P) if (Math.hypot(p[0] - n.pos[0], p[1] - n.pos[1]) < .45) return true;
   return isCenter(n.pos) ? centerKey : keys.has(nearestLane(n.pos));
@@ -1617,7 +1633,7 @@ function update(now, pf) {
       }
       const dur = Math.max(n.dur, .05), te = n.t + dur;
       if (r.auto && !isT) h[n.lane] = true;
-      const held = r.auto || (isT ? touchHeld(n, P) : h[n.lane]);
+      const held = r.auto || (isT ? touchHeld(n, P) : h[n.lane] || laneHeld(n.lane));
       // 離していた時間を数える（終点の直前と、ごく短いホールドは数えない）。離しても押し直せば続きから取れる
       const from = Math.max(n.lastT == null ? n.t : n.lastT, n.t), upto = Math.min(now, te - HOLD_GRACE);
       if (!held && dur >= HOLD_SHORT && upto > from) n.rel += upto - from;
@@ -2947,10 +2963,10 @@ function assistSweeps(nj) {
   for (let i = run.first; i < ns.length; i++) {
     const n = ns[i];
     if (n.t > nj) break;
-    if (n.fin || n.type !== 'tap' || nj > n.t + W_D) continue;
-    const easy = slow && (n.rot || n.sw);
-    if (!n.rot && !aOn && !easy) continue;
-    const lv = n.rot || easy ? 1 : lv0;
+    if (n.fin || n.hh || !(n.type === 'tap' || (n.type === 'hold' && n.runEnd)) || nj > n.t + W_D) continue;
+    const rotL = n.rot || n.runEnd === 'rot', easy = slow && (rotL || n.sw || n.runEnd);
+    if (!rotL && !aOn && !easy) continue;
+    const lv = rotL || easy ? 1 : lv0;
     let best = null;
     for (const v of sweeps) {
       if (v.used || v.lane !== n.lane || (v.inner && lv <= 0)) continue;
@@ -3003,7 +3019,7 @@ function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
     p.pend = false; p.hitLane = lane; p.hx = px; p.hy = py;
     press(lane, performance.now());
     if (live && settings.nagashi !== false && !assistOn() && Math.hypot(px - cx, py - cy) >= R * .62) {
-      const slow = slowRuns(), n = scanCands(t, n => isHead(n) && n.lane === lane && !n.rot && !(slow && n.sw))[0];
+      const slow = slowRuns(), n = scanCands(t, n => isHead(n) && n.lane === lane && !n.rot && n.runEnd !== 'rot' && !(slow && (n.sw || n.runEnd)))[0];
       if (n) applyHit(n, t);
     }
   }
