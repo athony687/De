@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v53</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v54</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1455,6 +1455,13 @@ function advanceSlide(n, S) {
 }
 // すべらせてそのボタンに入った指が、まだそのボタンにいるか（境目付近で指がぶれてもホールドが抜けないように）
 function laneHeld(lane) { for (const p of ptrs.values()) if (p.lane === lane) return true; return false; }
+// ホールドの始点を取った指は、押したまま隣のボタンのあたりまでずれても押している扱いにする
+// （回転・流しのあとは指が勢いで少し流れるため。ほかの指は、そのボタンの上にあるときだけ）
+function driftHeld(n) {
+  const p = n.hp != null && ptrs.get(n.hp); if (!p) return false;
+  const nx = (p.x - cx) / R, ny = (p.y - cy) / R;
+  return Math.hypot(nx, ny) >= .28 && angGap(Math.atan2(ny, nx), laneAng(n.lane)) < Q * 1.3;
+}
 function touchHeld(n, P) {
   for (const p of P) if (Math.hypot(p[0] - n.pos[0], p[1] - n.pos[1]) < .45) return true;
   return isCenter(n.pos) ? centerKey : keys.has(nearestLane(n.pos));
@@ -1478,14 +1485,15 @@ function scanCands(t, pred) {
   }
   return out;
 }
-function applyHit(n, t, assisted) {
+let downId = null;   // いま押した指の番号（ホールドの始点を取った指を覚えておく）
+function applyHit(n, t, assisted, pid) {
   // タッチ（タッチホールドの始点も）は早く押しても FAST にしない。早い分はちょうどの時刻に押したのと同じ判定にする
   const d = isTouch(n) ? Math.max(0, t - n.t) : t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
   if (!run.auto && !run.demo && !assisted && Number.isFinite(d)) run.devs.push((t - n.t) / (run.rate || 1));
   if (n.type === 'tap') { fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n); }
   else if (n.type === 'touch') { fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n); }
   else {
-    n.hh = true; n.hj = j; n.hd = d; n.holding = true; n.rel = 0; n.lastT = t;
+    n.hh = true; n.hj = j; n.hd = d; n.holding = true; n.rel = 0; n.lastT = t; n.hp = pid != null ? pid : downId;
     if (n.type === 'hold') press(n.lane, performance.now());
     se('perfect');
   }
@@ -1633,7 +1641,7 @@ function update(now, pf) {
       }
       const dur = Math.max(n.dur, .05), te = n.t + dur;
       if (r.auto && !isT) h[n.lane] = true;
-      const held = r.auto || (isT ? touchHeld(n, P) : h[n.lane] || laneHeld(n.lane));
+      const held = r.auto || (isT ? touchHeld(n, P) : h[n.lane] || laneHeld(n.lane) || driftHeld(n));
       // 離していた時間を数える（終点の直前と、ごく短いホールドは数えない）。離しても押し直せば続きから取れる
       const from = Math.max(n.lastT == null ? n.t : n.lastT, n.t), upto = Math.min(now, te - HOLD_GRACE);
       if (!held && dur >= HOLD_SHORT && upto > from) n.rel += upto - from;
@@ -2925,7 +2933,7 @@ function fingerDown(id, clientX, clientY, ev) {
   if (rg < 0) return;
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
-  hitPointer(nx, ny, inT(ev));
+  downId = id; hitPointer(nx, ny, inT(ev)); downId = null;
 }
 cv.addEventListener('pointerdown', e => {
   if (fromTouch(e)) return;
@@ -2963,7 +2971,9 @@ function assistSweeps(nj) {
   for (let i = run.first; i < ns.length; i++) {
     const n = ns[i];
     if (n.t > nj) break;
-    if (n.fin || n.hh || !(n.type === 'tap' || (n.type === 'hold' && n.runEnd)) || nj > n.t + W_D) continue;
+    if (n.fin || n.hh || nj > n.t + W_D) continue;
+    if (n.type === 'hold') { assistHold(n, nj); continue; }
+    if (n.type !== 'tap') continue;
     const rotL = n.rot || n.runEnd === 'rot', easy = slow && (rotL || n.sw || n.runEnd);
     if (!rotL && !aOn && !easy) continue;
     const lv = rotL || easy ? 1 : lv0;
@@ -2992,8 +3002,22 @@ function assistSweeps(nj) {
     if (Math.abs(best.d) > W_P && nj < n.t + W_G) continue;
     best.v.used = true;
     n.asRaw = best.raw; n.asInner = best.v.inner;
-    applyHit(n, n.t + best.d, true);
+    applyHit(n, n.t + best.d, true, best.v.id);
   }
+}
+// ホールドの始点：指をすべらせてそのボタンに入り、そのまま止めている指があれば取る（回転・流しの終点のホールドなど）。
+// どの譜面でも効くように、流し・回転の印がないホールドにも使う。通りすぎただけの指（もう出ていった指）では取らない。
+// 早めに入って待っていたのはちょうどの時刻、遅れて入ったのはそのぶん遅れ
+function assistHold(n, nj) {
+  let best = null;
+  for (const v of sweeps) {
+    if (v.used || v.lane !== n.lane || v.tOut != null) continue;
+    if (v.tIn < n.t - .6 || v.tIn > n.t + W_D) continue;
+    if (!best || v.tIn > best.tIn) best = v;
+  }
+  if (!best) return;
+  best.used = true;
+  applyHit(n, n.t + Math.max(0, best.tIn - n.t), true, best.id);
 }
 function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
   const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (R * .05)));
@@ -3020,7 +3044,7 @@ function slideAcrossLanes(p, x0, y0, x1, y1, t, live) {
     press(lane, performance.now());
     if (live && settings.nagashi !== false && !assistOn() && Math.hypot(px - cx, py - cy) >= R * .62) {
       const slow = slowRuns(), n = scanCands(t, n => isHead(n) && n.lane === lane && !n.rot && n.runEnd !== 'rot' && !(slow && (n.sw || n.runEnd)))[0];
-      if (n) applyHit(n, t);
+      if (n) applyHit(n, t, false, p.id);
     }
   }
 }
