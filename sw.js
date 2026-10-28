@@ -1,5 +1,5 @@
 // waiwai: オフラインでも起動できるように、本体とフォントをキャッシュする
-const CACHE = 'waiwai-v63';
+const CACHE = 'waiwai-v64';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
