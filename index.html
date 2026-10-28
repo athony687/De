@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v56</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v57</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1790,6 +1790,8 @@ function drawSlideStar(n, now, pf) {
   drawStar(cx + x * R, cy + y * R, NS * 1.1, colOf(n), now < n.s0 ? .55 : .92, reduceMotion ? 0 : pf / 300);
   drawHand(cx + x * R, cy + y * R, NS * .4, n.hand, now < n.s0 ? .55 : .92);
 }
+// タッチホールドの三角の色（上・右・下・左）
+const TH_COL = ['#ffd23d', '#ff4d6d', '#3dd68c', '#3d8bff'];
 function drawTouch(n, now) {
   const A = run.app, ph = 1 - (n.t - now) / A;
   if (ph < 0) return;
@@ -1797,14 +1799,21 @@ function drawTouch(n, now) {
   const late = !n.hh && now > n.t;
   const al = late ? Math.max(0, 1 - (now - n.t) / T_D) : Math.min(1, ph / .2);
   // 4つの三角は判定の瞬間にちょうど中心の点へ届く
-  const k = n.hh ? 1 : Math.min(ph, 1), dist = NS * (.5 + 2 * (1 - k)), s = NS * .75;
+  const isTH = n.type === 'thold';
+  const k = n.hh ? 1 : Math.min(ph, 1), dist = NS * (.5 + 2 * (1 - k)), s = NS * (isTH ? .88 : .75);
   g.globalAlpha = al; g.lineJoin = 'round';
-  if (n.type === 'thold') {
-    g.lineWidth = NS * .22; g.strokeStyle = `rgba(${c.rgb},.25)`; circle(x, y, NS * 1.45); g.stroke();
+  if (isTH) {
+    // 本家のタッチホールドに寄せる：4色の三角＋太いゲージの輪。暗い影をつけて背景に埋もれないようにする
+    const rr = NS * 1.55;
+    if (n.hh && !reduceMotion) { circle(x, y, rr); g.fillStyle = `rgba(${c.rgb},${.12 + .08 * Math.sin(now * 12)})`; g.fill(); }
+    circle(x, y, rr); g.lineWidth = NS * .42; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
+    g.lineWidth = NS * .26; g.strokeStyle = n.hh ? 'rgba(255,255,255,.22)' : `rgba(${c.rgb},.75)`; g.stroke();
     if (n.hh) {
-      const f = clamp((now - n.t) / Math.max(n.dur, .05), 0, 1);
-      g.strokeStyle = c.main; g.beginPath(); g.arc(x, y, NS * 1.45, -Math.PI / 2, -Math.PI / 2 + TAU * f); g.stroke();
-    }
+      const f = clamp((now - n.t) / Math.max(n.dur, .05), 0, 1), a0 = -Math.PI / 2;
+      g.beginPath(); g.arc(x, y, rr, a0, a0 + TAU * f);
+      g.lineCap = 'round'; g.lineWidth = NS * .26; g.strokeStyle = n.brk ? C.brk.main : '#ffe14d'; g.stroke();
+      g.lineWidth = Math.max(1.5, NS * .07); g.strokeStyle = '#fff'; g.stroke(); g.lineCap = 'butt';
+    } else { circle(x, y, rr); g.lineWidth = Math.max(1.5, NS * .07); g.strokeStyle = 'rgba(255,255,255,.8)'; g.stroke(); }
   } else { g.strokeStyle = `rgba(${c.rgb},.45)`; g.lineWidth = 2; circle(x, y, NS * 1.05); g.stroke(); }
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2 - Math.PI / 2, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
@@ -1815,7 +1824,7 @@ function drawTouch(n, now) {
     g.lineTo(bx + ux * s * .45 - vx * s * .62, by + uy * s * .45 - vy * s * .62);
     g.closePath();
     g.lineWidth = s * .36; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke();
-    g.fillStyle = c.main; g.fill();
+    g.fillStyle = isTH && !n.brk ? TH_COL[i] : c.main; g.fill();
     g.lineWidth = Math.max(1.5, s * .14); g.strokeStyle = '#fff'; g.stroke();
   }
   circle(x, y, NS * .2); g.fillStyle = '#fff'; g.fill();
