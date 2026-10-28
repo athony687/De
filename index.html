@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v61</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v62</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1022,7 +1022,22 @@ const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, 
 const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
 let SONGS = null, IMPORTS = [];
 const PARSED = {}, AUDIO = {};
-function loadImports() { try { IMPORTS = JSON.parse(localStorage.getItem('ringbeat:charts') || '[]') || []; } catch (e) { IMPORTS = []; } }
+function loadImports() { try { IMPORTS = JSON.parse(localStorage.getItem('ringbeat:charts') || '[]') || []; } catch (e) { IMPORTS = []; } fixImportNames(); }
+// 自分で追加した譜面のうち、simai wiki の公式譜面と同じものは、曲名・難易度・レベルを正しいものに直す
+// [譜面全体のハッシュ, 先頭400文字のハッシュ, 曲名, 難易度, レベル]（「名前・レベル」で自分で直した譜面はさわらない）
+const KNOWN_CHARTS = [[486033682, 3937041113, "CHAOS", "BASIC", "Lv.5"], [1030108273, 4128720530, "CHAOS", "ADVANCED", "Lv.7+"], [1166424457, 2191720175, "CHAOS", "EXPERT", "Lv.11+"], [3501867970, 3001884014, "CHAOS", "MASTER", "Lv.13+"], [3362841217, 1153706246, "In Chaos", "MASTER", "Lv.12"], [3282450086, 2819572917, "In Chaos", "Re:MASTER", "Lv.14+"], [3778720418, 974119115, "QuiQ", "MASTER", "Lv.14"], [2908163154, 3847673389, "TEmPTaTion", "EXPERT", "Lv.12+"], [3321069480, 750333914, "TEmPTaTion", "MASTER", "Lv.14+"], [3910045532, 3504422668, "#狂った民族２ PRAVARGYAZOOQA", "MASTER", "Lv.14"], [2326925305, 4019310519, "康莊大道", "EXPERT", "Lv.13"], [2007416482, 1889600779, "康莊大道", "MASTER", "Lv.14+"], [2222564952, 1422623842, "Heavenly Blast", "EXPERT", "Lv.12+"], [150432527, 3073596201, "Heavenly Blast", "MASTER", "Lv.14+"], [323368144, 2671398488, "Heart Beats", "MASTER", "Lv.12"], [635949082, 2019305686, "ATLAS RUSH", "MASTER", "Lv.14+"], [1815052535, 3645581004, "氷滅の135小節", "EXPERT", "Lv.13"], [2364662344, 2521159183, "氷滅の135小節", "MASTER", "Lv.14+"], [1288090451, 1360912154, "色彩過剰のダイアリーミュージック", "MASTER", "Lv.14"], [3291874112, 4011525937, "雷切-RAIKIRI-", "BASIC", "Lv.7"], [1451800571, 3692356317, "雷切-RAIKIRI-", "ADVANCED", "Lv.9+"], [1572991573, 2656518649, "雷切-RAIKIRI-", "EXPERT", "Lv.12+"], [162313612, 3972419212, "雷切-RAIKIRI-", "MASTER", "Lv.14+"], [4275642495, 882769759, "雷切-RAIKIRI-", "Re:MASTER", "Lv.14+"], [4123918400, 540853050, "玩具狂奏曲 -終焉-", "BASIC", "Lv.5"], [663162605, 1440301202, "玩具狂奏曲 -終焉-", "ADVANCED", "Lv.8"], [3657200000, 2012500206, "玩具狂奏曲 -終焉-", "EXPERT", "Lv.13"], [3382264682, 3897781312, "玩具狂奏曲 -終焉-", "MASTER", "Lv.13+"]];
+function chartHash(x) { let h = 0; for (const c of x) h = (h * 31 + c.codePointAt(0)) >>> 0; return h; }
+function fixImportNames() {
+  let changed = false;
+  for (const e of IMPORTS) {
+    if (e.userNamed || !e.text) continue;
+    const x = String(e.text).replace(/\s+/g, ''), i = x.indexOf('('), n = i >= 0 ? x.slice(i) : x;
+    const hf = chartHash(n), hp = n.length >= 400 ? chartHash(n.slice(0, 400)) : -1;
+    const k = KNOWN_CHARTS.find(r => r[0] === hf) || KNOWN_CHARTS.find(r => r[1] === hp);
+    if (k && (e.title !== k[2] || e.label !== k[3] || e.lv !== k[4])) { e.title = k[2]; e.label = k[3]; e.lv = k[4]; changed = true; }
+  }
+  if (changed) saveImports();
+}
 function saveImports() { try { localStorage.setItem('ringbeat:charts', JSON.stringify(IMPORTS)); return true; } catch (e) { return false; } }
 
 /* ================= 音源の保存（IndexedDB） =================
@@ -2805,6 +2820,7 @@ songBox.addEventListener('click', e => {
     const l = prompt('難易度（BASIC / ADVANCED / EXPERT / MASTER / Re:MASTER）', x.label || 'MASTER'); if (l === null) return;
     const v = prompt('レベル（例：13+、14）', (x.lv || '').replace(/^Lv\.?\s*/i, '')); if (v === null) return;
     const up = { BASIC: 'BASIC', ADVANCED: 'ADVANCED', EXPERT: 'EXPERT', MASTER: 'MASTER', REMASTER: 'Re:MASTER', 'RE:MASTER': 'Re:MASTER' };
+    x.userNamed = true;
     x.title = t.trim() || x.title;
     x.label = up[l.trim().toUpperCase()] || l.trim() || x.label;
     const vv = v.trim().replace(/^lv\.?\s*/i, '').replace(/＋/g, '+');
