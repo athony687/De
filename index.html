@@ -296,7 +296,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v55</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v56</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -363,7 +363,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           </li>
           <li>「＋ simai譜面を追加」から、simai形式の譜面テキスト（maidata.txt も可）を貼り付けて遊べます。音源ファイルは任意で、なければガイド音で再生します。読み込んだ音源はこのブラウザに保存されるので、次からは選び直さなくても遊べます。</li>
           <li>練習モードでは、画面下のバーで好きな位置へ移動、2小節ずつの巻き戻し・早送り、直前のミス地点へ戻る、A〜B区間のくり返し、再生速度の変更（0.1〜1倍）ができます。ミスした位置はバーに赤い線で残ります。音源を使っているときは、スローにすると音程も下がります。</li>
-          <li>判定幅は PERFECT ±65ms（中心の ±22ms は CRITICAL PERFECT）・GREAT ±120ms・GOOD ±170ms。スライドは矢印に沿ってなぞってください（リングのすぐ外側をなぞってもOK）。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチはさらに広めで、指をすべらせて範囲に入れても取れます。</li>
+          <li>判定幅は PERFECT ±65ms（中心の ±22ms は CRITICAL PERFECT）・GREAT ±120ms・GOOD ±200ms。スライドは矢印に沿ってなぞってください（リングのすぐ外側をなぞってもOK）。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチはさらに広めで、指をすべらせて範囲に入れても取れます。</li>
           <li>採点は maimai でらっくす と同じです。達成率は最大 101%（基本点 100% ＋ BREAKボーナス 1%）。重みは TAP・TOUCH 1、HOLD 2、SLIDE 3、BREAK 5 で、BREAK は GREAT・PERFECT がずれの大きさで細かく分かれます。EXノーツは GOOD 以上で CRITICAL PERFECT になります。ランクは SSS+ 100.5%・SSS 100%・SS+ 99.5%・SS 99%・S+ 98%・S 97%・AAA 94%・AA 90%・A 80% から。</li>
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
@@ -489,7 +489,7 @@ const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 // 判定幅（秒）。「判定の広さ」の設定で切り替える
 const JUDGE_PRESETS = {
   normal: { tap: [.05, .10, .15],  touch: [.08, .13, .20], slide: [.30, .52, .64] },
-  wide:   { tap: [.065, .12, .17], touch: [.12, .19, .28], slide: [.36, .58, .72] },
+  wide:   { tap: [.065, .12, .20],  touch: [.12, .19, .28], slide: [.36, .58, .72] },
   easy:   { tap: [.11, .18, .26],  touch: [.13, .21, .29], slide: [.46, .68, .82] },
 };
 let W_P = .07, W_G = .125, W_D = .18, T_P = .09, T_G = .15, T_D = .22, SL_P = .3, SL_G = .5, SL_M = .6;
