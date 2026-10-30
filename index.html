@@ -211,6 +211,8 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .segs label small{font-size:11px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
 .segs input:checked + label{border-color:var(--pink);background:rgba(255,61,154,.13)}
 .segs input:focus-visible + label{outline:2px solid var(--gold);outline-offset:2px}
+.segs.kgrid{grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr))}
+.segs.kgrid label{padding:9px 6px}
 .more{border-top:1px solid var(--line);padding-top:12px}
 .more > div{display:flex;flex-direction:column;gap:14px;margin-top:12px}
 
@@ -296,7 +298,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v69</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v70</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -326,6 +328,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <button type="submit" class="play" id="playBtn">PLAY</button>
       <button type="button" class="ghost" id="sweepBtn" hidden>流しだけ練習</button>
       <button type="button" class="ghost" id="reviewBtn" hidden>復習</button>
+      <button type="button" class="ghost" id="kataBtn">認識トレーニング</button>
       <p class="best" id="bestTxt"></p>
       <details class="more">
         <summary>詳細設定</summary>
@@ -407,6 +410,26 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
     </form>
   </section>
 
+  <section id="kataOv" class="overlay center" hidden aria-label="認識トレーニング">
+    <form id="kataForm" class="card imp" autocomplete="off">
+      <h2>認識トレーニング</h2>
+      <p class="lead">よく出る型を、毎回ちがう場所・向きで1小節ずつ出します。ノーツが見えた瞬間に「どの型か」「どこから、どっち向きか」を読む練習です。もう一度やるたびに配置が変わるので、覚えて叩くことはできません。</p>
+      <fieldset class="opt">
+        <legend>型</legend>
+        <div class="segs kgrid" id="kataKinds"></div>
+      </fieldset>
+      <div class="field">
+        <label for="kataBpm">BPM</label><output id="kataBpmOut" for="kataBpm">150</output>
+        <input type="range" id="kataBpm" min="80" max="300" step="10" value="150">
+      </div>
+      <label class="check" for="kataUp"><input type="checkbox" id="kataUp" checked><span>ミスなしなら次は BPM +10 <small>MISS が多かったときは -10。GOOD・MISS が出た型は結果に出ます</small></span></label>
+      <div class="btnrow">
+        <button type="submit" class="play">スタート</button>
+        <button type="button" class="ghost" id="kataClose">閉じる</button>
+      </div>
+    </form>
+  </section>
+
   <section id="pauseOv" class="overlay center" hidden aria-label="一時停止中">
     <div class="card narrow">
       <h2 class="ptitle">PAUSE</h2>
@@ -474,7 +497,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 'use strict';
 const $ = s => document.querySelector(s);
 const app = $('#app'), cv = $('#cv'), g = cv.getContext('2d');
-const stageEl = $('#stage'), titleOv = $('#titleOv'), pauseOv = $('#pauseOv'), resultOv = $('#resultOv'), importOv = $('#importOv');
+const stageEl = $('#stage'), titleOv = $('#titleOv'), pauseOv = $('#pauseOv'), resultOv = $('#resultOv'), importOv = $('#importOv'), kataOv = $('#kataOv');
 const hudEl = $('#hud'), progEl = $('#prog'), progBar = $('#progBar'), hudAcc = $('#hudAcc'), hudDiff = $('#hudDiff'), hudTitle = $('#hudTitle');
 const spdIn = $('#spd'), ofsIn = $('#ofs'), autoIn = $('#auto'), guideIn = $('#guide'), spdOut = $('#spdOut'), ofsOut = $('#ofsOut');
 const songList = $('#songList');
@@ -482,6 +505,12 @@ const DISP = 'Unbounded, "M PLUS Rounded 1c", system-ui, sans-serif';
 const BODY = '"M PLUS Rounded 1c", "Hiragino Sans", system-ui, sans-serif';
 
 /* ================= constants ================= */
+// 認識トレーニング（下の「認識トレーニング」の所で使う）
+const KATA_ID = 'k:kata';
+const KATA_KINDS = { renda: '連打流し', starrenda: '☆＋連打', nagashi: '流し', alt: '交互連打', yose: '寄せ同時押し', rot: '回転', mix: 'ミックス' };
+const KATA_HINT = { renda: '1,1,2,2,3,3', starrenda: '☆→同じ所→スライド', nagashi: '3〜5個をすべらせる', alt: '8,1,7,2 を左右で', yose: '1/8→2/7→3/6→4/5', rot: 'リングを回る6〜8個', mix: '全部まぜて出す' };
+const KATA_BARS = 12;
+let kataCur = null;
 const TAU = Math.PI * 2, Q = Math.PI / 4, D2R = Math.PI / 180;
 const laneAng = k => (-67.5 + 45 * k) * D2R;   // lane 0 = ボタン1（1時方向）、時計回り
 const mod8 = k => ((k % 8) + 8) % 8;
@@ -1183,6 +1212,7 @@ const normChart = t => { const x = String(t).replace(/\s+/g, ''); const i = x.in
 function chartInfo(id) {
   if (id === 'b:basic') return { id, builtin: true, synth: true, title: 'Neon Circuit', label: 'BASIC', lv: 'Lv.4', song: SONGS.basic, first: 0, bestKey: 'basic' };
   if (id === 'b:expert') return { id, builtin: true, synth: true, title: 'Neon Circuit', label: 'EXPERT', lv: 'Lv.9', song: SONGS.expert, first: 0, bestKey: 'expert' };
+  if (id === KATA_ID) return kataCur && kataCur.song ? { id, builtin: true, synth: false, title: '認識トレーニング', label: `${KATA_KINDS[kataCur.kind]} · BPM ${kataCur.bpm}`, lv: '', song: kataCur.song, first: 0, bestKey: KATA_ID } : null;
   const bd = BUNDLED.find(x => x.id === id);
   if (bd) {
     if (!PARSED[id]) { PARSED[id] = parseChart(bd.text); if (bd.music) PARSED[id].mus = bd.music(); }
@@ -1192,7 +1222,7 @@ function chartInfo(id) {
   if (!PARSED[id]) PARSED[id] = parseChart(e.text);
   return { id, builtin: false, title: e.title, label: e.label, lv: e.lv || '', song: PARSED[id], first: +e.first || 0, bestKey: id };
 }
-const currentChart = () => chartInfo(settings.chart) || chartInfo('b:basic');
+const currentChart = () => (kataCur && chartInfo(KATA_ID)) || chartInfo(settings.chart) || chartInfo('b:basic');
 const hueOf = s => { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; };
 const fmtTime = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
 
@@ -1382,6 +1412,9 @@ function assignHands(notes) {
 function newRun(song, opt) {
   const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0, rel: 0, lastT: null }));
   markSweeps(notes);
+  // 同じボタンの次のノーツまでの間隔（流しの補助が、直接叩く指を待つ長さに使う）
+  const nxt = new Array(8).fill(Infinity);
+  for (const n of notes.filter(isHead).sort((a, b) => b.t - a.t)) { n.gapSame = nxt[n.lane] - n.t; nxt[n.lane] = n.t; }
   const tips = assignHands(notes);
   return { notes, tips, first: 0, mus: song.mus || [], ei: 0, endT: song.endT, units: song.units, app: approachOf(settings.nspd),
     beat: 60 / (song.bpm || 150), demo: !!opt.demo, auto: !!opt.auto, guide: false,
@@ -1546,7 +1579,10 @@ function hitPointer(nx, ny, t) {
     const a = Math.atan2(ny, nx), k = laneOfAngle(a);
     let off = a - laneAng(k); off = Math.atan2(Math.sin(off), Math.cos(off));
     tap = scanCands(t, n => isHead(n) && n.lane === k)[0] || null;
-    if (!tap && Math.abs(off) > Q / 2 - NEIGHBOR_ZONE) {
+    // 同じボタンのノーツを、すべらせた指（補助）がついさっき取っていたら、この指はそのノーツを叩きに来た指。
+    // ここで次のノーツ（連打の2つ目）を早取りすると、そのあとの連打が1つずつずれて抜けるので、何も取らない
+    if (tap && tap.t - t > W_G && run.notes.some(m => m.fin && m.asRaw != null && m.lane === k && m.type === 'tap' && Math.abs(t - m.t) <= W_G)) tap = null;
+    else if (!tap && Math.abs(off) > Q / 2 - NEIGHBOR_ZONE) {
       const L = mod8(k + (off > 0 ? 1 : -1));
       tap = scanCands(t, n => isHead(n) && n.lane === L && Math.abs(t - n.t) <= W_G)[0] || null;
     }
@@ -2082,6 +2118,7 @@ async function startPlay() {
   try { return await startPlayInner(); } finally { starting = false; }
 }
 async function startPlayInner() {
+  if (kataCur) kataBuild();   // 認識トレーニング：毎回あたらしい配置で作り直す
   const ch = currentChart();
   if (!ch.song.notes.length) { toast('この譜面にはノーツがありません'); return false; }
   initAudio();
@@ -2097,8 +2134,10 @@ async function startPlayInner() {
   stopTrack(false); killBus(bus); bus = makeBus();
   playing = ch;
   applyJudge('wide');
-  run = newRun(ch.song, { auto: settings.auto, practice: settings.practice });
-  run.rate = settings.practice ? clamp(+settings.prate || .75, .1, 1) : 1;
+  const prac = settings.practice && !kataCur;   // 認識トレーニングは BPM で速さを決めるので、練習の再生速度は使わない
+  run = newRun(ch.song, { auto: settings.auto, practice: prac });
+  run.rate = prac ? clamp(+settings.prate || .75, .1, 1) : 1;
+  if (kataCur) run.kata = { kind: kataCur.kind, bpm: kataCur.bpm, bars: kataCur.bars };
   let lead = .6;
   if (!ch.synth) {
     const au = AUDIO[ch.id], firstNote = ch.song.notes[0].t;
@@ -2139,6 +2178,8 @@ function setMode(m) {
   titleOv.hidden = m !== 'title';
   pauseOv.hidden = true;
   importOv.hidden = true;
+  kataOv.hidden = true;
+  if (m === 'title') { kataSaveBpm(); kataCur = null; }
   resultOv.hidden = m !== 'result';
   hudEl.hidden = m !== 'play';
   const prac = m === 'play' && run && run.practice;
@@ -2349,15 +2390,19 @@ function showResult(r) {
   let msg;
   if (r.practice) msg = r.misses.length ? `練習モードの結果は記録されません（この回のミス ${r.cnt[3]} 個）` : '練習モードの結果は記録されません';
   else if (r.auto) msg = 'オートプレイの結果は記録されません';
+  else if (r.kata) msg = kataResult(r);
   else {
     const prev = getBest(ch.bestKey);
     if (!prev || acc > prev.acc) { setBest(ch.bestKey, { acc, rank: rk }); msg = prev ? `自己ベスト更新（前回 ${fmtAcc(prev.acc)}%）` : '初クリア！記録を保存しました'; }
     else msg = `自己ベスト ${fmtAcc(prev.acc)}%（${prev.rank}）`;
   }
   $('#resBest').textContent = msg;
-  timingResult(r);
-  sweepResult(r);
-  coachResult(r);
+  if (r.kata) { for (const id of ['#resTim', '#resNag', '#coachBtn', '#drillBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
+  else {
+    timingResult(r);
+    sweepResult(r);
+    coachResult(r);
+  }
   setMode('result');
   prepShare(r, ch, acc, rk, b.hidden ? '' : b.textContent);
   $('#retryBtn').focus({ preventScroll: true });
@@ -3050,6 +3095,10 @@ function assistSweeps(nj) {
     if (n.type !== 'tap') continue;
     const rotL = n.rot || n.runEnd === 'rot', easy = slow && (rotL || n.sw || n.runEnd);
     if (!rotL && !aOn && !easy) continue;
+    // 流し・回転の印がないノーツは、直接叩く指を PERFECT の幅まで先に待つ。スライドをなぞっている指や、
+    // 通りすぎた指が先に取ってしまうと、本当に叩いた指が同じボタンの次のノーツを早く取り、連打が1つずつずれて抜ける
+    const flow = rotL || n.sw || n.runEnd;
+    if (!flow && nj < n.t + Math.min(W_P, (n.gapSame || 1) * .45)) continue;
     const lv = rotL || easy ? 1 : lv0;
     let best = null;
     for (const v of sweeps) {
@@ -3065,6 +3114,7 @@ function assistSweeps(nj) {
         continue;
       }
       if (v.tIn < n.t - ASSIST_EARLY || v.tIn > n.t + W_D || out < n.t - W_D - .2 * lv) continue;
+      if (!flow && out < n.t - W_G) continue;   // 印のないノーツは、ノーツの時刻の近くまでそのボタンにいた指だけ
       // raw：実際にボタンに入った時刻のずれ。snap：ノーツの時刻に一番近い、指がそのボタンにいた時刻のずれ。
       // 強さ100%ならずれなし、0%なら raw のまま。間は raw と snap を混ぜて、強さが下がるほどずれが残る
       const snap = clamp(n.t, v.tIn, out) - n.t, raw = v.tIn - n.t, d = (1 - lv) * (raw * (1 - lv) + snap * lv);
@@ -3237,6 +3287,118 @@ document.addEventListener('visibilitychange', () => {
 });
 if (window.ResizeObserver) new ResizeObserver(resize).observe(app);
 addEventListener('resize', resize);
+
+/* ================= 認識トレーニング =================
+   よく出る型（連打流し・☆＋連打・流し・交互連打・寄せ同時押し・回転）を、1小節に1つずつ、
+   毎回ちがう場所・向きで出す。始まる前に1小節あける。1小節は {48} の48マスで書く（16分=3マス、8分=6マス、24分=2マス） */
+const B8 = k => mod8(k) + 1;                 // 0〜7 → ボタン番号 1〜8
+const rndI = n => Math.floor(Math.random() * n);
+const rndDir = () => Math.random() < .5 ? 1 : -1;
+function kataBar(kind) {
+  const c = new Array(48).fill(''), put = (i, s) => { c[i] = c[i] ? c[i] + '/' + s : s; };
+  let desc = '';
+  if (kind === 'renda') {
+    const s = rndI(8), d = rndDir(), n = 3 + rndI(2);
+    for (let i = 0; i < n; i++) { put(12 * i, B8(s + d * i)); put(12 * i + 6, B8(s + d * i)); }
+    desc = `${B8(s)}→${B8(s + d * (n - 1))}`;
+  } else if (kind === 'starrenda') {
+    // 右半分（1〜4）と左半分（5〜8）を交互に。☆→8分あとに同じ所→次の☆と同時にスライド
+    const h0 = rndI(2), xs = [];
+    for (let i = 0; i < 3; i++) {
+      const x = ((h0 + i) % 2) * 4 + rndI(4), y = x + rndDir() * (2 + rndI(3));
+      put(12 * i, `${B8(x)}-${B8(y)}[8:1]`); put(12 * i + 6, B8(x)); xs.push(B8(x));
+    }
+    desc = xs.join('・');
+  } else if (kind === 'nagashi') {
+    const ds = [];
+    for (const at of [0, 30]) {
+      const s = rndI(8), d = rndDir(), n = 3 + rndI(3);
+      for (let i = 0; i < n; i++) put(at + 3 * i, B8(s + d * i));
+      ds.push(`${B8(s)}→${B8(s + d * (n - 1))}`);
+    }
+    desc = ds.join('、');
+  } else if (kind === 'alt') {
+    const ds = [];
+    for (const at of [0, 24]) {
+      const a = rndI(8), b = a + 1, seq = [a, b, a - 1, b + 1, a, b, a - 1, b + 1];
+      seq.forEach((k, i) => put(at + 3 * i, B8(k)));
+      ds.push(`${B8(a)}・${B8(b)}から外へ`);
+    }
+    desc = ds.join('、');
+  } else if (kind === 'yose') {
+    const ds = [];
+    for (const at of [0, 24]) {
+      const k = rndI(8), inward = Math.random() < .6, st = [0, 1, 2, 3].map(i => [B8(k + i), B8(k - 1 - i)]);
+      if (!inward) st.reverse();
+      st.forEach(([p, q], i) => put(at + 2 * i, `${p}/${q}`));
+      ds.push(`${st[0][0]}/${st[0][1]}→${st[3][0]}/${st[3][1]}`);
+    }
+    desc = ds.join('、');
+  } else {   // rot
+    const s = rndI(8), d = rndDir(), n = 6 + rndI(3);
+    for (let i = 0; i < n; i++) put(3 * i, B8(s + d * i));
+    desc = `${B8(s)}から${d > 0 ? '時計回り' : '反時計回り'}${n}個`;
+  }
+  return { cells: c, desc };
+}
+function kataBuild() {
+  const k = kataCur, kinds = Object.keys(KATA_KINDS).filter(x => x !== 'mix');
+  k.bars = []; let txt = `(${k.bpm})\n{4},,,,\n`;
+  for (let i = 0; i < KATA_BARS; i++) {
+    const kind = k.kind === 'mix' ? kinds[rndI(kinds.length)] : k.kind, b = kataBar(kind);
+    k.bars.push({ kind, desc: b.desc });
+    txt += '{48}' + b.cells.join(',') + ',\n';
+  }
+  txt += '{4},,,,\nE';
+  k.text = txt; k.song = parseChart(txt);
+}
+// 結果：GOOD・MISS が出た型を出して、次の BPM を決める
+function kataResult(r) {
+  const k = r.kata, bar = 240 / k.bpm, bad = [];
+  k.bars.forEach((b, i) => {
+    const A = bar * (i + 1) - .02, B = A + bar;
+    const ns = r.notes.filter(n => n.t >= A && n.t < B);
+    const ng = ns.filter(n => n.jr >= 2).length;
+    if (ng) bad.push(`${i + 1}本目 ${KATA_KINDS[b.kind]}（${b.desc}）：${ng}/${ns.length}個`);
+  });
+  const clean = r.cnt[2] + r.cnt[3] === 0;
+  let next = k.bpm;
+  if (kataCur && kataCur.up && !r.auto) {
+    if (clean) next = Math.min(300, k.bpm + 10);
+    else if (r.cnt[3] > r.units * .15) next = Math.max(80, k.bpm - 10);
+  }
+  if (kataCur && !r.auto) kataCur.bpm = next;
+  const el = $('#resCoach');
+  el.textContent = bad.length ? 'GOOD・MISS が出た型：\n' + bad.slice(0, 6).join('\n') + (bad.length > 6 ? `\nほか ${bad.length - 6} 本` : '') : '';
+  el.hidden = !bad.length;
+  const head = r.auto ? 'オートプレイ（お手本）' : clean ? `BPM ${k.bpm}：GOOD・MISS なし！` : `BPM ${k.bpm}：GOOD・MISS ${r.cnt[2] + r.cnt[3]}個`;
+  return `${head}　次は BPM ${next}（「もう一度」で新しい配置）`;
+}
+function openKata() {
+  const box = $('#kataKinds');
+  if (!box.children.length) {
+    box.innerHTML = Object.keys(KATA_KINDS).map(k => `<input type="radio" name="kata" id="kk_${k}" value="${k}"><label for="kk_${k}">${KATA_KINDS[k]}<small>${KATA_HINT[k]}</small></label>`).join('');
+  }
+  const st = (() => { try { return JSON.parse(localStorage.getItem('waiwai-kata') || '{}'); } catch (e) { return {}; } })();
+  const kind = KATA_KINDS[st.kind] ? st.kind : 'renda';
+  $('#kk_' + kind).checked = true;
+  $('#kataBpm').value = st.bpm || 150; $('#kataBpmOut').textContent = $('#kataBpm').value;
+  $('#kataUp').checked = st.up !== false;
+  kataOv.hidden = false;
+}
+$('#kataBtn').addEventListener('click', openKata);
+$('#kataClose').addEventListener('click', () => { kataOv.hidden = true; $('#kataBtn').focus({ preventScroll: true }); });
+$('#kataBpm').addEventListener('input', () => { $('#kataBpmOut').textContent = $('#kataBpm').value; });
+$('#kataForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const sel = $('#kataKinds input:checked'), kind = sel ? sel.value : 'renda', bpm = clamp(+$('#kataBpm').value || 150, 80, 300), up = $('#kataUp').checked;
+  try { localStorage.setItem('waiwai-kata', JSON.stringify({ kind, bpm, up })); } catch (err) {}
+  kataCur = { kind, bpm, up };
+  kataOv.hidden = true;
+  startPlay();
+});
+// 結果画面から曲選択へ戻るときに、次に開く BPM を覚えておく
+function kataSaveBpm() { if (!kataCur) return; try { const st = JSON.parse(localStorage.getItem('waiwai-kata') || '{}'); st.bpm = kataCur.bpm; localStorage.setItem('waiwai-kata', JSON.stringify(st)); } catch (e) {} }
 
 /* ================= boot ================= */
 let booted = false;
