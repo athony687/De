@@ -33,7 +33,7 @@ html,body{overscroll-behavior:none}
   --gold:#ffc53d;
   --cyan:#3fd6ff;
   --violet:#8d7dff;
-  --orange:#ff8a2a;
+  --orange:#ff5a24;
   --mint:#6ef2a6;
   --gray:#8d88a8;
   --display:"Unbounded","M PLUS Rounded 1c",system-ui,sans-serif;
@@ -298,7 +298,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v70</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v71</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -549,13 +549,16 @@ const BRK_BONUS = [[1, .75, .5], [.4, .4, .4], [.3, .3, .3], [0, 0, 0]];
 const NRM_BASE = [1, .8, .5, 0];
 const noteW = n => n.brk ? BREAK_W : (NOTE_W[n.type] || 1);
 const J_COL = ['#ffc53d', '#ff5aa8', '#6ef2a6', '#8d88a8'];
+// ノーツの色。EACH は黄色、BREAK は赤みの強いオレンジ（金のふち＋回る光）で、見分けがつくように離しておく。
+// hi / lo はノーツに光沢のグラデーションをつける明るい側・暗い側の色
 const C = {
-  tap:   { main: '#ff3d9a', dark: '#5a0a33', rgb: '255,61,154' },
-  each:  { main: '#ffc53d', dark: '#5c4000', rgb: '255,197,61' },
-  brk:   { main: '#ff8a2a', dark: '#5c2600', rgb: '255,138,42' },
-  slide: { main: '#3fd6ff', dark: '#07435a', rgb: '63,214,255' },
-  touch: { main: '#3d8bff', dark: '#0a2456', rgb: '61,139,255' },
+  tap:   { main: '#ff3d9a', hi: '#ffb6d8', lo: '#c20f68', dark: '#5a0a33', rgb: '255,61,154' },
+  each:  { main: '#ffd60a', hi: '#fff6b0', lo: '#d89800', dark: '#5c4000', rgb: '255,214,10' },
+  brk:   { main: '#ff4a1c', hi: '#ffb491', lo: '#b82300', dark: '#5c1400', rgb: '255,74,28' },
+  slide: { main: '#3fd6ff', hi: '#c2f3ff', lo: '#0b93c2', dark: '#07435a', rgb: '63,214,255' },
+  touch: { main: '#3d8bff', hi: '#b3d0ff', lo: '#164fc4', dark: '#0a2456', rgb: '61,139,255' },
 };
+const BRK_RIM = '#ffe08a';   // BREAK のふち（金）
 const KEYMAP = { KeyE:0, KeyD:1, KeyC:2, KeyX:3, KeyZ:4, KeyA:5, KeyQ:6, KeyW:7,
                  Numpad9:0, Numpad6:1, Numpad3:2, Numpad2:3, Numpad1:4, Numpad4:5, Numpad7:6, Numpad8:7 };
 const CENTER_KEYS = { KeyS: 1, Numpad5: 1 };
@@ -1743,15 +1746,39 @@ function update(now, pf) {
 /* ================= drawing ================= */
 function circle(x, y, r) { g.beginPath(); g.arc(x, y, Math.max(.1, r), 0, TAU); }
 // 本家 maimai のタップ：太いリング＋内外の白いふち、真ん中は抜き。背景との境目に暗い影を入れて、どの色の上でも見えるようにする
+let shineT = 0;   // BREAK の光を動かす時刻（秒）
+// 左上が明るく右下が暗い光沢のグラデーション
+function noteGrad(x, y, s, c) {
+  const lg = g.createLinearGradient(x - s, y - s, x + s, y + s);
+  lg.addColorStop(0, c.hi); lg.addColorStop(.42, c.main); lg.addColorStop(1, c.lo);
+  return lg;
+}
+// BREAK のまわりの脈打つ光
+function brkGlow(x, y, r, w) {
+  const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10);
+  circle(x, y, r); g.lineWidth = w; g.strokeStyle = `rgba(255,170,60,${.22 + .3 * p})`; g.stroke();
+}
+// BREAK のふちを回る白い光
+function brkSweep(x, y, r, w) {
+  if (reduceMotion) return;
+  const a = shineT * 6;
+  g.beginPath(); g.arc(x, y, r, a, a + 1); g.lineCap = 'round';
+  g.lineWidth = w; g.strokeStyle = 'rgba(255,255,255,.95)'; g.stroke(); g.lineCap = 'butt';
+}
 function drawTap(x, y, s, c, al, exn) {
   g.globalAlpha = al;
+  const brk = c === C.brk;
+  if (brk) brkGlow(x, y, s * 1.24, s * .24);
   if (exn) { g.lineWidth = s * .18; g.strokeStyle = 'rgba(255,255,255,.7)'; circle(x, y, s * 1.3); g.stroke(); }
-  circle(x, y, s * .8); g.lineWidth = s * .66; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke();
-  g.lineWidth = s * .42; g.strokeStyle = c.main; g.stroke();
-  circle(x, y, s * .9); g.lineWidth = s * .1; g.strokeStyle = 'rgba(255,255,255,.35)'; g.stroke();
-  g.lineWidth = Math.max(1.5, s * .11); g.strokeStyle = c === C.brk ? '#fff4c2' : '#ffffff';
-  circle(x, y, s * 1.04); g.stroke();
-  g.lineWidth = Math.max(1.2, s * .08); circle(x, y, s * .57); g.stroke();
+  circle(x, y, s * .8); g.lineWidth = s * .7; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
+  g.lineWidth = s * .44; g.strokeStyle = noteGrad(x, y, s, c); g.stroke();
+  // 上側の照り
+  g.beginPath(); g.arc(x, y, s * .8, Math.PI * 1.05, Math.PI * 1.6); g.lineCap = 'round';
+  g.lineWidth = s * .13; g.strokeStyle = 'rgba(255,255,255,.6)'; g.stroke(); g.lineCap = 'butt';
+  g.strokeStyle = brk ? BRK_RIM : '#ffffff';
+  g.lineWidth = Math.max(1.5, s * (brk ? .17 : .11)); circle(x, y, s * 1.04); g.stroke();
+  g.lineWidth = Math.max(1.2, s * (brk ? .11 : .08)); circle(x, y, s * .57); g.stroke();
+  if (brk) brkSweep(x, y, s * 1.04, Math.max(2, s * .2));
   g.globalAlpha = 1;
 }
 const handsOn = () => settings.hands !== false && run && !run.demo;
@@ -1790,12 +1817,15 @@ function starPath(x, y, ro, rot) {
 }
 function drawStar(x, y, s, c, al, rot, exn) {
   g.globalAlpha = al; g.lineJoin = 'round';
+  const brk = c === C.brk;
+  if (brk) { starPath(x, y, s * 1.2, rot); const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10); g.lineWidth = s * .26; g.strokeStyle = `rgba(255,170,60,${.22 + .3 * p})`; g.stroke(); }
   if (exn) { starPath(x, y, s * 1.22, rot); g.lineWidth = s * .16; g.strokeStyle = 'rgba(255,255,255,.65)'; g.stroke(); }
   starPath(x, y, s, rot);
-  g.lineWidth = s * .42; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke();
-  g.fillStyle = c.main; g.fill();
-  g.lineWidth = Math.max(1.5, s * .13); g.strokeStyle = '#fff'; g.stroke();
-  starPath(x, y, s * .5, rot); g.fillStyle = 'rgba(255,255,255,.32)'; g.fill();
+  g.lineWidth = s * .44; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
+  g.fillStyle = noteGrad(x, y, s, c); g.fill();
+  g.lineWidth = Math.max(1.5, s * (brk ? .18 : .13)); g.strokeStyle = brk ? BRK_RIM : '#fff'; g.stroke();
+  starPath(x, y, s * .5, rot); g.fillStyle = 'rgba(255,255,255,.38)'; g.fill();
+  if (brk && !reduceMotion) { starPath(x, y, s * .78, rot); g.lineWidth = Math.max(1, s * .08); g.strokeStyle = `rgba(255,255,255,${.35 + .35 * Math.sin(shineT * 10)})`; g.stroke(); }
   g.globalAlpha = 1;
 }
 function hexPath(l, r1, r2, h, tip) {
@@ -1817,9 +1847,13 @@ function drawHold(n, now, pf) {
   g.globalAlpha = al; g.lineJoin = 'round';
   g.fillStyle = n.holding ? `rgba(${c.rgb},${reduceMotion ? .55 : .5 + .2 * Math.sin(pf / 60)})` : `rgba(${c.rgb},.3)`;
   g.fill();
-  g.lineWidth = w * .36; g.strokeStyle = 'rgba(0,0,0,.5)'; g.stroke();
-  g.lineWidth = w * .22; g.strokeStyle = c.main; g.stroke();
-  g.lineWidth = Math.max(1.5, w * .06); g.strokeStyle = '#fff'; g.stroke();
+  if (c === C.brk) { const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10); g.lineWidth = w * .5; g.strokeStyle = `rgba(255,170,60,${.18 + .25 * p})`; g.stroke(); }
+  g.lineWidth = w * .38; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
+  { const a = laneAng(n.lane), x0 = cx + Math.cos(a) * rt, y0 = cy + Math.sin(a) * rt, x1 = cx + Math.cos(a) * rh, y1 = cy + Math.sin(a) * rh;
+    const lg = g.createLinearGradient(x0 - Math.sin(a) * w, y0 + Math.cos(a) * w, x1 + Math.sin(a) * w, y1 - Math.cos(a) * w);
+    lg.addColorStop(0, c.hi); lg.addColorStop(.5, c.main); lg.addColorStop(1, c.lo); g.strokeStyle = lg; }
+  g.lineWidth = w * .23; g.stroke();
+  g.lineWidth = Math.max(1.5, w * (c === C.brk ? .09 : .06)); g.strokeStyle = c === C.brk ? BRK_RIM : '#fff'; g.stroke();
   g.globalAlpha = 1;
   if (!n.hh) { const a = laneAng(n.lane); drawHand(cx + Math.cos(a) * rh, cy + Math.sin(a) * rh, NS * .44 * s, n.hand, al); }
 }
@@ -1891,7 +1925,7 @@ function drawTouch(n, now) {
           g.moveTo(bx - ux * s2 * .5, by - uy * s2 * .5);
           g.lineTo(bx + ux * s2 * .45 + vx * s2 * .62, by + uy * s2 * .45 + vy * s2 * .62);
           g.lineTo(bx + ux * s2 * .45 - vx * s2 * .62, by + uy * s2 * .45 - vy * s2 * .62);
-          g.closePath(); g.fillStyle = n.brk ? 'rgba(255,138,42,.28)' : TH_COL[i] + '48'; g.fill();
+          g.closePath(); g.fillStyle = n.brk ? 'rgba(255,74,28,.3)' : TH_COL[i] + '48'; g.fill();
         }
       }
     }
@@ -2032,23 +2066,41 @@ function drawBg(pf) {
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
 }
 function draw(now, pf) {
+  shineT = pf / 1000;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   drawBg(pf);
-  // リングの外側にうっすら影（明るい背景からプレイ面を分ける）
-  circle(cx, cy, R * 1.018); g.lineWidth = R * .03; g.strokeStyle = 'rgba(196,178,255,.08)'; g.stroke();
-  // プレイ面（リングの内側）はノーツが見やすいように暗いまま
-  circle(cx, cy, R); g.fillStyle = 'rgba(14,10,28,.9)'; g.fill();
+  // 筐体の画面のような外枠：太い帯（上が明るく下が暗い）と、外側の細い光のふち
+  circle(cx, cy, R * 1.05); g.lineWidth = R * .075;
+  { const fr = g.createLinearGradient(cx, cy - R * 1.1, cx, cy + R * 1.1);
+    fr.addColorStop(0, '#4a4078'); fr.addColorStop(.5, '#231d44'); fr.addColorStop(1, '#3a2f5e'); g.strokeStyle = fr; }
+  g.stroke();
+  circle(cx, cy, R * 1.088); g.lineWidth = Math.max(1, R * .006); g.strokeStyle = 'rgba(214,200,255,.45)'; g.stroke();
+  circle(cx, cy, R * 1.012); g.lineWidth = Math.max(1, R * .005); g.strokeStyle = 'rgba(0,0,0,.6)'; g.stroke();
+  // プレイ面（リングの内側）：中心が少し明るい紺。ノーツが見やすいように全体は暗いまま
+  circle(cx, cy, R);
+  { const pg = g.createRadialGradient(cx, cy, R * .05, cx, cy, R);
+    pg.addColorStop(0, 'rgba(34,27,66,.96)'); pg.addColorStop(.7, 'rgba(18,13,38,.96)'); pg.addColorStop(1, 'rgba(10,7,22,.97)'); g.fillStyle = pg; }
+  g.fill();
+  circle(cx, cy, R * .62); g.lineWidth = 1; g.strokeStyle = 'rgba(196,178,255,.05)'; g.stroke();
 
   g.lineWidth = 1; g.strokeStyle = 'rgba(196,178,255,.07)'; g.beginPath();
   for (let k = 0; k < 8; k++) { const a = laneAng(k); g.moveTo(cx + Math.cos(a) * R0, cy + Math.sin(a) * R0); g.lineTo(cx + Math.cos(a) * R * .97, cy + Math.sin(a) * R * .97); }
   g.stroke();
   circle(cx, cy, R0); g.strokeStyle = 'rgba(196,178,255,.14)'; g.stroke();
 
-  // リング（光らせない。拍に合わせた発光・ボタンを押したときの光・外周の小節時計はなし）
-  circle(cx, cy, R); g.lineWidth = Math.max(2, R * .013); g.strokeStyle = '#f5f0ff'; g.stroke();
-  g.fillStyle = '#f5f0ff';
-  for (let k = 0; k < 8; k++) { const a = laneAng(k); circle(cx + Math.cos(a) * R, cy + Math.sin(a) * R, R * .027); g.fill(); }
+  // 判定のリング（光らせない。拍に合わせた発光・ボタンを押したときの光・外周の小節時計はなし）。
+  // 白い線の内側にうっすら幅を持たせて、ノーツが重なる位置をはっきりさせる
+  circle(cx, cy, R); g.lineWidth = R * .034; g.strokeStyle = 'rgba(245,240,255,.1)'; g.stroke();
+  g.lineWidth = Math.max(2, R * .012); g.strokeStyle = '#f5f0ff'; g.stroke();
+  // 8つのボタン：つやのある小さな玉（影→本体→照り）
+  for (let k = 0; k < 8; k++) {
+    const a = laneAng(k), bx = cx + Math.cos(a) * R, by = cy + Math.sin(a) * R, br = R * .034;
+    circle(bx, by, br * 1.35); g.fillStyle = 'rgba(0,0,0,.5)'; g.fill();
+    const kg = g.createRadialGradient(bx - br * .35, by - br * .4, br * .1, bx, by, br);
+    kg.addColorStop(0, '#ffffff'); kg.addColorStop(.55, '#e6defc'); kg.addColorStop(1, '#9a8cd0');
+    circle(bx, by, br); g.fillStyle = kg; g.fill();
+  }
   if (mode === 'play' && finePointer) {
     g.font = `800 ${Math.round(R * .05)}px ${BODY}`; g.fillStyle = 'rgba(165,158,200,.6)';
     g.textAlign = 'center'; g.textBaseline = 'middle';
