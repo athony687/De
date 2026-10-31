@@ -311,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v80</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v81</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -577,7 +577,7 @@ const C = {
   each:  { main: '#ffd60a', hi: '#fff6b0', lo: '#d89800', dark: '#5c4000', rgb: '255,214,10' },
   brk:   { main: '#ff4a1c', hi: '#ffb491', lo: '#b82300', dark: '#5c1400', rgb: '255,74,28', glow: '255,170,60' },
   // EACH と BREAK が重なったノーツ（EACH の黄と BREAK の赤橙では見分けにくいので緑）
-  ebrk:  { main: '#22e06a', hi: '#b6ffcf', lo: '#0c9a3c', dark: '#063d18', rgb: '34,224,106', glow: '110,255,150' },
+  ebrk:  { main: '#00e050', hi: '#6dffa6', lo: '#007a26', dark: '#003d12', rgb: '0,224,80', glow: '0,255,100', rim: '#b9ffd2' },
   slide: { main: '#3fd6ff', hi: '#c2f3ff', lo: '#0b93c2', dark: '#07435a', rgb: '63,214,255' },
   touch: { main: '#3d8bff', hi: '#b3d0ff', lo: '#164fc4', dark: '#0a2456', rgb: '61,139,255' },
 };
@@ -1783,7 +1783,8 @@ function noteGrad(x, y, s, c) {
 // BREAK のまわりの脈打つ光
 function brkGlow(x, y, r, w, c = C.brk) {
   const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10);
-  circle(x, y, r); g.lineWidth = w; g.strokeStyle = `rgba(${c.glow},${.22 + .3 * p})`; g.stroke();
+  const k = c.rim ? 1.5 : 1;
+  circle(x, y, r); g.lineWidth = w; g.strokeStyle = `rgba(${c.glow},${(.22 + .3 * p) * k})`; g.stroke();
 }
 // BREAK のふちを回る白い光
 function brkSweep(x, y, r, w) {
@@ -1802,7 +1803,7 @@ function drawTap(x, y, s, c, al, exn) {
   // 上側の照り
   g.beginPath(); g.arc(x, y, s * .8, Math.PI * 1.05, Math.PI * 1.6); g.lineCap = 'round';
   g.lineWidth = s * .13; g.strokeStyle = 'rgba(255,255,255,.6)'; g.stroke(); g.lineCap = 'butt';
-  g.strokeStyle = brk ? BRK_RIM : '#ffffff';
+  g.strokeStyle = brk ? (c.rim || BRK_RIM) : '#ffffff';
   g.lineWidth = Math.max(1.5, s * (brk ? .17 : .11)); circle(x, y, s * 1.04); g.stroke();
   g.lineWidth = Math.max(1.2, s * (brk ? .11 : .08)); circle(x, y, s * .57); g.stroke();
   if (brk) brkSweep(x, y, s * 1.04, Math.max(2, s * .2));
@@ -1850,7 +1851,7 @@ function drawStar(x, y, s, c, al, rot, exn) {
   starPath(x, y, s, rot);
   g.lineWidth = s * .44; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
   g.fillStyle = noteGrad(x, y, s, c); g.fill();
-  g.lineWidth = Math.max(1.5, s * (brk ? .18 : .13)); g.strokeStyle = brk ? BRK_RIM : '#fff'; g.stroke();
+  g.lineWidth = Math.max(1.5, s * (brk ? .18 : .13)); g.strokeStyle = brk ? (c.rim || BRK_RIM) : '#fff'; g.stroke();
   starPath(x, y, s * .5, rot); g.fillStyle = 'rgba(255,255,255,.38)'; g.fill();
   if (brk && !reduceMotion) { starPath(x, y, s * .78, rot); g.lineWidth = Math.max(1, s * .08); g.strokeStyle = `rgba(255,255,255,${.35 + .35 * Math.sin(shineT * 10)})`; g.stroke(); }
   g.globalAlpha = 1;
@@ -1880,7 +1881,7 @@ function drawHold(n, now, pf) {
     const lg = g.createLinearGradient(x0 - Math.sin(a) * w, y0 + Math.cos(a) * w, x1 + Math.sin(a) * w, y1 - Math.cos(a) * w);
     lg.addColorStop(0, c.hi); lg.addColorStop(.5, c.main); lg.addColorStop(1, c.lo); g.strokeStyle = lg; }
   g.lineWidth = w * .23; g.stroke();
-  g.lineWidth = Math.max(1.5, w * (isBrkC(c) ? .09 : .06)); g.strokeStyle = isBrkC(c) ? BRK_RIM : '#fff'; g.stroke();
+  g.lineWidth = Math.max(1.5, w * (isBrkC(c) ? .09 : .06)); g.strokeStyle = isBrkC(c) ? (c.rim || BRK_RIM) : '#fff'; g.stroke();
   g.globalAlpha = 1;
   if (!n.hh) { const a = laneAng(n.lane); drawHand(cx + Math.cos(a) * rh, cy + Math.sin(a) * rh, NS * .44 * s, n.hand, al); }
 }
