@@ -311,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v77</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v78</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -2744,8 +2744,9 @@ async function playSplit(k) {
   const ch = currentChart(), sc = ch && ch.song ? splitSecs(ch.song.notes)[k] : null;
   if (!sc) return startPlay();
   settings.splitK = k; saveSettings();
-  await startDrill({ A: sc.A, B: sc.B, from: sc.from, to: sc.to, rate: 1, title: `区間${k + 1}/4`, split: { k } });
-  if (run && run.drill && run.drill.split) hudDiff.textContent = `${playing.label} · 区間${k + 1}/4`;
+  // 復習と同じ流れ：0.8倍から始めて、PERFECT 90%以上で0.1倍ずつ上げ、等速で取れたら次の区間へ（区間4まで）
+  const secs = splitSecs(ch.song.notes).slice(k);
+  await startCoach({ chart: ch.id, split: true, secs, idx: 0, rate: .8, tries: 0 });
 }
 const startFromTitle = () => (settings.split && !settings.practice && !kataCur) ? playSplit(splitK()) : startPlay();
 let splitNext = null, tokNext = null;
@@ -2923,6 +2924,11 @@ function coachResult(r) {
 }
 async function startCoach(c) {
   const g = c.secs[c.idx];
+  if (c.split) {
+    await startDrill({ A: g.A, B: g.B, from: g.from, to: g.to, rate: c.rate, title: `区間${g.k + 1}/4`, split: { k: g.k } });
+    if (run && run.drill) { run.coach = c; hudDiff.textContent = `区間${g.k + 1}/4 · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
+    return;
+  }
   await startDrill({ A: g.A, B: g.B, rate: c.rate, title: `復習 ${c.idx + 1}/${c.secs.length}` });
   if (run && run.drill) { run.coach = c; hudDiff.textContent = `復習 ${c.idx + 1}/${c.secs.length} · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
 }
@@ -2936,8 +2942,16 @@ function coachNext(r) {
   if (pr >= .9) {
     if (c.rate >= 1) {
       // 等速で取れたので復習から外す
-      const g = c.secs[c.idx]; setReview(c.chart, getReview(c.chart).filter(x => !g.src.some(a => Math.abs(x.A - a) < .05)));
-      c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！復習から外して次へ' : '';
+      const g = c.secs[c.idx];
+      if (c.split) {
+        // 等速で取れた区間は自己ベストに記録して、次の区間へ
+        const acc = achieve(r, false), hist = getSplitHist(c.chart), prev = hist[g.k];
+        hist[g.k] = { best: prev ? Math.max(prev.best, acc) : acc, last: acc }; setSplitHist(c.chart, hist);
+        c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ` → クリア！区間${g.k + 2}へ` : '';
+      } else {
+        setReview(c.chart, getReview(c.chart).filter(x => !g.src.some(a => Math.abs(x.A - a) < .05)));
+        c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！復習から外して次へ' : '';
+      }
     }
     else { c.rate = Math.min(1, Math.round((c.rate + .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に上げます`; }
   } else if (pr < .6) { c.rate = Math.max(.5, Math.round((c.rate - .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に下げます`; }
@@ -2947,6 +2961,7 @@ function coachNext(r) {
     else msg += ` → もう一度（${sp(c.rate)}）`;
   }
   if (ps) msg += `\nコツ（${ps[0]}）：${PK_TIP[ps[0]]}`;
+  if (c.idx >= c.secs.length && c.split) { r.coach = null; showResult(r); $('#resCoach').textContent = '4分割：最後の区間まで、等速で取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; return; }
   if (c.idx >= c.secs.length) { coachPlan = null; showResult(r); $('#resCoach').textContent = '復習を全部、等速で取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; updReviewBtn(); return; }
   stopTrack(true);
   toast(msg); toastEl.style.whiteSpace = 'pre-line';
