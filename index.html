@@ -311,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v75</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v76</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -484,6 +484,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <button type="button" class="play" id="coachBtn" hidden>苦手な所を自動で練習</button>
       <div class="btnrow">
         <button type="button" class="play" id="drillBtn" hidden>流し地帯を練習</button>
+        <button type="button" class="play" id="tokBtn" hidden>ミスした所を特訓</button>
         <button type="button" class="play" id="splitBtn" hidden>むずい区間を練習</button>
         <button type="button" class="play" id="retryBtn">もう一度</button>
         <button type="button" class="ghost" id="backBtn">曲選択へ</button>
@@ -2448,7 +2449,7 @@ function showResult(r) {
   $('#resAcc').textContent = fmtAcc(acc) + '%';
   const b = $('#resBadge');
   if (r.coach) { b.textContent = 'コーチ練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
-  else if (r.drill && r.drill.split) { b.textContent = `区間練習 ${r.drill.split.k + 1}/4`; b.className = 'badge auto'; b.hidden = false; }
+  else if (r.drill && r.drill.split) { b.textContent = r.drill.split.tok ? `特訓 区間${r.drill.split.k + 1}` : `区間練習 ${r.drill.split.k + 1}/4`; b.className = 'badge auto'; b.hidden = false; }
   else if (r.drill) { b.textContent = '流し練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.practice) { b.textContent = 'PRACTICE ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.auto) { b.textContent = 'AUTO PLAY'; b.className = 'badge auto'; b.hidden = false; }
@@ -2471,7 +2472,7 @@ function showResult(r) {
     else msg = `自己ベスト ${fmtAcc(prev.acc)}%（${prev.rank}）`;
   }
   $('#resBest').textContent = msg;
-  if (r.kata) { for (const id of ['#resTim', '#resNag', '#coachBtn', '#drillBtn', '#resSplit', '#splitBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
+  if (r.kata) { for (const id of ['#resTim', '#resNag', '#coachBtn', '#drillBtn', '#resSplit', '#splitBtn', '#tokBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
   else {
     timingResult(r);
     sweepResult(r);
@@ -2643,7 +2644,7 @@ async function startDrill(d) {
   seekTo(d.A);
   // 練習する所だけで採点する（それ以外のノーツは skip にして、巻き戻しても出てこないようにする）
   // 4分割の区間は、始まる時刻が区間の中にあるノーツだけ（区間の終わりをまたぐホールド・スライドも含める）
-  const inSeg = d.split ? (n => n.t >= d.from && n.t < d.to)
+  const inSeg = d.split && !d.split.tok ? (n => n.t >= d.from && n.t < d.to)
     : (n => { const e = n.type === 'slide' ? n.s1 : n.t; return segs.some(g => n.t >= g.A - .01 && e <= g.B); });
   for (const n of r.notes) if (!inSeg(n)) { n.fin = true; n.skip = true; }
   r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
@@ -2746,11 +2747,44 @@ async function playSplit(k) {
   if (run && run.drill && run.drill.split) hudDiff.textContent = `${playing.label} · 区間${k + 1}/4`;
 }
 const startFromTitle = () => (settings.split && !settings.practice && !kataCur) ? playSplit(splitK()) : startPlay();
-let splitNext = null;
+let splitNext = null, tokNext = null;
+/* 特訓：区間をプレイして PERFECT 以外（GREAT・GOOD・MISS）が出た所だけを、等速でくり返す。
+   近い所（1.5秒以内）はまとめて1か所にし、少し前から入って少しあとまで弾く。
+   特訓で PERFECT が取れた所は外して、残った所だけをもう一度。全部取れたら区間を通しでプレイ */
+function tokSpots(r) {
+  const bad = r.notes.filter(n => !n.skip && n.jr != null && n.jr > 0).sort((a, b) => a.t - b.t);
+  const g = [];
+  for (const n of bad) {
+    const e = n.type === 'slide' ? n.s1 : n.t + (n.type === 'hold' || n.type === 'thold' ? n.dur || 0 : 0), s = g[g.length - 1];
+    if (s && n.t - s.last < 1.5) { s.last = Math.max(s.last, n.t); s.end = Math.max(s.end, e); s.n++; }
+    else g.push({ first: n.t, last: n.t, end: e, n: 1 });
+  }
+  // 区間の外のノーツは入れない（区間の始まりより前には広げない）
+  const beat = r.beat || .5, from = r.drill && r.drill.from != null ? r.drill.from : -Infinity;
+  return g.map(s => ({ A: Math.max(from, s.first - Math.max(beat * 2, .8)), B: Math.max(s.end, s.last) + .45, n: s.n }));
+}
+function startTok(k, spots) {
+  if (!spots || !spots.length) return;
+  startDrill({ A: spots[0].A, B: spots[spots.length - 1].B, segs: spots, rate: 1, title: `特訓 ${spots.length}か所`, split: { k, tok: true, spots } });
+}
+// 特訓のあと：各か所を PERFECT 以外なしで取れたか
+function tokResult(r) {
+  const box = $('#resSplit'), btn = $('#splitBtn'), tb = $('#tokBtn'), k = r.drill.split.k, spots = r.drill.split.spots || r.drill.segs || [];
+  const left = spots.filter(sp => r.notes.some(n => !n.skip && n.t >= sp.A - .01 && n.t <= sp.B && (n.jr == null || n.jr > 0)));
+  const sh = document.createElement('p'); sh.className = 'sh'; sh.style.whiteSpace = 'pre-line';
+  const where = sp => fmtTime(Math.max(0, sp.A));
+  sh.textContent = `特訓（区間${k + 1}）：${spots.length}か所中 ${spots.length - left.length}か所を PERFECT で取れました` +
+    (left.length ? `\nまだの所：${left.map(where).join('、')}` : '\n全部取れました！区間を通しでプレイしてみましょう');
+  $('#resBest').textContent = '特訓の結果は区間の記録に入りません';
+  box.innerHTML = ''; box.appendChild(sh); box.hidden = false;
+  if (left.length) { tokNext = { k, spots: left }; tb.textContent = left.length === spots.length ? `もう一度特訓（${left.length}か所）` : `残り${left.length}か所を特訓`; tb.hidden = false; }
+  splitNext = { k }; btn.textContent = `区間${k + 1}を通しで`; btn.hidden = false;
+}
 function splitResult(r) {
-  const box = $('#resSplit'), btn = $('#splitBtn');
-  box.hidden = true; btn.hidden = true; splitNext = null;
+  const box = $('#resSplit'), btn = $('#splitBtn'), tb = $('#tokBtn');
+  box.hidden = true; btn.hidden = true; tb.hidden = true; splitNext = null; tokNext = null;
   if (r.auto || r.demo || r.kata || !r.drill || !r.drill.split || !playing) return;
+  if (r.drill.split.tok) return tokResult(r);
   const k = r.drill.split.k, acc = achieve(r, false), hist = getSplitHist(playing.id), prev = hist[k];
   hist[k] = { best: prev ? Math.max(prev.best, acc) : acc, last: acc };
   setSplitHist(playing.id, hist);
@@ -2768,10 +2802,13 @@ function splitResult(r) {
     b.addEventListener('click', () => playSplit(sc.k));
     box.appendChild(b);
   }
-  if (k < 3) { splitNext = k + 1; btn.textContent = `区間${k + 2}へ`; btn.hidden = false; }
+  if (k < 3) { splitNext = { k: k + 1 }; btn.textContent = `区間${k + 2}へ`; btn.hidden = false; }
+  const spots = tokSpots(r);
+  if (spots.length) { tokNext = { k, spots }; tb.textContent = `ミスした所を特訓（${spots.length}か所）`; tb.hidden = false; }
   box.hidden = false;
 }
-$('#splitBtn').addEventListener('click', () => { if (splitNext != null) playSplit(splitNext); });
+$('#splitBtn').addEventListener('click', () => { if (splitNext) playSplit(splitNext.k); });
+$('#tokBtn').addEventListener('click', () => { if (tokNext) startTok(tokNext.k, tokNext.spots); });
 /* ================= 復習（やるだけで上達する練習） =================
    譜面を2小節ずつに区切って、ノーツの密度と配置（回転・流し・同時押し・スライドなど）から難しい所を決めておく。
    通しプレイのあと、難しい所で PERFECT 以外（GREAT・GOOD・MISS）が2つ以上出たら「復習」に入れる。
