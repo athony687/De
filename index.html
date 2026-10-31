@@ -311,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v79</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v80</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -575,7 +575,9 @@ const J_COL = ['#ffc53d', '#ff5aa8', '#6ef2a6', '#8d88a8'];
 const C = {
   tap:   { main: '#ff3d9a', hi: '#ffb6d8', lo: '#c20f68', dark: '#5a0a33', rgb: '255,61,154' },
   each:  { main: '#ffd60a', hi: '#fff6b0', lo: '#d89800', dark: '#5c4000', rgb: '255,214,10' },
-  brk:   { main: '#ff4a1c', hi: '#ffb491', lo: '#b82300', dark: '#5c1400', rgb: '255,74,28' },
+  brk:   { main: '#ff4a1c', hi: '#ffb491', lo: '#b82300', dark: '#5c1400', rgb: '255,74,28', glow: '255,170,60' },
+  // EACH と BREAK が重なったノーツ（EACH の黄と BREAK の赤橙では見分けにくいので緑）
+  ebrk:  { main: '#22e06a', hi: '#b6ffcf', lo: '#0c9a3c', dark: '#063d18', rgb: '34,224,106', glow: '110,255,150' },
   slide: { main: '#3fd6ff', hi: '#c2f3ff', lo: '#0b93c2', dark: '#07435a', rgb: '63,214,255' },
   touch: { main: '#3d8bff', hi: '#b3d0ff', lo: '#164fc4', dark: '#0a2456', rgb: '61,139,255' },
 };
@@ -1555,7 +1557,9 @@ function touchHeld(n, P) {
   return isCenter(n.pos) ? centerKey : keys.has(nearestLane(n.pos));
 }
 const press = (l, pf) => { if (l >= 0 && l < 8) lastPress[l] = pf; };
-const colOf = n => n.brk ? C.brk : n.each ? C.each : n.type === 'slide' ? C.slide : (n.type === 'touch' || n.type === 'thold') ? C.touch : C.tap;
+const isBrkC = c => c === C.brk || c === C.ebrk;
+const brkC = n => n.each ? C.ebrk : C.brk;
+const colOf = n => n.brk ? brkC(n) : n.each ? C.each : n.type === 'slide' ? C.slide : (n.type === 'touch' || n.type === 'thold') ? C.touch : C.tap;
 const fin = n => { n.fin = true; };
 function grade(d, touch) {
   const ad = Math.abs(d);
@@ -1777,9 +1781,9 @@ function noteGrad(x, y, s, c) {
   return lg;
 }
 // BREAK のまわりの脈打つ光
-function brkGlow(x, y, r, w) {
+function brkGlow(x, y, r, w, c = C.brk) {
   const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10);
-  circle(x, y, r); g.lineWidth = w; g.strokeStyle = `rgba(255,170,60,${.22 + .3 * p})`; g.stroke();
+  circle(x, y, r); g.lineWidth = w; g.strokeStyle = `rgba(${c.glow},${.22 + .3 * p})`; g.stroke();
 }
 // BREAK のふちを回る白い光
 function brkSweep(x, y, r, w) {
@@ -1790,8 +1794,8 @@ function brkSweep(x, y, r, w) {
 }
 function drawTap(x, y, s, c, al, exn) {
   g.globalAlpha = al;
-  const brk = c === C.brk;
-  if (brk) brkGlow(x, y, s * 1.24, s * .24);
+  const brk = isBrkC(c);
+  if (brk) brkGlow(x, y, s * 1.24, s * .24, c);
   if (exn) { g.lineWidth = s * .18; g.strokeStyle = 'rgba(255,255,255,.7)'; circle(x, y, s * 1.3); g.stroke(); }
   circle(x, y, s * .8); g.lineWidth = s * .7; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
   g.lineWidth = s * .44; g.strokeStyle = noteGrad(x, y, s, c); g.stroke();
@@ -1840,8 +1844,8 @@ function starPath(x, y, ro, rot) {
 }
 function drawStar(x, y, s, c, al, rot, exn) {
   g.globalAlpha = al; g.lineJoin = 'round';
-  const brk = c === C.brk;
-  if (brk) { starPath(x, y, s * 1.2, rot); const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10); g.lineWidth = s * .26; g.strokeStyle = `rgba(255,170,60,${.22 + .3 * p})`; g.stroke(); }
+  const brk = isBrkC(c);
+  if (brk) { starPath(x, y, s * 1.2, rot); const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10); g.lineWidth = s * .26; g.strokeStyle = `rgba(${c.glow},${.22 + .3 * p})`; g.stroke(); }
   if (exn) { starPath(x, y, s * 1.22, rot); g.lineWidth = s * .16; g.strokeStyle = 'rgba(255,255,255,.65)'; g.stroke(); }
   starPath(x, y, s, rot);
   g.lineWidth = s * .44; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
@@ -1870,13 +1874,13 @@ function drawHold(n, now, pf) {
   g.globalAlpha = al; g.lineJoin = 'round';
   g.fillStyle = n.holding ? `rgba(${c.rgb},${reduceMotion ? .55 : .5 + .2 * Math.sin(pf / 60)})` : `rgba(${c.rgb},.3)`;
   g.fill();
-  if (c === C.brk) { const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10); g.lineWidth = w * .5; g.strokeStyle = `rgba(255,170,60,${.18 + .25 * p})`; g.stroke(); }
+  if (isBrkC(c)) { const p = reduceMotion ? .5 : .5 + .5 * Math.sin(shineT * 10); g.lineWidth = w * .5; g.strokeStyle = `rgba(${c.glow},${.18 + .25 * p})`; g.stroke(); }
   g.lineWidth = w * .38; g.strokeStyle = 'rgba(0,0,0,.55)'; g.stroke();
   { const a = laneAng(n.lane), x0 = cx + Math.cos(a) * rt, y0 = cy + Math.sin(a) * rt, x1 = cx + Math.cos(a) * rh, y1 = cy + Math.sin(a) * rh;
     const lg = g.createLinearGradient(x0 - Math.sin(a) * w, y0 + Math.cos(a) * w, x1 + Math.sin(a) * w, y1 - Math.cos(a) * w);
     lg.addColorStop(0, c.hi); lg.addColorStop(.5, c.main); lg.addColorStop(1, c.lo); g.strokeStyle = lg; }
   g.lineWidth = w * .23; g.stroke();
-  g.lineWidth = Math.max(1.5, w * (c === C.brk ? .09 : .06)); g.strokeStyle = c === C.brk ? BRK_RIM : '#fff'; g.stroke();
+  g.lineWidth = Math.max(1.5, w * (isBrkC(c) ? .09 : .06)); g.strokeStyle = isBrkC(c) ? BRK_RIM : '#fff'; g.stroke();
   g.globalAlpha = 1;
   if (!n.hh) { const a = laneAng(n.lane); drawHand(cx + Math.cos(a) * rh, cy + Math.sin(a) * rh, NS * .44 * s, n.hand, al); }
 }
@@ -1933,7 +1937,7 @@ function drawTouch(n, now) {
     if (n.hh) {
       const f = clamp((now - n.t) / Math.max(n.dur, .05), 0, 1), a0 = -Math.PI / 2;
       g.beginPath(); g.arc(x, y, rr, a0, a0 + TAU * f);
-      g.lineCap = 'round'; g.lineWidth = NS * .26; g.strokeStyle = n.brk ? C.brk.main : '#ffe14d'; g.stroke();
+      g.lineCap = 'round'; g.lineWidth = NS * .26; g.strokeStyle = n.brk ? brkC(n).main : '#ffe14d'; g.stroke();
       g.lineWidth = Math.max(1.5, NS * .07); g.strokeStyle = '#fff'; g.stroke(); g.lineCap = 'butt';
     } else {
       circle(x, y, rr); g.lineWidth = Math.max(1.5, NS * .07); g.strokeStyle = 'rgba(255,255,255,.8)'; g.stroke();
@@ -1948,7 +1952,7 @@ function drawTouch(n, now) {
           g.moveTo(bx - ux * s2 * .5, by - uy * s2 * .5);
           g.lineTo(bx + ux * s2 * .45 + vx * s2 * .62, by + uy * s2 * .45 + vy * s2 * .62);
           g.lineTo(bx + ux * s2 * .45 - vx * s2 * .62, by + uy * s2 * .45 - vy * s2 * .62);
-          g.closePath(); g.fillStyle = n.brk ? 'rgba(255,74,28,.3)' : TH_COL[i] + '48'; g.fill();
+          g.closePath(); g.fillStyle = n.brk ? `rgba(${brkC(n).rgb},.3)` : TH_COL[i] + '48'; g.fill();
         }
       }
     }
@@ -2146,7 +2150,7 @@ function draw(now, pf) {
     if (ph < 0) { r = R0; s = (ph + .25) / .25; } else r = R0 + (R - R0) * ph;
     const al = now > n.t ? Math.max(0, 1 - (now - n.t) / W_D) : 1;
     const a = laneAng(n.lane), x = cx + Math.cos(a) * r, y = cy + Math.sin(a) * r;
-    if (n.star) drawStar(x, y, NS * 1.2 * s, n.brk ? C.brk : n.each ? C.each : C.slide, al, reduceMotion ? 0 : pf / 400, n.ex);
+    if (n.star) drawStar(x, y, NS * 1.2 * s, n.brk ? brkC(n) : n.each ? C.each : C.slide, al, reduceMotion ? 0 : pf / 400, n.ex);
     else drawTap(x, y, NS * s, colOf(n), al, n.ex);
     drawHand(x, y, NS * .44 * s, n.hand, al);
   }
