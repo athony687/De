@@ -298,7 +298,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v72</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v73</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -3256,16 +3256,44 @@ cv.addEventListener('lostpointercapture', up);
 // 指（Touch Events）。identifier は Pointer の番号と混ざらないよう 't' を付けて区別する
 const tid = t => 't' + t.identifier;
 if (TOUCH_EV) {
+  /* iPad / iPhone では、ある指を離した瞬間と別の指で押した瞬間が重なると、押した指の touchstart が届かないことがある
+     （ホールドを押したまま片手でタップやスライドを続けると起きやすい）。離した合図（touchend）が届かないこともある。
+     そこで、イベントのたびに「いま画面に触れている指の一覧」（e.touches）と見比べて、
+     押した合図が来ていない指は見つけた時点で押したことにし、一覧から消えた指は離したことにする */
+  const seenT = new Set();
+  const syncTouches = e => {
+    const live = new Set();
+    for (const t of e.touches) {
+      const id = tid(t); live.add(id);
+      if (!seenT.has(id)) { seenT.add(id); fingerDown(id, t.clientX, t.clientY, e); }
+    }
+    for (const id of [...seenT]) if (!live.has(id)) seenT.delete(id);
+    for (const id of [...ptrs.keys()]) if (typeof id === 'string' && id[0] === 't' && !live.has(id)) fingerUp(id, e);
+  };
   cv.addEventListener('touchstart', e => {
-    if (mode !== 'play' || !run) return;
+    if (mode !== 'play' || !run) { for (const t of e.changedTouches) seenT.add(tid(t)); return; }
     e.preventDefault();
-    for (const t of e.changedTouches) fingerDown(tid(t), t.clientX, t.clientY, e);
+    for (const t of e.changedTouches) { seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, e); }
+    syncTouches(e);
   }, { passive: false });
   cv.addEventListener('touchmove', e => {
     e.preventDefault();
-    for (const t of e.changedTouches) fingerMove(tid(t), [{ clientX: t.clientX, clientY: t.clientY, timeStamp: e.timeStamp }]);
+    for (const t of e.changedTouches) {
+      const id = tid(t);
+      if (!seenT.has(id)) { seenT.add(id); fingerDown(id, t.clientX, t.clientY, e); }
+      fingerMove(id, [{ clientX: t.clientX, clientY: t.clientY, timeStamp: e.timeStamp }]);
+    }
+    syncTouches(e);
   }, { passive: false });
-  const tEnd = e => { for (const t of e.changedTouches) fingerUp(tid(t), e); };
+  const tEnd = e => {
+    for (const t of e.changedTouches) {
+      const id = tid(t);
+      // 押した合図が来ないまま離された指（短いタップ）。指が触れていたぶん（約0.05秒）さかのぼって叩いたことにする
+      if (!seenT.has(id) && e.type === 'touchend') fingerDown(id, t.clientX, t.clientY, { timeStamp: e.timeStamp - 50 });
+      seenT.delete(id); fingerUp(id, e);
+    }
+    syncTouches(e);
+  };
   cv.addEventListener('touchend', tEnd);
   cv.addEventListener('touchcancel', tEnd);
 }
