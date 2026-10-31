@@ -311,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v78</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v79</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -2440,6 +2440,7 @@ function finish() {
   r.over = true;
   if (r.demo) return;
   if (r.coach && !r.auto) { setTimeout(() => { if (run === r && mode === 'play') coachNext(r); }, 500); return; }
+  if (r.drill && r.drill.split && r.drill.split.flow && !r.auto) { setTimeout(() => { if (run === r && mode === 'play') splitFlowNext(r); }, 500); return; }
   setTimeout(() => { if (run === r && mode === 'play') showResult(r); }, 700);
 }
 function showResult(r) {
@@ -2744,9 +2745,25 @@ async function playSplit(k) {
   const ch = currentChart(), sc = ch && ch.song ? splitSecs(ch.song.notes)[k] : null;
   if (!sc) return startPlay();
   settings.splitK = k; saveSettings();
-  // 復習と同じ流れ：0.8倍から始めて、PERFECT 90%以上で0.1倍ずつ上げ、等速で取れたら次の区間へ（区間4まで）
-  const secs = splitSecs(ch.song.notes).slice(k);
-  await startCoach({ chart: ch.id, split: true, secs, idx: 0, rate: .8, tries: 0 });
+  // 区間は等速でプレイ。終わったら、PERFECT 以外が出た所だけを0.8倍から特訓（復習と同じ流れで等速まで）→ 次の区間へ
+  await startDrill({ A: sc.A, B: sc.B, from: sc.from, to: sc.to, rate: 1, title: `区間${k + 1}/4`, split: { k, flow: true } });
+  if (run && run.drill && run.drill.split) hudDiff.textContent = `${playing.label} · 区間${k + 1}/4`;
+}
+// 区間（等速）のあと：記録して、ミスした所があれば0.8倍から特訓、なければ次の区間へ
+function splitFlowNext(r) {
+  const k = r.drill.split.k, acc = achieve(r, false), hist = getSplitHist(playing.id), prev = hist[k];
+  hist[k] = { best: prev ? Math.max(prev.best, acc) : acc, last: acc }; setSplitHist(playing.id, hist);
+  const spots = tokSpots(r);
+  if (!spots.length && k >= 3) { showResult(r); $('#resCoach').textContent = '4分割：最後の区間まで取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; return; }
+  stopTrack(true);
+  if (spots.length) {
+    const c = { chart: playing.id, split: true, k, secs: spots.map(g => ({ A: g.A, B: g.B, k })), idx: 0, rate: .8, tries: 0 };
+    toast(`区間${k + 1}：${fmtAcc(acc)}%\nミスした所${spots.length}か所を0.8倍から特訓します`); toastEl.style.whiteSpace = 'pre-line';
+    setTimeout(() => { if (run === r && mode === 'play') startCoach(c); }, 2200);
+  } else {
+    toast(`区間${k + 1}：${fmtAcc(acc)}% 全部PERFECT！区間${k + 2}へ`);
+    setTimeout(() => { if (run === r && mode === 'play') playSplit(k + 1); }, 2200);
+  }
 }
 const startFromTitle = () => (settings.split && !settings.practice && !kataCur) ? playSplit(splitK()) : startPlay();
 let splitNext = null, tokNext = null;
@@ -2925,8 +2942,8 @@ function coachResult(r) {
 async function startCoach(c) {
   const g = c.secs[c.idx];
   if (c.split) {
-    await startDrill({ A: g.A, B: g.B, from: g.from, to: g.to, rate: c.rate, title: `区間${g.k + 1}/4`, split: { k: g.k } });
-    if (run && run.drill) { run.coach = c; hudDiff.textContent = `区間${g.k + 1}/4 · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
+    await startDrill({ A: g.A, B: g.B, segs: [g], rate: c.rate, title: `区間${c.k + 1} 特訓 ${c.idx + 1}/${c.secs.length}`, split: { k: c.k, tok: true } });
+    if (run && run.drill) { run.coach = c; hudDiff.textContent = `区間${c.k + 1} 特訓 ${c.idx + 1}/${c.secs.length} · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
     return;
   }
   await startDrill({ A: g.A, B: g.B, rate: c.rate, title: `復習 ${c.idx + 1}/${c.secs.length}` });
@@ -2944,10 +2961,8 @@ function coachNext(r) {
       // 等速で取れたので復習から外す
       const g = c.secs[c.idx];
       if (c.split) {
-        // 等速で取れた区間は自己ベストに記録して、次の区間へ
-        const acc = achieve(r, false), hist = getSplitHist(c.chart), prev = hist[g.k];
-        hist[g.k] = { best: prev ? Math.max(prev.best, acc) : acc, last: acc }; setSplitHist(c.chart, hist);
-        c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ` → クリア！区間${g.k + 2}へ` : '';
+        // 等速で取れたら、次のミスした所へ（0.8倍から）
+        c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！次の所へ' : '';
       } else {
         setReview(c.chart, getReview(c.chart).filter(x => !g.src.some(a => Math.abs(x.A - a) < .05)));
         c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！復習から外して次へ' : '';
@@ -2961,7 +2976,13 @@ function coachNext(r) {
     else msg += ` → もう一度（${sp(c.rate)}）`;
   }
   if (ps) msg += `\nコツ（${ps[0]}）：${PK_TIP[ps[0]]}`;
-  if (c.idx >= c.secs.length && c.split) { r.coach = null; showResult(r); $('#resCoach').textContent = '4分割：最後の区間まで、等速で取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; return; }
+  if (c.idx >= c.secs.length && c.split) {
+    if (c.k >= 3) { r.coach = null; showResult(r); $('#resCoach').textContent = '4分割：最後の区間の特訓まで、等速で取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; return; }
+    stopTrack(true);
+    toast(msg + `\n特訓クリア！区間${c.k + 2}へ`); toastEl.style.whiteSpace = 'pre-line';
+    setTimeout(() => { if (run === r && mode === 'play') playSplit(c.k + 1); }, 2200);
+    return;
+  }
   if (c.idx >= c.secs.length) { coachPlan = null; showResult(r); $('#resCoach').textContent = '復習を全部、等速で取れました！通しで挑戦してみましょう'; $('#resCoach').hidden = false; updReviewBtn(); return; }
   stopTrack(true);
   toast(msg); toastEl.style.whiteSpace = 'pre-line';
