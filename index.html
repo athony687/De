@@ -200,6 +200,19 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .meta b{color:var(--ink);font-family:var(--display);font-weight:600}
 .btnrow{display:grid;grid-template-columns:1.4fr 1fr;gap:10px}
 .sharerow{margin:-6px 0 0;display:flex;justify-content:center}
+/* 4分割：区間ごとの結果 */
+.splitbox{display:flex;flex-direction:column;gap:6px;text-align:left}
+.splitbox .sh{margin:0;font-size:13px;font-weight:700;color:var(--ink);line-height:1.6}
+.secrow{appearance:none;position:relative;overflow:hidden;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:2px 10px;width:100%;
+  padding:9px 12px;border-radius:12px;border:1.5px solid var(--line);background:var(--panel-2);color:var(--ink);font:700 13px var(--body);text-align:left;cursor:pointer;touch-action:manipulation}
+.secrow b{font-family:var(--display);font-weight:800}
+.secrow .st{color:var(--muted);font-weight:600;font-size:12px;font-variant-numeric:tabular-nums}
+.secrow .ls{font-family:var(--display);font-weight:800;font-variant-numeric:tabular-nums}
+.secrow small{grid-column:1 / -1;color:var(--muted);font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+.secrow i{position:absolute;left:0;bottom:0;height:3px;background:var(--pink);border-radius:0 3px 3px 0}
+.secrow.worst{border-color:var(--pink);background:rgba(255,61,154,.14)}
+.secrow.cur{border-color:var(--gold)}
+.secrow:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 
 /* segmented choices (mode / judge width) */
 .opt{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:700;border:0;margin:0;padding:0;min-width:0}
@@ -298,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v73</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v74</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -313,6 +326,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <div class="segs">
           <input type="radio" name="pmode" id="m_play" value="play"><label for="m_play">通常<small>記録が残る</small></label>
           <input type="radio" name="pmode" id="m_prac" value="practice"><label for="m_prac">練習<small>スロー・巻き戻し</small></label>
+          <input type="radio" name="pmode" id="m_split" value="split"><label for="m_split">4分割<small>むずい所だけ練習</small></label>
         </div>
       </fieldset>
       <div class="field" id="prateField">
@@ -462,9 +476,11 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <p class="best" id="resTim" hidden></p>
       <p class="best" id="resNag" hidden></p>
       <p class="best coach" id="resCoach" hidden></p>
+      <div class="splitbox" id="resSplit" hidden></div>
       <button type="button" class="play" id="coachBtn" hidden>苦手な所を自動で練習</button>
       <div class="btnrow">
         <button type="button" class="play" id="drillBtn" hidden>流し地帯を練習</button>
+        <button type="button" class="play" id="splitBtn" hidden>むずい区間を練習</button>
         <button type="button" class="play" id="retryBtn">もう一度</button>
         <button type="button" class="ghost" id="backBtn">曲選択へ</button>
       </div>
@@ -2428,6 +2444,7 @@ function showResult(r) {
   $('#resAcc').textContent = fmtAcc(acc) + '%';
   const b = $('#resBadge');
   if (r.coach) { b.textContent = 'コーチ練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
+  else if (r.drill && r.drill.split) { b.textContent = `区間練習 ${r.drill.split.k + 1}/4`; b.className = 'badge auto'; b.hidden = false; }
   else if (r.drill) { b.textContent = '流し練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.practice) { b.textContent = 'PRACTICE ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.auto) { b.textContent = 'AUTO PLAY'; b.className = 'badge auto'; b.hidden = false; }
@@ -2450,11 +2467,12 @@ function showResult(r) {
     else msg = `自己ベスト ${fmtAcc(prev.acc)}%（${prev.rank}）`;
   }
   $('#resBest').textContent = msg;
-  if (r.kata) { for (const id of ['#resTim', '#resNag', '#coachBtn', '#drillBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
+  if (r.kata) { for (const id of ['#resTim', '#resNag', '#coachBtn', '#drillBtn', '#resSplit', '#splitBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
   else {
     timingResult(r);
     sweepResult(r);
     coachResult(r);
+    splitResult(r);
   }
   setMode('result');
   prepShare(r, ch, acc, rk, b.hidden ? '' : b.textContent);
@@ -2616,7 +2634,7 @@ async function startDrill(d) {
   settings.practice = prevP; settings.prate = prevR;
   const r = run; if (!ok || !r || !r.practice) return;
   const segs = d.segs || [{ A: d.A, B: d.B }];
-  r.drill = { A: d.A, B: d.B, rate: d.rate, segs: d.segs || null };
+  r.drill = { A: d.A, B: d.B, rate: d.rate, segs: d.segs || null, split: d.split || null };
   seekTo(d.A);
   // 練習する所だけで採点する（それ以外のノーツは skip にして、巻き戻しても出てこないようにする）
   const inSeg = n => { const e = n.type === 'slide' ? n.s1 : n.t; return segs.some(g => n.t >= g.A - .01 && e <= g.B); };
@@ -2631,7 +2649,7 @@ async function startDrill(d) {
 function sweepResult(r) {
   const el = $('#resNag'), btn = $('#drillBtn');
   el.hidden = true; btn.hidden = true; nextDrill = null;
-  if (r.auto || r.demo || settings.nagashi === false) return;
+  if (r.auto || r.demo || settings.nagashi === false || (r.drill && r.drill.split)) return;
   const st = r.drill ? sweepStats(r, r.drill.A, r.drill.B) : sweepStats(r);
   if (st.n < (r.drill ? 3 : 8)) return;
   const rate = st.ok / st.n, pct = Math.round(rate * 100), on = assistOn();
@@ -2661,6 +2679,96 @@ function sweepResult(r) {
   }
   el.textContent = line; el.style.whiteSpace = 'pre-line'; el.hidden = false;
 }
+/* ================= 4分割（むずい区間だけ練習） =================
+   通しプレイ（等速の実践）のあと、曲を時間で4つの区間に分けて、区間ごとに失った達成率を出す。
+   一番多く失った区間が「むずい区間」。その区間だけを等速でくり返し練習できる（どの区間でも選べる）。
+   ノーツは始まる時刻で区間に入れる。区間の終わりをまたぐホールド・スライドは、その区間の練習に含める */
+let splitLast = null;   // 直前の通しプレイの区間ごとの結果 { id, secs: [{ k, A, B, from, to, lost, c }] }
+function splitSecs(notes) {
+  const ns = notes;
+  if (!ns.length) return [];
+  const endOf = n => n.type === 'slide' ? n.s1 : n.t + (n.dur || 0);
+  const t0 = Math.min(...ns.map(n => n.t)), t1 = Math.max(...ns.map(n => n.t)) + 1e-3, L = (t1 - t0) / 4;
+  const out = [];
+  for (let k = 0; k < 4; k++) {
+    const from = t0 + L * k - (k === 0 ? .05 : 0), to = k === 3 ? t1 + .05 : t0 + L * (k + 1);
+    const mine = ns.filter(n => n.t >= from && n.t < to);
+    out.push({ k, from, to, A: from, B: Math.max(to, ...mine.map(endOf)) + .05 });
+  }
+  return out;
+}
+// 区間 s で失った達成率（曲全体に対する%）と判定の数。total は曲全体のノーツの重み
+function secLoss(notes, s, total) {
+  let lost = 0; const c = [0, 0, 0, 0];
+  for (const n of notes) {
+    if (n.t < s.from || n.t >= s.to || n.jr == null) continue;
+    const j = n.jr; c[j]++;
+    lost += noteW(n) * (1 - NRM_BASE[j]);
+  }
+  return { lost: total ? lost / total * 100 : 0, c };
+}
+const fmtLoss = v => v < .005 ? '±0.00%' : '−' + v.toFixed(2) + '%';
+const cntTxt = c => [c[3] ? `MISS ${c[3]}` : '', c[2] ? `GOOD ${c[2]}` : '', c[1] ? `GREAT ${c[1]}` : ''].filter(Boolean).join(' · ') || 'ぜんぶ PERFECT';
+function splitRows(secs, curK) {
+  const box = $('#resSplit'), mx = Math.max(...secs.map(s => s.lost), .01);
+  const worst = secs.reduce((a, s) => s.lost > a.lost ? s : a, secs[0]);
+  for (const el of box.querySelectorAll('.secrow')) el.remove();
+  for (const s of secs) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'secrow' + (s === worst && s.lost >= .005 ? ' worst' : '') + (s.k === curK ? ' cur' : '');
+    b.innerHTML = `<b>区間${s.k + 1}</b><span class="st">${fmtTime(Math.max(0, s.from))}〜${fmtTime(s.to)}</span><span class="ls">${fmtLoss(s.lost)}</span><small>${cntTxt(s.c)}</small><i style="width:${(s.lost / mx * 100).toFixed(1)}%"></i>`;
+    b.setAttribute('aria-label', `区間${s.k + 1}を等速で練習（${fmtTime(Math.max(0, s.from))}〜${fmtTime(s.to)}、${fmtLoss(s.lost)}）`);
+    b.addEventListener('click', () => startSplit(s.k));
+    box.appendChild(b);
+  }
+  return worst;
+}
+function startSplit(k) {
+  const s = splitLast && splitLast.secs[k]; if (!s) return;
+  startDrill({ A: s.A, B: s.B, rate: 1, title: `区間${k + 1}/4`, split: { k } });
+}
+let splitNext = null;
+function splitResult(r) {
+  const box = $('#resSplit'), btn = $('#splitBtn');
+  box.hidden = true; btn.hidden = true; splitNext = null;
+  if (r.auto || r.demo || r.kata) return;
+  const all = r.notes, total = all.reduce((a, n) => a + noteW(n), 0);
+  const sh = document.createElement('p'); sh.className = 'sh';
+  for (const el of box.querySelectorAll('.sh')) el.remove();
+  if (r.drill && r.drill.split && splitLast && splitLast.id === (playing && playing.id)) {
+    // 区間の練習のあと：通しのときと比べる
+    const k = r.drill.split.k, s = splitLast.secs[k], now = secLoss(all, s, total);
+    const before = s.lost;
+    let line = `区間${k + 1}：通しでは ${fmtLoss(before)}（${cntTxt(s.c)}）→ 今回 ${fmtLoss(now.lost)}（${cntTxt(now.c)}）`;
+    const clean = now.c[3] + now.c[2] === 0 && now.lost <= Math.max(.15, before * .3);
+    if (clean) {
+      s.lost = now.lost; s.c = now.c;   // 取れたので、次にむずい区間を選び直す
+      line += '\nこの区間は等速で取れました！';
+      const rest = splitLast.secs.filter(x => x.k !== k && x.lost >= .005).sort((a, b) => b.lost - a.lost);
+      if (rest.length) { splitNext = { k: rest[0].k }; btn.textContent = `次は区間${rest[0].k + 1}`; line += `次は区間${rest[0].k + 1}がおすすめです`; }
+      else { splitNext = 'full'; btn.textContent = '通しで実践'; line += 'ほかの区間も大丈夫そうなので、通しで実践してみましょう'; }
+    } else { splitNext = 'full'; btn.textContent = '通しで実践'; line += now.lost < before - .005 ? '\n通しのときより良くなっています。「もう一度」でくり返せます' : '\n「もう一度」でこの区間をくり返せます'; }
+    sh.textContent = line; sh.style.whiteSpace = 'pre-line';
+    box.prepend(sh);
+    splitRows(splitLast.secs, k);
+    box.hidden = false; btn.hidden = false;
+    return;
+  }
+  if (r.drill || r.practice || !settings.split) return;
+  // 通しプレイ（実践）のあと：4つの区間に分けて、むずい区間を出す
+  const secs = splitSecs(all).map(s => Object.assign(s, secLoss(all, s, total)));
+  if (!secs.length || !playing) return;
+  splitLast = { id: playing.id, secs };
+  const worst = splitRows(secs, -1);
+  if (worst.lost >= .005) {
+    sh.textContent = `4分割：区間${worst.k + 1}（${fmtTime(Math.max(0, worst.from))}〜${fmtTime(worst.to)}）が一番むずかしかったです。区間を押すと、その区間だけ等速で練習できます`;
+    splitNext = { k: worst.k }; btn.textContent = `区間${worst.k + 1}を練習`; btn.hidden = false;
+  } else sh.textContent = '4分割：どの区間もほぼ完璧でした。区間を押すと、その区間だけ等速で練習できます';
+  box.prepend(sh);
+  box.hidden = false;
+}
+$('#splitBtn').addEventListener('click', () => { if (splitNext === 'full') startPlay(); else if (splitNext) startSplit(splitNext.k); });
 /* ================= 復習（やるだけで上達する練習） =================
    譜面を2小節ずつに区切って、ノーツの密度と配置（回転・流し・同時押し・スライドなど）から難しい所を決めておく。
    通しプレイのあと、難しい所で PERFECT 以外（GREAT・GOOD・MISS）が2つ以上出たら「復習」に入れる。
@@ -2967,14 +3075,14 @@ function syncForm() {
   $('#nlv').value = nlvPct(); $('#nauto').checked = settings.nauto !== false;
   $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
   $('#hands').checked = settings.hands !== false;
-  ($('#m_' + (settings.practice ? 'prac' : 'play'))).checked = true;
+  ($('#m_' + (settings.practice ? 'prac' : settings.split ? 'split' : 'play'))).checked = true;
   $('#prate').value = settings.prate;
   updSweepBtn();
   $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
   outs(); bestLine();
 }
 document.querySelectorAll('input[name=pmode]').forEach(el => el.addEventListener('change', () => {
-  settings.practice = el.value === 'practice'; saveSettings();
+  settings.practice = el.value === 'practice'; settings.split = el.value === 'split'; saveSettings();
   updSweepBtn();
   $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
 }));
