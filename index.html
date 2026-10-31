@@ -311,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v74</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v75</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -326,8 +326,12 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <div class="segs">
           <input type="radio" name="pmode" id="m_play" value="play"><label for="m_play">通常<small>記録が残る</small></label>
           <input type="radio" name="pmode" id="m_prac" value="practice"><label for="m_prac">練習<small>スロー・巻き戻し</small></label>
-          <input type="radio" name="pmode" id="m_split" value="split"><label for="m_split">4分割<small>むずい所だけ練習</small></label>
+          <input type="radio" name="pmode" id="m_split" value="split"><label for="m_split">4分割<small>区間だけプレイ</small></label>
         </div>
+      </fieldset>
+      <fieldset class="opt" id="splitField" hidden>
+        <legend>区間（この区間だけ等速でプレイ）</legend>
+        <div class="segs" id="splitSegs"></div>
       </fieldset>
       <div class="field" id="prateField">
         <label for="prate">再生速度（練習・流しだけ練習）</label><output id="prateOut" for="prate">0.75x</output>
@@ -2621,6 +2625,7 @@ function updReviewBtn() {
 }
 function updSweepBtn() {
   updReviewBtn();
+  updSplitField();
   const b = $('#sweepBtn'), ch = currentChart();
   const sg = ch && ch.song && ch.song.notes.length && settings.nagashi !== false ? sweepSegs(ch.song) : [];
   b.hidden = !sg.length;
@@ -2634,10 +2639,12 @@ async function startDrill(d) {
   settings.practice = prevP; settings.prate = prevR;
   const r = run; if (!ok || !r || !r.practice) return;
   const segs = d.segs || [{ A: d.A, B: d.B }];
-  r.drill = { A: d.A, B: d.B, rate: d.rate, segs: d.segs || null, split: d.split || null };
+  r.drill = { A: d.A, B: d.B, rate: d.rate, segs: d.segs || null, split: d.split || null, from: d.from, to: d.to };
   seekTo(d.A);
   // 練習する所だけで採点する（それ以外のノーツは skip にして、巻き戻しても出てこないようにする）
-  const inSeg = n => { const e = n.type === 'slide' ? n.s1 : n.t; return segs.some(g => n.t >= g.A - .01 && e <= g.B); };
+  // 4分割の区間は、始まる時刻が区間の中にあるノーツだけ（区間の終わりをまたぐホールド・スライドも含める）
+  const inSeg = d.split ? (n => n.t >= d.from && n.t < d.to)
+    : (n => { const e = n.type === 'slide' ? n.s1 : n.t; return segs.some(g => n.t >= g.A - .01 && e <= g.B); });
   for (const n of r.notes) if (!inSeg(n)) { n.fin = true; n.skip = true; }
   r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
   const live = r.notes.filter(n => !n.fin);
@@ -2679,96 +2686,92 @@ function sweepResult(r) {
   }
   el.textContent = line; el.style.whiteSpace = 'pre-line'; el.hidden = false;
 }
-/* ================= 4分割（むずい区間だけ練習） =================
-   通しプレイ（等速の実践）のあと、曲を時間で4つの区間に分けて、区間ごとに失った達成率を出す。
-   一番多く失った区間が「むずい区間」。その区間だけを等速でくり返し練習できる（どの区間でも選べる）。
-   ノーツは始まる時刻で区間に入れる。区間の終わりをまたぐホールド・スライドは、その区間の練習に含める */
-let splitLast = null;   // 直前の通しプレイの区間ごとの結果 { id, secs: [{ k, A, B, from, to, lost, c }] }
+/* ================= 4分割（区間だけプレイ） =================
+   曲を時間で4つの区間に分けて、曲選択で選んだ区間だけを等速でプレイする（特訓）。
+   ノーツは始まる時刻で区間に入れる。区間の終わりをまたぐホールド・スライドは、その区間に含める。
+   区間ごとの自己ベストと前回の達成率は譜面ごとに保存する */
 function splitSecs(notes) {
-  const ns = notes;
-  if (!ns.length) return [];
+  if (!notes || !notes.length) return [];
   const endOf = n => n.type === 'slide' ? n.s1 : n.t + (n.dur || 0);
-  const t0 = Math.min(...ns.map(n => n.t)), t1 = Math.max(...ns.map(n => n.t)) + 1e-3, L = (t1 - t0) / 4;
-  const out = [];
+  let t0 = Infinity, t1 = -Infinity;
+  for (const n of notes) { if (n.t < t0) t0 = n.t; if (n.t > t1) t1 = n.t; }
+  t1 += 1e-3;
+  const L = (t1 - t0) / 4, out = [];
+  // 境目は4等分の位置の近く（区間の長さの±15%）で、ノーツとノーツの間が一番あいている所に寄せる（連打の途中で切らない）
+  const ts = [...new Set(notes.map(n => +n.t.toFixed(4)))].sort((a, b) => a - b);
+  const cut = T => {
+    let best = T, gap = -1;
+    for (let i = 1; i < ts.length; i++) {
+      const m = (ts[i - 1] + ts[i]) / 2, g = ts[i] - ts[i - 1];
+      if (Math.abs(m - T) <= L * .15 && g > gap + 1e-6) { gap = g; best = ts[i] - Math.min(.05, g / 2); }
+    }
+    return best;
+  };
+  const edge = [t0 - .05, cut(t0 + L), cut(t0 + L * 2), cut(t0 + L * 3), t1 + .05];
   for (let k = 0; k < 4; k++) {
-    const from = t0 + L * k - (k === 0 ? .05 : 0), to = k === 3 ? t1 + .05 : t0 + L * (k + 1);
-    const mine = ns.filter(n => n.t >= from && n.t < to);
-    out.push({ k, from, to, A: from, B: Math.max(to, ...mine.map(endOf)) + .05 });
+    const from = edge[k], to = edge[k + 1];
+    let B = to;
+    for (const n of notes) if (n.t >= from && n.t < to) B = Math.max(B, endOf(n));
+    out.push({ k, from, to, A: from, B: B + .05 });
   }
   return out;
 }
-// 区間 s で失った達成率（曲全体に対する%）と判定の数。total は曲全体のノーツの重み
-function secLoss(notes, s, total) {
-  let lost = 0; const c = [0, 0, 0, 0];
-  for (const n of notes) {
-    if (n.t < s.from || n.t >= s.to || n.jr == null) continue;
-    const j = n.jr; c[j]++;
-    lost += noteW(n) * (1 - NRM_BASE[j]);
-  }
-  return { lost: total ? lost / total * 100 : 0, c };
+const splitKey = id => 'ringbeat:split:' + id;
+function getSplitHist(id) { try { const v = JSON.parse(localStorage.getItem(splitKey(id)) || 'null'); return Array.isArray(v) ? v : [null, null, null, null]; } catch (e) { return [null, null, null, null]; } }
+function setSplitHist(id, v) { try { localStorage.setItem(splitKey(id), JSON.stringify(v)); } catch (e) {} }
+const splitK = () => clamp(Math.round(+settings.splitK || 0), 0, 3);
+const secRange = s => `${fmtTime(Math.max(0, s.from))}〜${fmtTime(s.to)}`;
+// 曲選択：4分割のときだけ、区間を選ぶボタンを出す
+function updSplitField() {
+  const f = $('#splitField'), box = $('#splitSegs'), ch = currentChart();
+  const on = !!settings.split && !settings.practice;
+  f.hidden = !on;
+  $('#playBtn').textContent = settings.practice ? 'PRACTICE' : on ? `区間${splitK() + 1}をプレイ` : 'PLAY';
+  if (!on) return;
+  const secs = ch && ch.song ? splitSecs(ch.song.notes) : [], hist = ch ? getSplitHist(ch.id) : [];
+  box.innerHTML = secs.map(sc => {
+    const h = hist[sc.k];
+    return `<input type="radio" name="splitk" id="sk${sc.k}" value="${sc.k}"${sc.k === splitK() ? ' checked' : ''}><label for="sk${sc.k}">区間${sc.k + 1}<small>${secRange(sc)}</small><small>${h ? fmtAcc(h.best) + '%' : '未プレイ'}</small></label>`;
+  }).join('');
 }
-const fmtLoss = v => v < .005 ? '±0.00%' : '−' + v.toFixed(2) + '%';
-const cntTxt = c => [c[3] ? `MISS ${c[3]}` : '', c[2] ? `GOOD ${c[2]}` : '', c[1] ? `GREAT ${c[1]}` : ''].filter(Boolean).join(' · ') || 'ぜんぶ PERFECT';
-function splitRows(secs, curK) {
-  const box = $('#resSplit'), mx = Math.max(...secs.map(s => s.lost), .01);
-  const worst = secs.reduce((a, s) => s.lost > a.lost ? s : a, secs[0]);
-  for (const el of box.querySelectorAll('.secrow')) el.remove();
-  for (const s of secs) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'secrow' + (s === worst && s.lost >= .005 ? ' worst' : '') + (s.k === curK ? ' cur' : '');
-    b.innerHTML = `<b>区間${s.k + 1}</b><span class="st">${fmtTime(Math.max(0, s.from))}〜${fmtTime(s.to)}</span><span class="ls">${fmtLoss(s.lost)}</span><small>${cntTxt(s.c)}</small><i style="width:${(s.lost / mx * 100).toFixed(1)}%"></i>`;
-    b.setAttribute('aria-label', `区間${s.k + 1}を等速で練習（${fmtTime(Math.max(0, s.from))}〜${fmtTime(s.to)}、${fmtLoss(s.lost)}）`);
-    b.addEventListener('click', () => startSplit(s.k));
-    box.appendChild(b);
-  }
-  return worst;
+$('#splitSegs').addEventListener('change', e => {
+  if (e.target.name !== 'splitk') return;
+  settings.splitK = +e.target.value; saveSettings(); updSplitField();
+});
+async function playSplit(k) {
+  const ch = currentChart(), sc = ch && ch.song ? splitSecs(ch.song.notes)[k] : null;
+  if (!sc) return startPlay();
+  settings.splitK = k; saveSettings();
+  await startDrill({ A: sc.A, B: sc.B, from: sc.from, to: sc.to, rate: 1, title: `区間${k + 1}/4`, split: { k } });
+  if (run && run.drill && run.drill.split) hudDiff.textContent = `${playing.label} · 区間${k + 1}/4`;
 }
-function startSplit(k) {
-  const s = splitLast && splitLast.secs[k]; if (!s) return;
-  startDrill({ A: s.A, B: s.B, rate: 1, title: `区間${k + 1}/4`, split: { k } });
-}
+const startFromTitle = () => (settings.split && !settings.practice && !kataCur) ? playSplit(splitK()) : startPlay();
 let splitNext = null;
 function splitResult(r) {
   const box = $('#resSplit'), btn = $('#splitBtn');
   box.hidden = true; btn.hidden = true; splitNext = null;
-  if (r.auto || r.demo || r.kata) return;
-  const all = r.notes, total = all.reduce((a, n) => a + noteW(n), 0);
-  const sh = document.createElement('p'); sh.className = 'sh';
-  for (const el of box.querySelectorAll('.sh')) el.remove();
-  if (r.drill && r.drill.split && splitLast && splitLast.id === (playing && playing.id)) {
-    // 区間の練習のあと：通しのときと比べる
-    const k = r.drill.split.k, s = splitLast.secs[k], now = secLoss(all, s, total);
-    const before = s.lost;
-    let line = `区間${k + 1}：通しでは ${fmtLoss(before)}（${cntTxt(s.c)}）→ 今回 ${fmtLoss(now.lost)}（${cntTxt(now.c)}）`;
-    const clean = now.c[3] + now.c[2] === 0 && now.lost <= Math.max(.15, before * .3);
-    if (clean) {
-      s.lost = now.lost; s.c = now.c;   // 取れたので、次にむずい区間を選び直す
-      line += '\nこの区間は等速で取れました！';
-      const rest = splitLast.secs.filter(x => x.k !== k && x.lost >= .005).sort((a, b) => b.lost - a.lost);
-      if (rest.length) { splitNext = { k: rest[0].k }; btn.textContent = `次は区間${rest[0].k + 1}`; line += `次は区間${rest[0].k + 1}がおすすめです`; }
-      else { splitNext = 'full'; btn.textContent = '通しで実践'; line += 'ほかの区間も大丈夫そうなので、通しで実践してみましょう'; }
-    } else { splitNext = 'full'; btn.textContent = '通しで実践'; line += now.lost < before - .005 ? '\n通しのときより良くなっています。「もう一度」でくり返せます' : '\n「もう一度」でこの区間をくり返せます'; }
-    sh.textContent = line; sh.style.whiteSpace = 'pre-line';
-    box.prepend(sh);
-    splitRows(splitLast.secs, k);
-    box.hidden = false; btn.hidden = false;
-    return;
+  if (r.auto || r.demo || r.kata || !r.drill || !r.drill.split || !playing) return;
+  const k = r.drill.split.k, acc = achieve(r, false), hist = getSplitHist(playing.id), prev = hist[k];
+  hist[k] = { best: prev ? Math.max(prev.best, acc) : acc, last: acc };
+  setSplitHist(playing.id, hist);
+  // 記録の行：区間の自己ベスト
+  $('#resBest').textContent = !prev ? `区間${k + 1}の初プレイ！記録を保存しました`
+    : acc > prev.best ? `区間${k + 1}の自己ベスト更新（前回まで ${fmtAcc(prev.best)}%）`
+    : `区間${k + 1}：前回 ${fmtAcc(prev.last)}% → 今回 ${fmtAcc(acc)}%（自己ベスト ${fmtAcc(prev.best)}%）`;
+  const secs = splitSecs(r.notes);
+  box.innerHTML = '';
+  for (const sc of secs) {
+    const h = hist[sc.k], b = document.createElement('button');
+    b.type = 'button'; b.className = 'secrow' + (sc.k === k ? ' cur' : '');
+    b.innerHTML = `<b>区間${sc.k + 1}</b><span class="st">${secRange(sc)}</span><span class="ls">${h ? fmtAcc(h.best) + '%' : '未プレイ'}</span>`;
+    b.setAttribute('aria-label', `区間${sc.k + 1}だけプレイ（${secRange(sc)}${h ? '、自己ベスト ' + fmtAcc(h.best) + '%' : ''}）`);
+    b.addEventListener('click', () => playSplit(sc.k));
+    box.appendChild(b);
   }
-  if (r.drill || r.practice || !settings.split) return;
-  // 通しプレイ（実践）のあと：4つの区間に分けて、むずい区間を出す
-  const secs = splitSecs(all).map(s => Object.assign(s, secLoss(all, s, total)));
-  if (!secs.length || !playing) return;
-  splitLast = { id: playing.id, secs };
-  const worst = splitRows(secs, -1);
-  if (worst.lost >= .005) {
-    sh.textContent = `4分割：区間${worst.k + 1}（${fmtTime(Math.max(0, worst.from))}〜${fmtTime(worst.to)}）が一番むずかしかったです。区間を押すと、その区間だけ等速で練習できます`;
-    splitNext = { k: worst.k }; btn.textContent = `区間${worst.k + 1}を練習`; btn.hidden = false;
-  } else sh.textContent = '4分割：どの区間もほぼ完璧でした。区間を押すと、その区間だけ等速で練習できます';
-  box.prepend(sh);
+  if (k < 3) { splitNext = k + 1; btn.textContent = `区間${k + 2}へ`; btn.hidden = false; }
   box.hidden = false;
 }
-$('#splitBtn').addEventListener('click', () => { if (splitNext === 'full') startPlay(); else if (splitNext) startSplit(splitNext.k); });
+$('#splitBtn').addEventListener('click', () => { if (splitNext != null) playSplit(splitNext); });
 /* ================= 復習（やるだけで上達する練習） =================
    譜面を2小節ずつに区切って、ノーツの密度と配置（回転・流し・同時押し・スライドなど）から難しい所を決めておく。
    通しプレイのあと、難しい所で PERFECT 以外（GREAT・GOOD・MISS）が2つ以上出たら「復習」に入れる。
@@ -3078,13 +3081,12 @@ function syncForm() {
   ($('#m_' + (settings.practice ? 'prac' : settings.split ? 'split' : 'play'))).checked = true;
   $('#prate').value = settings.prate;
   updSweepBtn();
-  $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
+  updSplitField();
   outs(); bestLine();
 }
 document.querySelectorAll('input[name=pmode]').forEach(el => el.addEventListener('change', () => {
   settings.practice = el.value === 'practice'; settings.split = el.value === 'split'; saveSettings();
   updSweepBtn();
-  $('#playBtn').textContent = settings.practice ? 'PRACTICE' : 'PLAY';
 }));
 $('#prate').addEventListener('input', () => { settings.prate = +$('#prate').value; outs(); saveSettings(); updSweepBtn(); });
 spdIn.addEventListener('input', () => { settings.nspd = +spdIn.value; outs(); saveSettings(); if (run && run.demo) run.app = approachOf(settings.nspd); });
@@ -3098,10 +3100,10 @@ $('#nauto').addEventListener('change', () => { settings.nauto = $('#nauto').chec
 $('#jofs').addEventListener('input', () => { settings.jofs = +$('#jofs').value; outs(); saveSettings(); });
 $('#jauto').addEventListener('change', () => { settings.jauto = $('#jauto').checked; saveSettings(); });
 $('#hands').addEventListener('change', () => { settings.hands = $('#hands').checked; saveSettings(); });
-$('#setup').addEventListener('submit', e => { e.preventDefault(); startPlay(); });
+$('#setup').addEventListener('submit', e => { e.preventDefault(); startFromTitle(); });
 onTap($('#pauseBtn'), () => pause());
 onTap($('#resumeBtn'), () => resume());
-onTap($('#restartBtn'), () => startPlay());
+onTap($('#restartBtn'), () => { if (run && run.drill) startDrill(run.drill); else startPlay(); });
 onTap($('#quitBtn'), () => setMode('title'));
 $('#retryBtn').addEventListener('click', () => { if (run && run.drill) startDrill(run.drill); else startPlay(); });
 $('#sweepBtn').addEventListener('click', () => {
