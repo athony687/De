@@ -166,7 +166,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .hud{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;gap:12px;padding:12px 16px;pointer-events:none}
 .icon-btn{pointer-events:auto;width:42px;height:42px;flex:none;display:grid;place-items:center;border-radius:12px;touch-action:none;
   border:1px solid var(--line);background:rgba(21,14,40,.7);color:var(--ink);cursor:pointer}
-.hud-song{display:flex;flex-direction:column;min-width:0;color:var(--ink)}
+.hud-song{display:flex;flex-direction:column;min-width:0;max-width:var(--songMax,none);color:var(--ink)}
 .hud-song strong{font:600 13px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hud-song span{font:700 11px/1.4 var(--body);letter-spacing:.12em;color:var(--muted);white-space:nowrap}
 .hud-acc{margin-left:auto;color:var(--ink);font:900 22px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
@@ -232,6 +232,9 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 /* practice bar */
 .practice{position:absolute;left:50%;top:62px;transform:translateX(-50%);width:min(560px,calc(100% - 24px));display:flex;flex-direction:column;gap:8px;
   padding:10px 12px 12px;border-radius:14px;border:1px solid var(--line);background:rgba(11,8,20,.95);box-shadow:0 14px 34px rgba(0,0,0,.5);touch-action:manipulation}
+/* 練習ボタンはリングの上に重ならないよう、右上（達成率の左）に寄せる */
+.pmenu{margin-left:auto}
+.pmenu:not([hidden]) ~ .hud-acc{margin-left:0}
 .pmenu{pointer-events:auto;flex:none;display:inline-flex;align-items:center;gap:6px;height:42px;padding:0 12px;border-radius:12px;
   border:1px solid var(--line);background:rgba(21,14,40,.7);color:var(--ink);font:800 12px var(--body);cursor:pointer;white-space:nowrap;touch-action:none}
 .pmenu b{font:900 12px var(--display);color:var(--gold);font-variant-numeric:tabular-nums}
@@ -311,7 +314,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v83</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v84</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -2180,6 +2183,9 @@ function layoutRing() {
   cx = W / 2;
   cy = clamp(top + HH / 2, minTop + R, H - below(R) - R);
   setSizes();
+  // 左上の曲名がリングの外枠に届く前に省略する（上のボタン列の下端 66px の高さで、リングが横にどこまで来るか）
+  { const ro = R * 1.1, dy = Math.max(0, cy - 66), hc = dy < ro ? Math.sqrt(ro * ro - dy * dy) : 0;
+    hudEl.style.setProperty('--songMax', Math.max(80, cx - hc - 16 - 42 - 12 - 12) + 'px'); }
 }
 function resize() {
   const r = app.getBoundingClientRect();
