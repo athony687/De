@@ -311,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v82</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v83</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -2763,10 +2763,10 @@ function splitFlowNext(r) {
   stopTrack(true);
   if (spots.length) {
     const c = { chart: playing.id, split: true, k, secs: spots.map(g => ({ A: g.A, B: g.B, k })), idx: 0, rate: .8, tries: 0 };
-    toast(`区間${k + 1}：${fmtAcc(acc)}%\nミスした所${spots.length}か所を0.8倍から特訓します`); toastEl.style.whiteSpace = 'pre-line';
+    toast(`区間${k + 1}：${fmtAcc(acc)}%\n難しい所のミス${spots.length}か所を0.8倍から特訓します`); toastEl.style.whiteSpace = 'pre-line';
     setTimeout(() => { if (run === r && mode === 'play') startCoach(c); }, 2200);
   } else {
-    toast(`区間${k + 1}：${fmtAcc(acc)}% 全部PERFECT！区間${k + 2}へ`);
+    toast(`区間${k + 1}：${fmtAcc(acc)}% 難しい所は全部PERFECT！区間${k + 2}へ`);
     setTimeout(() => { if (run === r && mode === 'play') playSplit(k + 1); }, 2200);
   }
 }
@@ -2776,7 +2776,9 @@ let splitNext = null, tokNext = null;
    近い所（1.5秒以内）はまとめて1か所にし、少し前から入って少しあとまで弾く。
    特訓で PERFECT が取れた所は外して、残った所だけをもう一度。全部取れたら区間を通しでプレイ */
 function tokSpots(r) {
-  const bad = r.notes.filter(n => !n.skip && n.jr != null && n.jr > 0).sort((a, b) => a.t - b.t);
+  // やさしい所のミスはケアレスミスとして特訓に入れない（復習と同じく、曲全体で見て難しい所のミスだけ）
+  const hb = hardBlocks(r.notes.map(n => Object.assign({}, n, { skip: false })), r.beat || .5);
+  const bad = r.notes.filter(n => !n.skip && n.jr != null && n.jr > 0 && hb.some(b => n.t >= b.A && n.t < b.B)).sort((a, b) => a.t - b.t);
   const g = [];
   for (const n of bad) {
     const e = n.type === 'slide' ? n.s1 : n.t + (n.type === 'hold' || n.type === 'thold' ? n.dur || 0 : 0), s = g[g.length - 1];
