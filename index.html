@@ -311,7 +311,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v81</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v82</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -2783,9 +2783,16 @@ function tokSpots(r) {
     if (s && n.t - s.last < 1.5) { s.last = Math.max(s.last, n.t); s.end = Math.max(s.end, e); s.n++; }
     else g.push({ first: n.t, last: n.t, end: e, n: 1 });
   }
-  // 区間の外のノーツは入れない（区間の始まりより前には広げない）
-  const beat = r.beat || .5, from = r.drill && r.drill.from != null ? r.drill.from : -Infinity;
-  return g.map(s => ({ A: Math.max(from, s.first - Math.max(beat * 2, .8)), B: Math.max(s.end, s.last) + .45, n: s.n }));
+  // 特訓の範囲は広めに：ミスした所の2小節（最低3秒）前から、1小節（最低2秒）あとまで。重なった所は1つにまとめる
+  // 区間の外には広げない
+  const bar = (r.beat || .5) * 4, pre = Math.max(bar * 2, 3), post = Math.max(bar, 2);
+  const from = r.drill && r.drill.from != null ? r.drill.from : -Infinity, to = r.drill && r.drill.B != null ? r.drill.B : Infinity;
+  const out = [];
+  for (const s of g) {
+    const A = Math.max(from, s.first - pre), B = Math.min(to, Math.max(s.end, s.last) + post), p = out[out.length - 1];
+    if (p && A <= p.B) { p.B = Math.max(p.B, B); p.n += s.n; } else out.push({ A, B, n: s.n });
+  }
+  return out;
 }
 function startTok(k, spots) {
   if (!spots || !spots.length) return;
