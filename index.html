@@ -314,7 +314,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v93</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v94</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -356,7 +356,8 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <div>
           <div class="field">
             <label for="ofs">タイミング補正（音）</label><output id="ofsOut" for="ofs">±0 ms</output>
-            <input type="range" id="ofs" min="-200" max="200" step="10" value="0">
+            <input type="range" id="ofs" min="-300" max="300" step="10" value="0">
+            <button type="button" class="ghost" id="calBtn">カチッに合わせてたたいて、自動で合わせる</button>
           </div>
           <div class="field">
             <label for="jofs">判定タイミング</label><output id="jofsOut" for="jofs">±0 ms</output>
@@ -451,6 +452,13 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
     </form>
   </section>
 
+  <section id="calOv" class="overlay center" hidden aria-label="音のずれを合わせる">
+    <div class="card narrow">
+      <h2 class="ptitle">音のずれを合わせる</h2>
+      <p class="best" id="calMsg" style="white-space:pre-line"></p>
+      <button type="button" class="ghost" id="calStop">やめる</button>
+    </div>
+  </section>
   <section id="pauseOv" class="overlay center" hidden aria-label="一時停止中">
     <div class="card narrow">
       <h2 class="ptitle">PAUSE</h2>
@@ -3232,6 +3240,66 @@ document.querySelectorAll('input[name=pmode]').forEach(el => el.addEventListener
 $('#prate').addEventListener('input', () => { settings.prate = +$('#prate').value; outs(); saveSettings(); updSweepBtn(); });
 spdIn.addEventListener('input', () => { settings.nspd = +spdIn.value; outs(); saveSettings(); if (run && run.demo) run.app = approachOf(settings.nspd); });
 ofsIn.addEventListener('input', () => { settings.ofs = +ofsIn.value; outs(); saveSettings(); });
+/* 音のずれの自動合わせ。iPad は音が鳴るまでの遅れ（スピーカー・イヤホンで変わる）をゲームに正しく教えないので、
+   ノーツの動きと音がどの曲でも同じだけずれる。カチッ（100BPM）に合わせて画面をたたいてもらい、
+   音に合わせたたき方のずれと、ふだんノーツに合わせたたき方のずれ（判定タイミング）の差から、音のずれを出す。
+   「タイミング補正（音）」は画面の動きと判定をいっしょにずらすので、判定とノーツの関係は変わらない */
+const calOv = $('#calOv'), calMsg = $('#calMsg');
+let cal = null;
+function calStop(msg) {
+  if (!cal) return;
+  cancelAnimationFrame(cal.raf); clearTimeout(cal.to);
+  calOv.removeEventListener('pointerdown', calTap);
+  try { killBus(bus); } catch (e) {} bus = cal.prevBus; cal = null;
+  if (msg) { calMsg.textContent = msg; $('#calStop').textContent = '閉じる'; } else calOv.hidden = true;
+}
+function calTap(e) {
+  if (!cal || e.target.closest('button')) return;
+  e.preventDefault();
+  // 1本の指で叩くので合図の時刻をそのまま使える（古い時刻のときは受け取った時刻）
+  const n = performance.now(), ts = e.timeStamp > 0 && n - e.timeStamp < 120 && e.timeStamp <= n + 5 ? e.timeStamp : n;
+  const g = cal.ac + (ts - cal.pf) / 1000;
+  let best = null;
+  for (const c of cal.clicks) if (!best || Math.abs(g - c) < Math.abs(g - best)) best = c;
+  if (best == null || Math.abs(g - best) > cal.beat * .45 || best < cal.clicks[4] - .01) return;   // 最初の4拍は聞くだけ
+  cal.devs.push(g - best);
+  const left = Math.max(0, 12 - cal.devs.length);
+  calMsg.textContent = left ? `カチッに合わせて、画面のどこでもたたいてください（あと ${left} 回）` : 'OK！計算しています…';
+  if (!left) cal.to = setTimeout(calFinish, 300);
+}
+function calFinish() {
+  if (!cal) return;
+  const dv = cal.devs.slice().sort((a, b) => a - b), med = dv[dv.length >> 1];
+  const mad = dv.map(x => Math.abs(x - med)).sort((a, b) => a - b)[dv.length >> 1];
+  if (mad > .045) { calStop(`たたくタイミングのばらつきが大きかったので、合わせませんでした。\nもう一度ためしてください（カチッの音だけを聞いてたたくのがコツです）`); return; }
+  const ofs = clamp(Math.round((med * 1000 - jofsMs()) / 10) * 10, -300, 300), old = +settings.ofs || 0;
+  settings.ofs = ofs; ofsIn.value = ofs; outs(); saveSettings();
+  calStop(`タイミング補正（音）を ${old > 0 ? '+' : ''}${old} ms → ${ofs > 0 ? '+' : ''}${ofs} ms にしました。\n${ofs > 0 ? '音が遅れて聞こえていたので、ノーツをそのぶん遅らせます。' : ofs < 0 ? '音が早く聞こえていたので、ノーツをそのぶん早めます。' : 'ずれはほとんどありませんでした。'}\n（イヤホンとスピーカーを切り替えたら、もう一度合わせてください）`);
+}
+async function calStart() {
+  initAudio();
+  try { await AC.resume(); } catch (e) {}
+  const beat = .6, t0 = AC.currentTime + 1, clicks = [];
+  cal = { beat, clicks, devs: [], prevBus: bus, ac: 0, pf: 0, ok: false, raf: 0, to: 0 };
+  bus = makeBus();
+  for (let k = 0; k < 40; k++) { const t = t0 + k * beat; clicks.push(t); tick(t, k % 4 === 0); }
+  // ゲームの時計と同じ作り方（聞こえている音の時刻）で、指の時刻を音の時刻に直す
+  const loop = () => {
+    if (!cal) return;
+    const pf = performance.now(), raw = audioRaw();
+    if (!cal.ok) { cal.ac = raw; cal.pf = pf; cal.ok = true; }
+    else { const d = raw - (cal.ac + (pf - cal.pf) / 1000); if (Math.abs(d) > .06) { cal.ac = raw; cal.pf = pf; } else cal.ac += d * .03; }
+    if (AC.currentTime > clicks[clicks.length - 1] + .5 && cal.devs.length < 12) { calStop('時間切れです。もう一度ためしてください'); return; }
+    cal.raf = requestAnimationFrame(loop);
+  };
+  cal.raf = requestAnimationFrame(loop);
+  calMsg.textContent = 'カチッという音が鳴ります。最初の4回は聞くだけ。\nそのあと、カチッに合わせて画面のどこでもたたいてください（12回）';
+  $('#calStop').textContent = 'やめる';
+  calOv.hidden = false;
+  calOv.addEventListener('pointerdown', calTap);
+}
+$('#calBtn').addEventListener('click', () => { if (!cal) calStart(); });
+$('#calStop').addEventListener('click', () => { if (cal) calStop(); else calOv.hidden = true; });
 autoIn.addEventListener('change', () => { settings.auto = autoIn.checked; saveSettings(); });
 guideIn.addEventListener('change', () => { settings.guide = guideIn.checked; saveSettings(); });
 $('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); updSweepBtn(); });
