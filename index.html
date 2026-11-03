@@ -314,7 +314,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v88</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v89</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -482,6 +482,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <p class="best" id="resBest"></p>
       <p class="best" id="resTim" hidden></p>
       <p class="best" id="resNag" hidden></p>
+      <p class="best" id="resCancel" hidden></p>
       <p class="best coach" id="resCoach" hidden></p>
       <div class="splitbox" id="resSplit" hidden></div>
       <button type="button" class="play" id="coachBtn" hidden>苦手な所を自動で練習</button>
@@ -2490,10 +2491,12 @@ function showResult(r) {
     else msg = `自己ベスト ${fmtAcc(prev.acc)}%（${prev.rank}）`;
   }
   $('#resBest').textContent = msg;
-  if (r.kata) { for (const id of ['#resTim', '#resNag', '#coachBtn', '#drillBtn', '#resSplit', '#splitBtn', '#tokBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
+  if (r.kata) { for (const id of ['#resTim', '#resNag', '#resCancel', '#coachBtn', '#drillBtn', '#resSplit', '#splitBtn', '#tokBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
   else {
     timingResult(r);
     sweepResult(r);
+    { const el = $('#resCancel'); el.hidden = !r.cancels;
+      if (r.cancels) el.textContent = `iPad が指の入力を ${r.cancels} 回取り消しました。リングに手を置いたまま叩くと、4本指・5本指のジェスチャや手のひらと見なされて反応しなくなります。設定 → マルチタスクとジェスチャ →「ジェスチャ」をオフにしてください`; }
     coachResult(r);
     splitResult(r);
   }
@@ -3495,6 +3498,8 @@ if (TOUCH_EV) {
     syncTouches(e);
   }, { passive: false });
   const tEnd = e => {
+    // iPad が指の入力を取り消した（4本指・5本指のジェスチャや、手のひらと見なしたとき）。リザルトで知らせる
+    if (e.type === 'touchcancel' && mode === 'play' && run && !run.paused && !run.auto && !run.demo) run.cancels = (run.cancels || 0) + e.changedTouches.length;
     for (const t of e.changedTouches) {
       const id = tid(t);
       // 押した合図が来ないまま離された指（短いタップ）。指が触れていたぶん（約0.05秒）さかのぼって叩いたことにする
