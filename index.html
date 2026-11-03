@@ -314,7 +314,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v89</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v90</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1588,6 +1588,7 @@ function scanCands(t, pred) {
 }
 let downId = null;   // いま押した指の番号（ホールドの始点を取った指を覚えておく）
 function applyHit(n, t, assisted, pid) {
+  run.hitN = (run.hitN || 0) + 1;
   // タッチ（タッチホールドの始点も）は早く押しても FAST にしない。早い分はちょうどの時刻に押したのと同じ判定にする
   const d = isTouch(n) ? Math.max(0, t - n.t) : t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
   if (!run.auto && !run.demo && !assisted && Number.isFinite(d)) run.devs.push((t - n.t) / (run.rate || 1));
@@ -2495,8 +2496,10 @@ function showResult(r) {
   else {
     timingResult(r);
     sweepResult(r);
-    { const el = $('#resCancel'); el.hidden = !r.cancels;
-      if (r.cancels) el.textContent = `iPad が指の入力を ${r.cancels} 回取り消しました。リングに手を置いたまま叩くと、4本指・5本指のジェスチャや手のひらと見なされて反応しなくなります。設定 → マルチタスクとジェスチャ →「ジェスチャ」をオフにしてください`; }
+    { const el = $('#resCancel');
+      const ic = r.ic || {}, bad = r.cancels || ic.late || ic.endOnly || ic.whiff || ic.took;
+      el.hidden = !bad;
+      if (bad) el.textContent = `入力チェック：押した ${ic.start || 0} / 取り消し ${r.cancels || 0} / 押した合図なし ${ic.late || 0} / 離した合図だけ ${ic.endOnly || 0} / 空振り ${ic.whiff || 0} / 取られ済み ${ic.took || 0} / 最大 ${ic.maxT || 0} 本 · 太さ ${ic.maxR || 0}`; }
     coachResult(r);
     splitResult(r);
   }
@@ -3317,7 +3320,14 @@ function fingerDown(id, clientX, clientY, ev) {
   if (rg < 0) return;
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
-  downId = id; hitPointer(nx, ny, inT(ev)); downId = null;
+  const h0 = run.hitN || 0, t = inT(ev);
+  downId = id; hitPointer(nx, ny, t); downId = null;
+  // 入力チェック：ボタンを叩いたのに何も取れなかったとき、そのボタンの近くのノーツがどうなっていたかを数える
+  if ((run.hitN || 0) === h0 && rg < 8) {
+    let near = null;
+    for (const n of run.notes) { if (n.lane !== rg || !isHead(n)) continue; const d = t - n.t; if (Math.abs(d) < .3 && (!near || Math.abs(d) < Math.abs(t - near.t))) near = n; }
+    if (near) { const ic = run.ic || (run.ic = {}); if (near.fin || near.hh) ic.took = (ic.took || 0) + 1; else ic.whiff = (ic.whiff || 0) + 1; }
+  }
 }
 cv.addEventListener('pointerdown', e => {
   if (fromTouch(e)) return;
@@ -3473,11 +3483,14 @@ if (TOUCH_EV) {
      そこで、イベントのたびに「いま画面に触れている指の一覧」（e.touches）と見比べて、
      押した合図が来ていない指は見つけた時点で押したことにし、一覧から消えた指は離したことにする */
   const seenT = new Set();
+  const icOf = () => (mode === 'play' && run && !run.paused && !run.auto && !run.demo) ? (run.ic || (run.ic = {})) : null;
+  const icAdd = k => { const ic = icOf(); if (ic) ic[k] = (ic[k] || 0) + 1; };
   const syncTouches = e => {
-    const live = new Set();
+    const live = new Set(), ic = icOf();
+    if (ic) { ic.maxT = Math.max(ic.maxT || 0, e.touches.length); for (const t of e.touches) ic.maxR = Math.max(ic.maxR || 0, Math.round(t.radiusX || 0)); }
     for (const t of e.touches) {
       const id = tid(t); live.add(id);
-      if (!seenT.has(id)) { seenT.add(id); fingerDown(id, t.clientX, t.clientY, e); }
+      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, e); }
     }
     for (const id of [...seenT]) if (!live.has(id)) seenT.delete(id);
     for (const id of [...ptrs.keys()]) if (typeof id === 'string' && id[0] === 't' && !live.has(id)) fingerUp(id, e);
@@ -3485,14 +3498,14 @@ if (TOUCH_EV) {
   cv.addEventListener('touchstart', e => {
     if (mode !== 'play' || !run) { for (const t of e.changedTouches) seenT.add(tid(t)); return; }
     e.preventDefault();
-    for (const t of e.changedTouches) { seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, e); }
+    for (const t of e.changedTouches) { icAdd('start'); seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, e); }
     syncTouches(e);
   }, { passive: false });
   cv.addEventListener('touchmove', e => {
     e.preventDefault();
     for (const t of e.changedTouches) {
       const id = tid(t);
-      if (!seenT.has(id)) { seenT.add(id); fingerDown(id, t.clientX, t.clientY, e); }
+      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, e); }
       fingerMove(id, [{ clientX: t.clientX, clientY: t.clientY, timeStamp: e.timeStamp }]);
     }
     syncTouches(e);
@@ -3503,6 +3516,7 @@ if (TOUCH_EV) {
     for (const t of e.changedTouches) {
       const id = tid(t);
       // 押した合図が来ないまま離された指（短いタップ）。指が触れていたぶん（約0.05秒）さかのぼって叩いたことにする
+      if (!seenT.has(id) && e.type === 'touchend') icAdd('endOnly');
       if (!seenT.has(id) && e.type === 'touchend') fingerDown(id, t.clientX, t.clientY, { timeStamp: e.timeStamp - 50 });
       seenT.delete(id); fingerUp(id, e);
     }
