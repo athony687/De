@@ -314,7 +314,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v92</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v93</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1274,6 +1274,8 @@ function loadSettings() {
   try {
     const s = JSON.parse(localStorage.getItem('ringbeat:settings') || 'null');
     if (s) { Object.assign(settings, s); if (!s.chart && s.diff) settings.chart = 'b:' + s.diff; }
+    // v92 で、iPad の古い時刻の合図のせいで判定タイミングが大きく早めにずれた（-12 → -72 ms）。一度だけ元に戻す
+    if (!settings.mig93) { if (+settings.jofs <= -60) settings.jofs = -12; settings.mig93 = true; saveSettings(); }
   } catch (e) {}
 }
 function saveSettings() { try { localStorage.setItem('ringbeat:settings', JSON.stringify(settings)); } catch (e) {} }
@@ -1480,24 +1482,22 @@ function songAt(pf) {
   return songRaw(pf) - settings.ofs / 1000;
 }
 const toAC = t => run.acBase + (t - run.base) / run.rate;   // 曲の時刻 t の音を鳴らす AudioContext 時刻
-function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 5000) ? t : n; }
-/* iPad では、別の指を押したままだと、叩いた指の合図がゲームに届くのが遅れることがある（0.2秒以上）。
-   合図には実際に触れた時刻が入っているので判定はできるが、届く前に MISS を確定すると、ちゃんと叩いたのに MISS になる。
-   そこで MISS の確定だけ MISS_LATE 秒待つ（判定の幅は変えない） */
-const MISS_LATE = .45;
+function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 500) ? t : n; }
+/* 叩いた合図がゲームに届くのが遅れても取りこぼさないよう、MISS の確定だけ少し待つ（判定の幅は変えない） */
+const MISS_LATE = .2;
 // 合図が届くまでの遅れを見張って、遅れが大きいときは MISS の確定をそのぶん待つ（最大 3 秒）。
 // 遅れの記録は、新しく遅れが出なければ数秒で元に戻る
 let lagHi = 0, lagAt = 0;
 function lagNote(e) {
   if (!run || run.auto || run.demo || !e || !(e.timeStamp > 0)) return;
   const n = performance.now(), L = (n - e.timeStamp) / 1000;
-  if (!(L >= 0 && L < 5)) return;
+  if (!(L >= 0 && L < .5)) return;
   lagHi = Math.max(L, lagHi * Math.exp(-(n - lagAt) / 4000)); lagAt = n;
   const ic = run.ic || (run.ic = {});
   (ic.lags || (ic.lags = [])).push(L);
   if (ic.lags.length > 4000) ic.lags.splice(0, 2000);
 }
-const missGrace = () => clamp(lagHi * Math.exp(-(performance.now() - lagAt) / 4000) + .15, MISS_LATE, 3);
+const missGrace = () => clamp(lagHi * Math.exp(-(performance.now() - lagAt) / 4000) + .1, MISS_LATE, .6);
 /* 判定タイミング補正（settings.jofs, ms）。画面にノーツが出るまでの遅れと、指が触れてから入力が届くまでの遅れの分、
    叩いた時刻が見た目より遅れて記録される。その分を叩いた時刻から引いて判定する（見た目と音は動かさない）。
    速度を落とした練習でも、実際の時間で同じだけずらす */
@@ -2525,10 +2525,10 @@ function showResult(r) {
     timingResult(r);
     sweepResult(r);
     { const el = $('#resCancel');
-      const ic = r.ic || {}, bad = r.cancels || ic.late || ic.endOnly || ic.whiff || ic.took || ic.slow;
+      const ic = r.ic || {}, bad = r.cancels || ic.late || ic.endOnly || ic.whiff || ic.took || ic.slow || ic.stale;
       const ls = (ic.lags || []).slice().sort((a, b) => a - b), q = f => ls.length ? Math.round(ls[Math.min(ls.length - 1, Math.floor(ls.length * f))] * 1000) : 0;
       el.hidden = !bad;
-      if (bad) el.textContent = `入力チェック：押した ${ic.start || 0} / 取り消し ${r.cancels || 0} / 押した合図なし ${ic.late || 0} / 離した合図だけ ${ic.endOnly || 0} / 空振り ${ic.whiff || 0} / 取られ済み ${ic.took || 0} / 届くのが遅れた ${ic.slow || 0}（最大 ${ic.lag || 0} ms） / 合図の遅れ 中央 ${q(.5)}・9割 ${q(.9)}・最大 ${q(1)} ms / 描画 平均 ${fwN ? (fwSum / fwN).toFixed(1) : 0}・最大 ${Math.round(fwMax)} ms / 最大 ${ic.maxT || 0} 本 · 太さ ${ic.maxR || 0}`; }
+      if (bad) el.textContent = `入力チェック：押した ${ic.start || 0} / 取り消し ${r.cancels || 0} / 押した合図なし ${ic.late || 0} / 離した合図だけ ${ic.endOnly || 0} / 空振り ${ic.whiff || 0} / 取られ済み ${ic.took || 0} / 古い時刻の合図 ${ic.stale || 0}（受け取った時刻で判定） / 届くのが遅れた ${ic.slow || 0}（最大 ${ic.lag || 0} ms） / 合図の遅れ 中央 ${q(.5)}・9割 ${q(.9)}・最大 ${q(1)} ms / 描画 平均 ${fwN ? (fwSum / fwN).toFixed(1) : 0}・最大 ${Math.round(fwMax)} ms / 最大 ${ic.maxT || 0} 本 · 太さ ${ic.maxR || 0}`; }
     coachResult(r);
     splitResult(r);
   }
@@ -2617,7 +2617,7 @@ function timingResult(r) {
   const med = dv[dv.length >> 1] * 1000, am = Math.round(Math.abs(med));
   const tend = am < 6 ? 'ずれはほぼなし' : `平均 ${am}ms ${med > 0 ? '遅め' : '早め'}`;
   if (settings.jauto !== false && am >= 6) {
-    const cur = jofsMs(), nv = clamp(Math.round(cur + clamp(med, -60, 60)), -150, 150);
+    const cur = jofsMs(), nv = clamp(Math.round(cur + clamp(med, -25, 25)), -150, 150);   // 1回で動かすのは 25ms まで
     if (nv !== cur) { settings.jofs = nv; saveSettings(); outs(); $('#jofs').value = nv; }
     el.textContent = `叩いたタイミング：${tend} → 判定タイミングを ${fmtMs(nv)} に自動で合わせました`;
   } else el.textContent = `叩いたタイミング：${tend}（判定タイミング ${fmtMs(jofsMs())}）`;
@@ -3525,47 +3525,59 @@ if (TOUCH_EV) {
   const seenT = new Set();
   const icOf = () => (mode === 'play' && run && !run.paused && !run.auto && !run.demo) ? (run.ic || (run.ic = {})) : null;
   const icAdd = k => { const ic = icOf(); if (ic) ic[k] = (ic[k] || 0) + 1; };
-  const syncTouches = e => {
+  /* 指の合図の時刻。iPad の Safari は、ほかの指を押したままだと、合図の時刻（timeStamp）に
+     押したまま止まっている指の古い時刻（数秒前のこともある）を入れてくる。その時刻で判定すると、
+     ちゃんと叩いたのに早すぎる扱いになって MISS や空振りになる。
+     そこで、2本以上触れているときと、時刻が古すぎるときは、合図を受け取った今の時刻を使う */
+  const touchTime = e => {
+    const n = performance.now(), t = e.timeStamp;
+    const ends = e.type === 'touchend' || e.type === 'touchcancel';
+    const many = e.touches.length + (ends ? e.changedTouches.length : 0) > 1;
+    const ok = t > 0 && t <= n + 5 && n - t < 120;
+    if (many && t > 0 && n - t >= 120) icAdd('stale');
+    return { timeStamp: !many && ok ? t : n };
+  };
+  const syncTouches = (e, te) => {
     const live = new Set(), ic = icOf();
     if (ic) { ic.maxT = Math.max(ic.maxT || 0, e.touches.length); for (const t of e.touches) ic.maxR = Math.max(ic.maxR || 0, Math.round(t.radiusX || 0)); }
     for (const t of e.touches) {
       const id = tid(t); live.add(id);
-      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, e); }
+      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, te); }
     }
     for (const id of [...seenT]) if (!live.has(id)) seenT.delete(id);
-    for (const id of [...ptrs.keys()]) if (typeof id === 'string' && id[0] === 't' && !live.has(id)) fingerUp(id, e);
+    for (const id of [...ptrs.keys()]) if (typeof id === 'string' && id[0] === 't' && !live.has(id)) fingerUp(id, te);
   };
   cv.addEventListener('touchstart', e => {
     if (mode !== 'play' || !run) { for (const t of e.changedTouches) seenT.add(tid(t)); return; }
     e.preventDefault();
-    for (const t of e.changedTouches) { icAdd('start'); seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, e); }
-    syncTouches(e);
+    const te = touchTime(e);
+    for (const t of e.changedTouches) { icAdd('start'); seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, te); }
+    syncTouches(e, te);
   }, { passive: false });
-  /* 動かした・離した合図は passive で受ける（preventDefault しない。スクロールや拡大は touch-action:none と
-     touchstart の preventDefault で止めている）。iPad の Safari は、preventDefault するかもしれない受け取り方だと
-     合図を1つ送るたびにゲームの返事を待つ。指を押したままだと、その指の小さな動きの合図が絶え間なく出るので、
-     待ちが積み重なって、ほかの指で叩いた合図が1秒以上遅れて届くことがあった */
+  // 動かした・離した合図は passive で受ける（preventDefault しない。スクロールや拡大は touch-action:none と touchstart の preventDefault で止めている）
   cv.addEventListener('touchmove', e => {
-    lagNote(e);
+    const te = touchTime(e);
+    lagNote(te);
     for (const t of e.changedTouches) {
       const id = tid(t);
-      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, e); }
-      fingerMove(id, [{ clientX: t.clientX, clientY: t.clientY, timeStamp: e.timeStamp }]);
+      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, te); }
+      fingerMove(id, [{ clientX: t.clientX, clientY: t.clientY, timeStamp: te.timeStamp }]);
     }
-    syncTouches(e);
+    syncTouches(e, te);
   }, { passive: true });
   const tEnd = e => {
-    lagNote(e);
+    const te = touchTime(e);
+    lagNote(te);
     // iPad が指の入力を取り消した（4本指・5本指のジェスチャや、手のひらと見なしたとき）。リザルトで知らせる
     if (e.type === 'touchcancel' && mode === 'play' && run && !run.paused && !run.auto && !run.demo) run.cancels = (run.cancels || 0) + e.changedTouches.length;
     for (const t of e.changedTouches) {
       const id = tid(t);
       // 押した合図が来ないまま離された指（短いタップ）。指が触れていたぶん（約0.05秒）さかのぼって叩いたことにする
       if (!seenT.has(id) && e.type === 'touchend') icAdd('endOnly');
-      if (!seenT.has(id) && e.type === 'touchend') fingerDown(id, t.clientX, t.clientY, { timeStamp: e.timeStamp - 50 });
-      seenT.delete(id); fingerUp(id, e);
+      if (!seenT.has(id) && e.type === 'touchend') fingerDown(id, t.clientX, t.clientY, { timeStamp: te.timeStamp - 50 });
+      seenT.delete(id); fingerUp(id, te);
     }
-    syncTouches(e);
+    syncTouches(e, te);
   };
   cv.addEventListener('touchend', tEnd, { passive: true });
   cv.addEventListener('touchcancel', tEnd, { passive: true });
