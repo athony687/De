@@ -314,7 +314,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v90</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v91</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1479,7 +1479,11 @@ function songAt(pf) {
   return songRaw(pf) - settings.ofs / 1000;
 }
 const toAC = t => run.acBase + (t - run.base) / run.rate;   // 曲の時刻 t の音を鳴らす AudioContext 時刻
-function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 500) ? t : n; }
+function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 1500) ? t : n; }
+/* iPad では、別の指を押したままだと、叩いた指の合図がゲームに届くのが遅れることがある（0.2秒以上）。
+   合図には実際に触れた時刻が入っているので判定はできるが、届く前に MISS を確定すると、ちゃんと叩いたのに MISS になる。
+   そこで MISS の確定だけ MISS_LATE 秒待つ（判定の幅は変えない） */
+const MISS_LATE = .45;
 /* 判定タイミング補正（settings.jofs, ms）。画面にノーツが出るまでの遅れと、指が触れてから入力が届くまでの遅れの分、
    叩いた時刻が見た目より遅れて記録される。その分を叩いた時刻から引いて判定する（見た目と音は動かさない）。
    速度を落とした練習でも、実際の時間で同じだけずらす */
@@ -1733,7 +1737,7 @@ function update(now, pf) {
     if (n.type === 'tap' || n.type === 'touch') {
       const [px, py] = n.type === 'tap' ? lanePt(n.lane) : n.pos, kind = n.type === 'tap' ? 'tap' : 'touch';
       if (r.auto) { if (now >= n.t) { fin(n); if (n.type === 'tap') press(n.lane, pf); judge(0, NaN, px, py, col, kind, n); } }
-      else if (nj > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); }
+      else if (nj > n.t + winD(n) + MISS_LATE) { fin(n); judge(3, NaN, px, py, col, kind, n); }
       continue;
     }
     if (n.type === 'hold' || n.type === 'thold') {
@@ -1742,7 +1746,7 @@ function update(now, pf) {
         if (r.auto) {
           if (now < n.t) continue;
           n.hh = true; n.hj = 0; n.hd = NaN; n.holding = true; n.rel = 0; n.lastT = now; if (!isT) press(n.lane, pf);
-        } else { if (nj > n.t + winD(n)) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
+        } else { if (nj > n.t + winD(n) + MISS_LATE) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
       }
       const dur = Math.max(n.dur, .05), te = n.t + dur;
       if (r.auto && !isT) h[n.lane] = true;
@@ -2497,9 +2501,9 @@ function showResult(r) {
     timingResult(r);
     sweepResult(r);
     { const el = $('#resCancel');
-      const ic = r.ic || {}, bad = r.cancels || ic.late || ic.endOnly || ic.whiff || ic.took;
+      const ic = r.ic || {}, bad = r.cancels || ic.late || ic.endOnly || ic.whiff || ic.took || ic.slow;
       el.hidden = !bad;
-      if (bad) el.textContent = `入力チェック：押した ${ic.start || 0} / 取り消し ${r.cancels || 0} / 押した合図なし ${ic.late || 0} / 離した合図だけ ${ic.endOnly || 0} / 空振り ${ic.whiff || 0} / 取られ済み ${ic.took || 0} / 最大 ${ic.maxT || 0} 本 · 太さ ${ic.maxR || 0}`; }
+      if (bad) el.textContent = `入力チェック：押した ${ic.start || 0} / 取り消し ${r.cancels || 0} / 押した合図なし ${ic.late || 0} / 離した合図だけ ${ic.endOnly || 0} / 空振り ${ic.whiff || 0} / 取られ済み ${ic.took || 0} / 届くのが遅れた ${ic.slow || 0}（最大 ${ic.lag || 0} ms） / 最大 ${ic.maxT || 0} 本 · 太さ ${ic.maxR || 0}`; }
     coachResult(r);
     splitResult(r);
   }
@@ -3321,6 +3325,7 @@ function fingerDown(id, clientX, clientY, ev) {
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
   const h0 = run.hitN || 0, t = inT(ev);
+  if (!run.auto && ev && ev.timeStamp > 0) { const lag = performance.now() - ev.timeStamp; if (lag >= 0 && lag < 1500) { const ic = run.ic || (run.ic = {}); ic.lag = Math.max(ic.lag || 0, Math.round(lag)); if (lag > 150) ic.slow = (ic.slow || 0) + 1; } }
   downId = id; hitPointer(nx, ny, t); downId = null;
   // 入力チェック：ボタンを叩いたのに何も取れなかったとき、そのボタンの近くのノーツがどうなっていたかを数える
   if ((run.hitN || 0) === h0 && rg < 8) {
