@@ -314,7 +314,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v91</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v92</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1447,6 +1447,7 @@ function assignHands(notes) {
   return tips;
 }
 function newRun(song, opt) {
+  lagHi = 0; lagAt = 0; fwSum = 0; fwN = 0; fwMax = 0;   // 合図の遅れ・描画の重さの記録はプレイごとに取り直す
   const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0, rel: 0, lastT: null }));
   markSweeps(notes);
   // 同じボタンの次のノーツまでの間隔（流しの補助が、直接叩く指を待つ長さに使う）
@@ -1479,11 +1480,24 @@ function songAt(pf) {
   return songRaw(pf) - settings.ofs / 1000;
 }
 const toAC = t => run.acBase + (t - run.base) / run.rate;   // 曲の時刻 t の音を鳴らす AudioContext 時刻
-function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 1500) ? t : n; }
+function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 5000) ? t : n; }
 /* iPad では、別の指を押したままだと、叩いた指の合図がゲームに届くのが遅れることがある（0.2秒以上）。
    合図には実際に触れた時刻が入っているので判定はできるが、届く前に MISS を確定すると、ちゃんと叩いたのに MISS になる。
    そこで MISS の確定だけ MISS_LATE 秒待つ（判定の幅は変えない） */
 const MISS_LATE = .45;
+// 合図が届くまでの遅れを見張って、遅れが大きいときは MISS の確定をそのぶん待つ（最大 3 秒）。
+// 遅れの記録は、新しく遅れが出なければ数秒で元に戻る
+let lagHi = 0, lagAt = 0;
+function lagNote(e) {
+  if (!run || run.auto || run.demo || !e || !(e.timeStamp > 0)) return;
+  const n = performance.now(), L = (n - e.timeStamp) / 1000;
+  if (!(L >= 0 && L < 5)) return;
+  lagHi = Math.max(L, lagHi * Math.exp(-(n - lagAt) / 4000)); lagAt = n;
+  const ic = run.ic || (run.ic = {});
+  (ic.lags || (ic.lags = [])).push(L);
+  if (ic.lags.length > 4000) ic.lags.splice(0, 2000);
+}
+const missGrace = () => clamp(lagHi * Math.exp(-(performance.now() - lagAt) / 4000) + .15, MISS_LATE, 3);
 /* 判定タイミング補正（settings.jofs, ms）。画面にノーツが出るまでの遅れと、指が触れてから入力が届くまでの遅れの分、
    叩いた時刻が見た目より遅れて記録される。その分を叩いた時刻から引いて判定する（見た目と音は動かさない）。
    速度を落とした練習でも、実際の時間で同じだけずらす */
@@ -1507,24 +1521,25 @@ setInterval(pump, 25);
 const regionPx = (x, y) => regionAt((x - cx) / R, (y - cy) / R);
 // 指が通った点（前フレームからの移動も補間して拾う）
 const trail = [];
-function traverse(x0, y0, x1, y1) {
+// t：その指の動きが実際にあった時刻（判定用）。合図が遅れて届いても、スライドはなぞった時刻で判定する
+function traverse(x0, y0, x1, y1, t) {
   const steps = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (R * .06)));
-  for (let i = 1; i <= steps; i++) trail.push([(x0 + (x1 - x0) * i / steps - cx) / R, (y0 + (y1 - y0) * i / steps - cy) / R]);
+  for (let i = 1; i <= steps; i++) trail.push([(x0 + (x1 - x0) * i / steps - cx) / R, (y0 + (y1 - y0) * i / steps - cy) / R, t]);
   if (trail.length > 400) trail.splice(0, trail.length - 400);
 }
 const keyPts = k => [lanePt(k, .92), lanePt(k, .7), lanePt(k, .46)];
 function readInput() {
-  const h = new Array(8).fill(false), P = [], S = [];
+  // なぞった跡（trail）を先に入れる：スライドを判定する時刻に、跡についている「実際になぞった時刻」を使うため
+  const h = new Array(8).fill(false), P = [], S = trail.slice();
   for (const p of ptrs.values()) {
     const nx = (p.x - cx) / R, ny = (p.y - cy) / R, r = regionAt(nx, ny);
     P.push([nx, ny]);
-    if (p.moved) S.push([nx, ny]);     // スライドに使うのは、実際に動かしている指だけ
+    if (p.moved) S.push([nx, ny, p.lt, 1]);     // スライドに使うのは、実際に動かしている指だけ（p.lt：最後に動いた時刻。1 = いま触れている指）
     if (r < 0) continue;
     if (r < 8) h[r] = true; else if (r < 16) h[r - 8] = true;
   }
   for (const k of keys) { h[k] = true; S.push(...keyPts(k)); }
   if (centerKey) S.push([0, 0]);
-  S.push(...trail);
   trail.length = 0;
   return { h, P, S };
 }
@@ -1547,13 +1562,20 @@ function advanceSlide(n, S) {
   const tol2 = SL_TOL * SL_TOL;
   for (let guard = 0; guard < 24; guard++) {
     const i0 = Math.floor(n.prog / n.ss), i1 = Math.min(n.K, Math.ceil((n.prog + SL_LOOK) / n.ss));
-    let best = -1;
+    // gate：このスライドをなぞれるようになる時刻。合図が遅れて届いたとき、それより前になぞった跡（前のスライドなど）は数えない
+    let best = -1, bp = null;
+    const gate = n.t - W_D;
     for (let i = i1; i > i0 && best < 0; i--) {
       const x = n.samp[i * 2], y = n.samp[i * 2 + 1];
-      for (const p of S) if (slideNear(p, x, y, tol2)) { best = i; break; }
+      for (const p of S) {
+        if (p[2] != null && !p[3] && p[2] < gate) continue;
+        if (slideNear(p, x, y, tol2)) { best = i; bp = p; break; }
+      }
     }
     if (best < 0) return;
     n.prog = Math.min(n.len, best * n.ss);
+    // ここまでなぞった時刻（わからないときは今の時刻で判定）。前になぞった時刻より前には戻さない
+    n.progT = bp && bp[2] != null ? Math.max(bp[2], gate, n.progT != null ? n.progT : -1e9) : null;
   }
 }
 // すべらせてそのボタンに入った指が、まだそのボタンにいるか（境目付近で指がぶれてもホールドが抜けないように）
@@ -1729,6 +1751,7 @@ function update(now, pf) {
   else ({ h, S, P } = readInput());
   const notes = r.notes, nj = now - jShift();   // 判定用の時刻（判定タイミング補正の分ずらす）
   if (!r.auto) assistSweeps(nj);
+  const mg = missGrace();
   for (let i = r.first; i < notes.length; i++) {
     const n = notes[i];
     if (n.t > now + .5) break;
@@ -1737,7 +1760,7 @@ function update(now, pf) {
     if (n.type === 'tap' || n.type === 'touch') {
       const [px, py] = n.type === 'tap' ? lanePt(n.lane) : n.pos, kind = n.type === 'tap' ? 'tap' : 'touch';
       if (r.auto) { if (now >= n.t) { fin(n); if (n.type === 'tap') press(n.lane, pf); judge(0, NaN, px, py, col, kind, n); } }
-      else if (nj > n.t + winD(n) + MISS_LATE) { fin(n); judge(3, NaN, px, py, col, kind, n); }
+      else if (nj > n.t + winD(n) + mg) { fin(n); judge(3, NaN, px, py, col, kind, n); }
       continue;
     }
     if (n.type === 'hold' || n.type === 'thold') {
@@ -1746,7 +1769,7 @@ function update(now, pf) {
         if (r.auto) {
           if (now < n.t) continue;
           n.hh = true; n.hj = 0; n.hd = NaN; n.holding = true; n.rel = 0; n.lastT = now; if (!isT) press(n.lane, pf);
-        } else { if (nj > n.t + winD(n) + MISS_LATE) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
+        } else { if (nj > n.t + winD(n) + mg) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
       }
       const dur = Math.max(n.dur, .05), te = n.t + dur;
       if (r.auto && !isT) h[n.lane] = true;
@@ -1776,12 +1799,13 @@ function update(now, pf) {
     }
     if (now < n.t - W_D) continue;
     advanceSlide(n, S);
-    if (n.prog >= n.len - .18) { fin(n); const d = nj - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
-    else if (nj > n.s1 + SL_M) { fin(n); judge(3, NaN, ex, ey, col, 'slide', n); }
+    if (n.prog >= n.len - .18) { fin(n); const d = (n.progT != null ? Math.min(n.progT, nj) : nj) - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
+    else if (nj > n.s1 + SL_M + mg - MISS_LATE) { fin(n); judge(3, NaN, ex, ey, col, 'slide', n); }
   }
   while (r.first < notes.length && notes[r.first].fin) r.first++;
   r.held = h;
-  if (now > r.endT || (r.drill && now > r.drill.B + .6)) finish();
+  // 合図が遅れて届いているときは、そのぶん待ってから終える（最後のノーツの合図を取りこぼさない）
+  if (now > r.endT + mg - MISS_LATE || (r.drill && now > r.drill.B + .6 + mg - MISS_LATE)) finish();
 }
 
 /* ================= drawing ================= */
@@ -2502,8 +2526,9 @@ function showResult(r) {
     sweepResult(r);
     { const el = $('#resCancel');
       const ic = r.ic || {}, bad = r.cancels || ic.late || ic.endOnly || ic.whiff || ic.took || ic.slow;
+      const ls = (ic.lags || []).slice().sort((a, b) => a - b), q = f => ls.length ? Math.round(ls[Math.min(ls.length - 1, Math.floor(ls.length * f))] * 1000) : 0;
       el.hidden = !bad;
-      if (bad) el.textContent = `入力チェック：押した ${ic.start || 0} / 取り消し ${r.cancels || 0} / 押した合図なし ${ic.late || 0} / 離した合図だけ ${ic.endOnly || 0} / 空振り ${ic.whiff || 0} / 取られ済み ${ic.took || 0} / 届くのが遅れた ${ic.slow || 0}（最大 ${ic.lag || 0} ms） / 最大 ${ic.maxT || 0} 本 · 太さ ${ic.maxR || 0}`; }
+      if (bad) el.textContent = `入力チェック：押した ${ic.start || 0} / 取り消し ${r.cancels || 0} / 押した合図なし ${ic.late || 0} / 離した合図だけ ${ic.endOnly || 0} / 空振り ${ic.whiff || 0} / 取られ済み ${ic.took || 0} / 届くのが遅れた ${ic.slow || 0}（最大 ${ic.lag || 0} ms） / 合図の遅れ 中央 ${q(.5)}・9割 ${q(.9)}・最大 ${q(1)} ms / 描画 平均 ${fwN ? (fwSum / fwN).toFixed(1) : 0}・最大 ${Math.round(fwMax)} ms / 最大 ${ic.maxT || 0} 本 · 太さ ${ic.maxR || 0}`; }
     coachResult(r);
     splitResult(r);
   }
@@ -3035,8 +3060,15 @@ function hud(now) {
 }
 
 /* ================= main loop ================= */
+let fwSum = 0, fwN = 0, fwMax = 0;
 function frame(pf) {
   requestAnimationFrame(frame);
+  const fw0 = performance.now();
+  try { frameInner(pf); } finally {
+    if (run && mode === 'play' && !run.demo) { const w = performance.now() - fw0; fwSum += w; fwN++; if (w > fwMax) fwMax = w; }
+  }
+}
+function frameInner(pf) {
   if (mode === 'title') layoutRing();
   if (run && !run.demo && !run.paused && AC) syncClock();
   let now = 0;
@@ -3320,12 +3352,13 @@ function fingerDown(id, clientX, clientY, ev) {
   const x = clientX - ar.left, y = clientY - ar.top, nx = (x - cx) / R, ny = (y - cy) / R;
   const rg = regionAt(nx, ny);
   const lane0 = rg >= 0 && rg < 8 ? rg : -1;
-  ptrs.set(id, { id, x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false });
+  ptrs.set(id, { id, x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false, lt: run.auto ? null : inT(ev) });
   if (rg < 0) return;
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
   const h0 = run.hitN || 0, t = inT(ev);
-  if (!run.auto && ev && ev.timeStamp > 0) { const lag = performance.now() - ev.timeStamp; if (lag >= 0 && lag < 1500) { const ic = run.ic || (run.ic = {}); ic.lag = Math.max(ic.lag || 0, Math.round(lag)); if (lag > 150) ic.slow = (ic.slow || 0) + 1; } }
+  if (!run.auto && ev && ev.timeStamp > 0) { const lag = performance.now() - ev.timeStamp; if (lag >= 0 && lag < 5000) { const ic = run.ic || (run.ic = {}); ic.lag = Math.max(ic.lag || 0, Math.round(lag)); if (lag > 150) ic.slow = (ic.slow || 0) + 1; } }
+  lagNote(ev);
   downId = id; hitPointer(nx, ny, t); downId = null;
   // 入力チェック：ボタンを叩いたのに何も取れなかったとき、そのボタンの近くのノーツがどうなっていたかを数える
   if ((run.hitN || 0) === h0 && rg < 8) {
@@ -3456,10 +3489,10 @@ cv.addEventListener('pointermove', e => {
   if (fromTouch(e)) return;
   // 間引かれた細かい移動も拾って、速いスライドでも経路を取りこぼさない
   fingerMove(e.pointerId, (e.getCoalescedEvents && e.getCoalescedEvents().length) ? e.getCoalescedEvents() : [e]);
-});
+}, { passive: true });
+// 動かしたときはキャンバスの位置を読み直さない（押したときに読み直している）。読み直すと、毎回レイアウトの計算が走って重くなる
 function fingerMove(id, evs) {
   const p = ptrs.get(id); if (!p) return;
-  freshRect();
   const live = mode === 'play' && run && !run.paused && !run.auto && !run.over;
   for (const ce of evs) {
     const x = ce.clientX - ar.left, y = ce.clientY - ar.top;
@@ -3469,17 +3502,19 @@ function fingerMove(id, evs) {
       slideAcrossLanes(p, p.x, p.y, x, y, t, true);
     } else if (mode === 'play' && run) slideAcrossLanes(p, p.x, p.y, x, y, 0, false);
     // タップしただけの指はスライドに数えない。少し動かしてから（押した所から）なぞりとして記録する
-    if (!p.moved && Math.hypot(x - p.x0, y - p.y0) > R * .12) { p.moved = true; traverse(p.x0, p.y0, x, y); }
-    else if (p.moved) traverse(p.x, p.y, x, y);
+    const tt = live ? inT(ce) : null;
+    if (tt != null) p.lt = tt;
+    if (!p.moved && Math.hypot(x - p.x0, y - p.y0) > R * .12) { p.moved = true; traverse(p.x0, p.y0, x, y, tt); }
+    else if (p.moved) traverse(p.x, p.y, x, y, tt);
     p.x = x; p.y = y;
   }
 }
 const liveT = e => (mode === 'play' && run && !run.paused && !run.auto && !run.over) ? inT(e) : null;
 function fingerUp(id, e) { if (!ptrs.has(id)) return; ptrs.delete(id); const t = liveT(e); if (t != null) closeSweep(id, t); else sweeps.length = 0; }
 const up = e => { if (!fromTouch(e)) fingerUp(e.pointerId, e); };
-cv.addEventListener('pointerup', up);
-cv.addEventListener('pointercancel', up);
-cv.addEventListener('lostpointercapture', up);
+cv.addEventListener('pointerup', up, { passive: true });
+cv.addEventListener('pointercancel', up, { passive: true });
+cv.addEventListener('lostpointercapture', up, { passive: true });
 // 指（Touch Events）。identifier は Pointer の番号と混ざらないよう 't' を付けて区別する
 const tid = t => 't' + t.identifier;
 if (TOUCH_EV) {
@@ -3506,16 +3541,21 @@ if (TOUCH_EV) {
     for (const t of e.changedTouches) { icAdd('start'); seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, e); }
     syncTouches(e);
   }, { passive: false });
+  /* 動かした・離した合図は passive で受ける（preventDefault しない。スクロールや拡大は touch-action:none と
+     touchstart の preventDefault で止めている）。iPad の Safari は、preventDefault するかもしれない受け取り方だと
+     合図を1つ送るたびにゲームの返事を待つ。指を押したままだと、その指の小さな動きの合図が絶え間なく出るので、
+     待ちが積み重なって、ほかの指で叩いた合図が1秒以上遅れて届くことがあった */
   cv.addEventListener('touchmove', e => {
-    e.preventDefault();
+    lagNote(e);
     for (const t of e.changedTouches) {
       const id = tid(t);
       if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, e); }
       fingerMove(id, [{ clientX: t.clientX, clientY: t.clientY, timeStamp: e.timeStamp }]);
     }
     syncTouches(e);
-  }, { passive: false });
+  }, { passive: true });
   const tEnd = e => {
+    lagNote(e);
     // iPad が指の入力を取り消した（4本指・5本指のジェスチャや、手のひらと見なしたとき）。リザルトで知らせる
     if (e.type === 'touchcancel' && mode === 'play' && run && !run.paused && !run.auto && !run.demo) run.cancels = (run.cancels || 0) + e.changedTouches.length;
     for (const t of e.changedTouches) {
@@ -3527,13 +3567,12 @@ if (TOUCH_EV) {
     }
     syncTouches(e);
   };
-  cv.addEventListener('touchend', tEnd);
-  cv.addEventListener('touchcancel', tEnd);
+  cv.addEventListener('touchend', tEnd, { passive: true });
+  cv.addEventListener('touchcancel', tEnd, { passive: true });
 }
 cv.addEventListener('contextmenu', e => e.preventDefault());
 // iPad / iPhone の Safari：ピンチ拡大や、なぞったときの画面スクロールを止める
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
-cv.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
 
 /* ================= fullscreen ================= */
 const FS_ON = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
