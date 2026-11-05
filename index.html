@@ -314,7 +314,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v96</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v97</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -1556,14 +1556,15 @@ function readInput() {
 // スライド：経路に沿ってどこまでなぞれたか（許容幅 SL_TOL、先読み SL_LOOK）
 const SL_LOOK = .5;             // 一度に進めるのは経路の少し先まで（離れたボタンを押しても飛ばない）
 // 指の点 p が経路上の点 (sx, sy) をなぞったことになるか。
-// リング付近の経路は、リングの外側（ボタンのあたり）をなぞっても角度が合っていれば認める
+// リング付近の経路（円周のスライドなど）は、リングの外側（ボタンのあたり）でも、リングの少し内側でも、
+// 角度が合っていればなぞった扱いにする（iPad では指がリングより内側を通りやすく、内側を通ると取れなかったため）
 function slideNear(p, sx, sy, tol2) {
   const dx = p[0] - sx, dy = p[1] - sy;
   if (dx * dx + dy * dy < tol2) return true;
   const rs = Math.hypot(sx, sy);
   if (rs < .8) return false;
   const rf = Math.hypot(p[0], p[1]);
-  if (rf < rs - .3 || rf > rs + .55) return false;
+  if (rf < rs - .55 || rf > rs + .55) return false;
   let da = Math.atan2(p[1], p[0]) - Math.atan2(sy, sx); da = Math.atan2(Math.sin(da), Math.cos(da));
   return Math.abs(da) * rs < SL_TOL;
 }
