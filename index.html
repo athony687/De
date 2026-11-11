@@ -88,6 +88,9 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .st .lv{font-weight:800;letter-spacing:.04em;font-size:10px;padding:2px 7px;border-radius:6px;color:var(--c);
   background:color-mix(in srgb,var(--c) 20%,transparent)}
 .st .lvn{font:800 15px/1 var(--display);color:var(--ink)}
+.mybest{margin-left:auto;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding-left:4px;font-size:11px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+.mybest .rank{font:800 13px/1 var(--display);min-width:0;letter-spacing:0}
+.mybest.none{color:var(--muted);font-weight:600;font-size:10px}
 .acts{display:flex;gap:6px;margin-left:auto;flex:none}
 .selinfo{display:flex;align-items:center;gap:8px;min-height:30px;margin-top:-4px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .selinfo > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -314,7 +317,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v101</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v102</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <div id="stage" class="stage" aria-hidden="true"></div>
@@ -3165,6 +3168,13 @@ function rowsData() {
   return rows;
 }
 let ROWS = [];
+// 曲の行の右に、通常モード（練習・4分割・オートは入らない）の自己ベストを出す
+function pbHtml(id) {
+  const b = getBest(id === 'b:basic' ? 'basic' : id === 'b:expert' ? 'expert' : id);
+  if (!b) return '<span class="mybest none">—</span>';
+  const [rk, cls] = rankOf(b.acc);
+  return `<span class="mybest" aria-label="自己ベスト ${fmtAcc(b.acc)}%"><b class="rank ${cls}">${rk}</b><span>${(Math.floor(b.acc * 100 + 1e-6) / 100).toFixed(2)}%</span></span>`;
+}
 function renderSongs() {
   const rows = ROWS = rowsData();
   if (!rows.some(r => r.id === settings.chart)) settings.chart = 'b:basic';
@@ -3174,6 +3184,7 @@ function renderSongs() {
       <label for="ch_${esc(r.id)}" class="songmain">
         <span class="jk" style="--h:${r.hue}"></span>
         <span class="st"><b>${esc(r.title)}</b><small><span class="lv" style="--c:${r.lvCol}">${esc(r.label)}</span>${r.lv ? '<span class="lvn">' + esc(r.lv.replace(/^Lv\./, '')) + '</span>' : ''}</small></span>
+        ${pbHtml(r.id)}
       </label>
     </div>`).join('');
   renderSelInfo();
