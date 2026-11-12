@@ -331,7 +331,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v111</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v112</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -364,7 +364,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <div class="segs" id="splitSegs"></div>
       </fieldset>
       <div class="field" id="prateField">
-        <label for="prate">再生速度（練習・流しだけ練習）</label><output id="prateOut" for="prate">0.75x</output>
+        <label for="prate">再生速度</label><output id="prateOut" for="prate">0.75x</output>
         <input type="range" id="prate" min="0.1" max="1" step="0.05" value="0.75">
       </div>
       <div class="field">
@@ -2398,7 +2398,7 @@ function setMode(m) {
   if (m === 'title') { kataSaveBpm(); kataCur = null; }
   resultOv.hidden = m !== 'result';
   hudEl.hidden = m !== 'play';
-  const prac = m === 'play' && run && run.practice;
+  const prac = pracUI();
   pMenuBtn.hidden = !prac;
   pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
   practiceEl.hidden = !(prac && pOpen);
@@ -2453,13 +2453,16 @@ function onTap(el, fn) {
 }
 
 /* ================= practice ================= */
+// 練習の操作（倍速ボタン・下のバー）を出すのは練習モードだけ。4分割（区間・特訓）では出さない
+const pracUI = () => !!(mode === 'play' && run && run.practice && !(run.drill && run.drill.split));
 const practiceEl = $('#practice'), pSeek = $('#pSeek'), pMarks = $('#pMarks'), pLoop = $('#pLoop'), pMenuBtn = $('#pMenuBtn');
 let seeking = false;
 // 練習コントロールは上のボタンで開くプルダウン。たたんでいる間は手が当たっても何も起きない
 let pOpen = false;
 function setPMenu(open) {
   pOpen = !!open;
-  const prac = mode === 'play' && run && run.practice;
+  const prac = pracUI();
+  pMenuBtn.hidden = !prac;
   pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
   practiceEl.hidden = !(prac && pOpen);
   if (!pOpen) { seeking = false; seekPid = null; }
@@ -2778,8 +2781,8 @@ function updSweepBtn() {
   const b = $('#sweepBtn'), ch = currentChart();
   const sg = ch && ch.song && ch.song.notes.length && settings.nagashi !== false ? sweepSegs(ch.song) : [];
   b.hidden = !sg.length;
-  $('#prateField').hidden = !settings.practice && !sg.length;
-  if (sg.length) b.textContent = `流しだけ練習（${sg.length}か所・${(+settings.prate).toFixed(2).replace(/0$/, '')}倍）`;
+  $('#prateField').hidden = !settings.practice;   // 再生速度は練習モードのときだけ出す（通常・4分割では出さない）
+  if (sg.length) b.textContent = settings.practice ? `流しだけ練習（${sg.length}か所・${(+settings.prate).toFixed(2).replace(/0$/, '')}倍）` : `流しだけ練習（${sg.length}か所）`;
 }
 async function startDrill(d) {
   const prevP = settings.practice, prevR = settings.prate;
@@ -2789,6 +2792,7 @@ async function startDrill(d) {
   const r = run; if (!ok || !r || !r.practice) return;
   const segs = d.segs || [{ A: d.A, B: d.B }];
   r.drill = { A: d.A, B: d.B, rate: d.rate, segs: d.segs || null, split: d.split || null, from: d.from, to: d.to };
+  setPMenu(pOpen);
   seekTo(d.A);
   // 練習する所だけで採点する（それ以外のノーツは skip にして、巻き戻しても出てこないようにする）
   // 4分割の区間は、始まる時刻が区間の中にあるノーツだけ（区間の終わりをまたぐホールド・スライドも含める）
@@ -2799,7 +2803,7 @@ async function startDrill(d) {
   const live = r.notes.filter(n => !n.fin);
   r.units = live.length || 1; r.totalW = live.reduce((a, n) => a + noteW(n), 0) || 1; r.nBrk = live.filter(n => n.brk).length;
   updPracticeUI();
-  toast(d.title ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)} を ${d.rate.toFixed(2).replace(/0$/, '')}倍で練習` : d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
+  toast(d.title && d.split && d.rate >= 1 ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)}` : d.title ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)} を ${d.rate.toFixed(2).replace(/0$/, '')}倍で練習` : d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
     : `流し練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${fmtTime(d.A)}〜${fmtTime(d.B)}`);
 }
 function sweepResult(r) {
