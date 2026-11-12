@@ -60,7 +60,11 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .eyebrow{margin:0;font:700 11px/1.4 var(--body);letter-spacing:.16em;color:var(--muted);text-transform:uppercase}
 .logo{margin:0;font-family:var(--display);font-weight:900;font-size:clamp(36px,11vw,72px);line-height:.95;letter-spacing:-.02em;text-wrap:balance;color:var(--ink)}
 .logo span{background:linear-gradient(95deg,var(--pink) 10%,var(--gold) 90%);-webkit-background-clip:text;background-clip:text;color:transparent}
-.stage{flex:1 1 auto;min-height:150px;width:100%}
+.tcol{display:contents}
+.title{gap:12px}
+.title .brand{flex-direction:row;align-items:baseline;justify-content:center;gap:12px;flex-wrap:wrap;padding-inline:48px}
+.title .logo{font-size:clamp(30px,7vw,44px)}
+.title .card{margin-bottom:auto}
 
 .card{width:min(520px,100%);flex:none;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;
   display:flex;flex-direction:column;gap:14px;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
@@ -68,7 +72,7 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .card.narrow{width:min(300px,100%);align-items:stretch}
 
 /* song list */
-.songscroll{max-height:min(360px,46vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+.songscroll{max-height:min(560px,52vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   margin-inline:-2px;padding:2px;border-radius:14px}
 .songs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:0;margin:0;padding:0;min-width:0}
 .songrow{position:relative;display:flex;align-items:center;padding:9px 10px;border-radius:14px;min-width:0;
@@ -262,11 +266,14 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 
 @media (max-width:460px){ .fieldrow{grid-template-columns:1fr} }
 @media (min-width:900px) and (min-aspect-ratio:5/4){
-  .overlay.title{display:grid;grid-template-columns:minmax(0,1fr) 500px;grid-template-rows:auto minmax(0,1fr);
-    column-gap:40px;row-gap:8px;padding-inline:40px;padding-block:28px;align-items:center}
-  .title .brand{grid-column:1;grid-row:1}
-  .title .stage{grid-column:1;grid-row:2;height:100%}
-  .title .card{grid-column:2;grid-row:1 / span 2;align-self:start;margin-block:auto}
+  /* 横長の画面：左に曲リスト（高さいっぱい）、右に設定とPLAY */
+  .overlay.title{padding-inline:28px;padding-block:18px;overflow:hidden}
+  .title .card{width:min(1120px,100%);flex:1 1 auto;min-height:0;margin-bottom:0;
+    display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);column-gap:22px;align-items:stretch}
+  .title .tcol{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0}
+  .title .tcol-set{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:2px 6px 2px 2px;touch-action:pan-y}
+  .title .songbox{flex:1 1 auto;min-height:0}
+  .title .songscroll{flex:1 1 auto;min-height:0;max-height:none}
 }
 @media (prefers-reduced-motion:reduce){
   .play,.songrow{transition:none}
@@ -317,16 +324,18 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v108</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v109</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
-    <div id="stage" class="stage" aria-hidden="true"></div>
     <form id="setup" class="card" autocomplete="off">
+      <div class="tcol tcol-songs">
       <div class="songbox" id="songBox">
         <div class="songscroll" id="songScroll"><fieldset class="songs" id="songList"><legend class="sr">曲と難易度</legend></fieldset></div>
         <div class="selinfo" id="selInfo" aria-live="polite"></div>
       </div>
       <button type="button" class="ghost addbtn" id="addChartBtn">＋ simai譜面を追加</button>
+      </div>
+      <div class="tcol tcol-set">
       <fieldset class="opt">
         <legend>モード</legend>
         <div class="segs">
@@ -402,6 +411,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <p>キーボードではこの配置がリングの8方向に対応し、S が中央です。Esc か Space で一時停止、F で全画面。練習モードでは ← → で巻き戻し・早送り、↑ ↓ で速度変更。</p>
         </div>
       </details>
+      </div>
     </form>
   </section>
 
@@ -533,7 +543,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 'use strict';
 const $ = s => document.querySelector(s);
 const app = $('#app'), cv = $('#cv'), g = cv.getContext('2d');
-const stageEl = $('#stage'), titleOv = $('#titleOv'), pauseOv = $('#pauseOv'), resultOv = $('#resultOv'), importOv = $('#importOv'), kataOv = $('#kataOv');
+const titleOv = $('#titleOv'), pauseOv = $('#pauseOv'), resultOv = $('#resultOv'), importOv = $('#importOv'), kataOv = $('#kataOv');
 const hudEl = $('#hud'), progEl = $('#prog'), progBar = $('#progBar'), hudAcc = $('#hudAcc'), hudDiff = $('#hudDiff'), hudTitle = $('#hudTitle');
 const spdIn = $('#spd'), ofsIn = $('#ofs'), autoIn = $('#auto'), guideIn = $('#guide'), spdOut = $('#spdOut'), ofsOut = $('#ofsOut');
 const songList = $('#songList');
@@ -2198,6 +2208,7 @@ function draw(now, pf) {
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
   drawBg(pf);
+  if (mode === 'title') return;   // 曲選択は背景だけ（リングもノーツも描かない）
   // 筐体の画面のような外枠：太い帯（上が明るく下が暗い）と、外側の細い光のふち
   circle(cx, cy, R * 1.05); g.lineWidth = R * .075;
   { const fr = g.createLinearGradient(cx, cy - R * 1.1, cx, cy + R * 1.1);
@@ -2262,13 +2273,6 @@ function draw(now, pf) {
 /* ================= layout ================= */
 function setSizes() { R0 = R * .2; NS = R * .1; }
 function layoutRing() {
-  if (mode === 'title' && !titleOv.hidden) {
-    const s = stageEl.getBoundingClientRect();
-    if (s.width > 60 && s.height > 60) {
-      cx = s.left - ar.left + s.width / 2; cy = s.top - ar.top + s.height / 2;
-      R = Math.min(s.width, s.height) * .42; setSizes(); return;
-    }
-  }
   const top = (mode === 'play' && !practiceEl.hidden) ? Math.max(0, practiceEl.getBoundingClientRect().bottom - ar.top) : 0;
   const HH = Math.max(120, H - top);
   // リングの下には空きを残す。iPad の下の端はホームに戻るスワイプの受付範囲で、手のひらも置かれやすく、
@@ -2293,7 +2297,6 @@ function resize() {
 }
 
 /* ================= flow ================= */
-function startDemo() { run = newRun(SONGS.expert, { demo: true, auto: true }); run.pf0 = performance.now() - 1500; }
 let playing = null, starting = false;
 async function startPlay() {
   if (starting) return false;
@@ -2377,7 +2380,7 @@ function setMode(m) {
     hudDiff.textContent = playing.label + (run.practice ? ' · 練習' : '') + (settings.auto ? ' · AUTO' : '');
     hudAccTxt = ''; updPracticeUI();
   }
-  if (m === 'title') { stopTrack(true); killBus(bus); bus = null; syncForm(); startDemo(); }
+  if (m === 'title') { stopTrack(true); killBus(bus); bus = null; syncForm(); run = null; }   // 曲選択ではデモプレイを流さない
   layoutRing();
 }
 function pause(menu = true) {
@@ -3131,11 +3134,9 @@ function frame(pf) {
   }
 }
 function frameInner(pf) {
-  if (mode === 'title') layoutRing();
   if (run && !run.demo && !run.paused && AC) syncClock();
   let now = 0;
   if (run) {
-    if (run.demo && run.over) startDemo();
     now = songAt(pf);
     // A-B ループ：B に来たら A の少し前から再開
     if (run.practice && !run.paused && mode === 'play' && run.loopA !== null && run.loopB !== null && now >= run.loopB) { seekTo(run.loopA); now = songAt(pf); }
