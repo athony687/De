@@ -331,7 +331,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v112</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v113</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2803,7 +2803,7 @@ async function startDrill(d) {
   const live = r.notes.filter(n => !n.fin);
   r.units = live.length || 1; r.totalW = live.reduce((a, n) => a + noteW(n), 0) || 1; r.nBrk = live.filter(n => n.brk).length;
   updPracticeUI();
-  toast(d.title && d.split && d.rate >= 1 ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)}` : d.title ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)} を ${d.rate.toFixed(2).replace(/0$/, '')}倍で練習` : d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
+  toast(d.title && d.split ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)}` : d.title ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)} を ${d.rate.toFixed(2).replace(/0$/, '')}倍で練習` : d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
     : `流し練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${fmtTime(d.A)}〜${fmtTime(d.B)}`);
 }
 function sweepResult(r) {
@@ -2908,7 +2908,7 @@ function splitFlowNext(r) {
   stopTrack(true);
   if (spots.length) {
     const c = { chart: playing.id, split: true, k, secs: spots.map(g => ({ A: g.A, B: g.B, k })), idx: 0, rate: .8, tries: 0 };
-    toast(`区間${k + 1}：${fmtAcc(acc)}%\n難しい所のミス${spots.length}か所を0.8倍から特訓します`); toastEl.style.whiteSpace = 'pre-line';
+    toast(`区間${k + 1}：${fmtAcc(acc)}%\n難しい所のミス${spots.length}か所を特訓します`); toastEl.style.whiteSpace = 'pre-line';
     setTimeout(() => { if (run === r && mode === 'play') startCoach(c); }, 2200);
   } else {
     toast(`区間${k + 1}：${fmtAcc(acc)}% 難しい所は全部PERFECT！区間${k + 2}へ`);
@@ -3102,7 +3102,7 @@ async function startCoach(c) {
   const g = c.secs[c.idx];
   if (c.split) {
     await startDrill({ A: g.A, B: g.B, segs: [g], rate: c.rate, title: `区間${c.k + 1} 特訓 ${c.idx + 1}/${c.secs.length}`, split: { k: c.k, tok: true } });
-    if (run && run.drill) { run.coach = c; hudDiff.textContent = `区間${c.k + 1} 特訓 ${c.idx + 1}/${c.secs.length} · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
+    if (run && run.drill) { run.coach = c; hudDiff.textContent = `区間${c.k + 1} 特訓 ${c.idx + 1}/${c.secs.length}`; }
     return;
   }
   await startDrill({ A: g.A, B: g.B, rate: c.rate, title: `復習 ${c.idx + 1}/${c.secs.length}` });
@@ -3127,12 +3127,12 @@ function coachNext(r) {
         c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！復習から外して次へ' : '';
       }
     }
-    else { c.rate = Math.min(1, Math.round((c.rate + .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に上げます`; }
-  } else if (pr < .6) { c.rate = Math.max(.5, Math.round((c.rate - .1) * 20) / 20); c.tries = 0; msg += ` → ${sp(c.rate)}に下げます`; }
+    else { c.rate = Math.min(1, Math.round((c.rate + .1) * 20) / 20); c.tries = 0; msg += c.split ? ' → 速くします' : ` → ${sp(c.rate)}に上げます`; }
+  } else if (pr < .6) { c.rate = Math.max(.5, Math.round((c.rate - .1) * 20) / 20); c.tries = 0; msg += c.split ? ' → 遅くします' : ` → ${sp(c.rate)}に下げます`; }
   else {
     c.tries++;
-    if (c.tries >= 3 && pr >= .75) { c.rate = Math.min(1, Math.round((c.rate + .05) * 20) / 20); c.tries = 0; msg += ` → 少しだけ上げて${sp(c.rate)}`; }
-    else msg += ` → もう一度（${sp(c.rate)}）`;
+    if (c.tries >= 3 && pr >= .75) { c.rate = Math.min(1, Math.round((c.rate + .05) * 20) / 20); c.tries = 0; msg += c.split ? ' → 少しだけ速くします' : ` → 少しだけ上げて${sp(c.rate)}`; }
+    else msg += c.split ? ' → もう一度' : ` → もう一度（${sp(c.rate)}）`;
   }
   if (ps) msg += `\nコツ（${ps[0]}）：${PK_TIP[ps[0]]}`;
   if (c.idx >= c.secs.length && c.split) {
