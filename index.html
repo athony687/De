@@ -72,6 +72,13 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .card.narrow{width:min(300px,100%);align-items:stretch}
 
 /* song list */
+.sortbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;flex:none}
+.sortlbl{font-size:12px;font-weight:700;color:var(--muted);margin-right:2px}
+.chip{appearance:none;min-height:34px;padding:6px 12px;border-radius:999px;border:1.5px solid var(--line);background:var(--panel-2);
+  color:var(--ink);font:700 12px var(--body);cursor:pointer;white-space:nowrap}
+.chip[aria-pressed="true"]{border-color:var(--pink);background:rgba(255,61,154,.13)}
+.chip.dir{margin-left:auto;color:var(--gold);font-variant-numeric:tabular-nums}
+.chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .songscroll{max-height:min(560px,52vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   margin-inline:-2px;padding:2px;border-radius:14px}
 .songs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:0;margin:0;padding:0;min-width:0}
@@ -324,12 +331,20 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v110</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v111</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
       <div class="tcol tcol-songs">
       <div class="songbox" id="songBox">
+        <div class="sortbar" id="sortBar" role="group" aria-label="曲の並べかえ">
+          <span class="sortlbl">並び</span>
+          <button type="button" class="chip" data-sort="lv">レベル</button>
+          <button type="button" class="chip" data-sort="name">曲名</button>
+          <button type="button" class="chip" data-sort="acc">達成率</button>
+          <button type="button" class="chip" data-sort="notes">ノーツ数</button>
+          <button type="button" class="chip dir" id="sortDir" aria-label="昇順・降順を切りかえる"></button>
+        </div>
         <div class="songscroll" id="songScroll"><fieldset class="songs" id="songList"><legend class="sr">曲と難易度</legend></fieldset></div>
         <div class="selinfo" id="selInfo" aria-live="polite"></div>
       </div>
@@ -1109,7 +1124,7 @@ function buildSong(ex) {
 }
 
 /* ================= charts registry ================= */
-const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true, hands: true };
+const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true, hands: true, sort: 'lv', sortDesc: false };
 // ノーツ速度 → ノーツが出てからリングに届くまでの秒数（7.0 で約 0.46 秒）
 const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
 let SONGS = null, IMPORTS = [];
@@ -3200,8 +3215,41 @@ function rowsData() {
     rows.push({ id: e.id, title: e.title, label: e.label, lv: e.lv || '', lvCol: 'var(--violet)', hue: hueOf(e.title), imported: true,
       sub: `${e.lv ? e.lv + ' · ' : ''}${s.notes.length} ノーツ · ${fmtTime(s.endT - 2)} · ${au ? '♪ ' + au : '音源なし'}` });
   }
+  // 並べかえ（レベル・曲名・達成率・ノーツ数）。同じ値なら レベル → 曲名 の順
+  const accOf = r => { const b = getBest(r.id === 'b:basic' ? 'basic' : r.id === 'b:expert' ? 'expert' : r.id); return b ? b.acc : null; };
+  const notesOf = r => { const c = chartInfo(r.id); return c && c.song ? c.song.notes.length : 0; };
+  const base = (a, b) => lvNum(a.lv) - lvNum(b.lv) || a.title.localeCompare(b.title, 'ja') || lvNum(a.lv) - lvNum(b.lv);
+  const key = SORTS.includes(settings.sort) ? settings.sort : 'lv', sg = settings.sortDesc ? -1 : 1;
+  rows.forEach((r, i) => { r._i = i; if (key === 'acc') r._acc = accOf(r); if (key === 'notes') r._n = notesOf(r); });
+  rows.sort((a, b) => {
+    let d = 0;
+    if (key === 'lv') d = (lvNum(a.lv) - lvNum(b.lv)) * sg;
+    else if (key === 'name') d = a.title.localeCompare(b.title, 'ja') * sg;
+    else if (key === 'notes') d = (a._n - b._n) * sg;
+    else if (key === 'acc') {
+      // まだ遊んでいない曲は、昇順・降順どちらでも最後にまとめる
+      if (a._acc === null || b._acc === null) d = (a._acc === null) - (b._acc === null);
+      else d = (a._acc - b._acc) * sg;
+    }
+    return d || base(a, b) || a._i - b._i;
+  });
   return rows;
 }
+const SORTS = ['lv', 'name', 'acc', 'notes'];
+function syncSortBar() {
+  const key = SORTS.includes(settings.sort) ? settings.sort : 'lv';
+  document.querySelectorAll('#sortBar [data-sort]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sort === key)));
+  const lo = key === 'name' ? 'A→Z' : key === 'acc' ? '低い順' : key === 'notes' ? '少ない順' : '低い順';
+  const hi = key === 'name' ? 'Z→A' : key === 'acc' ? '高い順' : key === 'notes' ? '多い順' : '高い順';
+  $('#sortDir').textContent = settings.sortDesc ? '▼ ' + hi : '▲ ' + lo;
+}
+$('#sortBar').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'sortDir') settings.sortDesc = !settings.sortDesc;
+  else if (b.dataset.sort === settings.sort) settings.sortDesc = !settings.sortDesc;   // 同じ項目をもう一度押すと昇順・降順が入れかわる
+  else { settings.sort = b.dataset.sort; settings.sortDesc = b.dataset.sort === 'acc'; }
+  saveSettings(); renderSongs(); $('#songScroll').scrollTop = 0;
+});
 let ROWS = [];
 // 曲の行の右に、通常モード（練習・4分割・オートは入らない）の自己ベストを出す
 function pbHtml(id) {
@@ -3212,6 +3260,7 @@ function pbHtml(id) {
 }
 function renderSongs() {
   const rows = ROWS = rowsData();
+  syncSortBar();
   if (!rows.some(r => r.id === settings.chart)) settings.chart = 'b:basic';
   songList.innerHTML = '<legend class="sr">曲と難易度</legend>' + rows.map(r => `
     <div class="songrow${r.id === settings.chart ? ' sel' : ''}" data-id="${esc(r.id)}">
