@@ -79,31 +79,45 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .chip[aria-pressed="true"]{border-color:var(--pink);background:rgba(255,61,154,.13)}
 .chip.dir{margin-left:auto;color:var(--gold);font-variant-numeric:tabular-nums}
 .chip:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-.songscroll{max-height:min(560px,52vh);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
-  margin-inline:-2px;padding:2px;border-radius:14px}
-.songs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;border:0;margin:0;padding:0;min-width:0}
-.songrow{position:relative;display:flex;align-items:center;padding:9px 10px;border-radius:14px;min-width:0;
-  border:1.5px solid var(--line);background:var(--panel-2);transition:border-color .15s,background .15s}
-.songrow.sel{border-color:var(--pink);background:rgba(255,61,154,.16);box-shadow:0 0 0 1px var(--pink),0 6px 18px rgba(255,61,154,.25)}
+.carousel{position:relative;min-width:0}
+.songscroll{--cw:clamp(124px,19vh,168px);container-type:inline-size;overflow-x:auto;overflow-y:hidden;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scrollbar-width:none;touch-action:pan-x;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 9%,#000 91%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 9%,#000 91%,transparent 100%)}
+.songscroll::-webkit-scrollbar{display:none}
+.songs{display:flex;align-items:center;gap:6px;width:max-content;border:0;margin:0;min-width:0;
+  padding:16px 40vw;padding-inline:calc(50cqi - var(--cw) / 2)}
+.songrow{position:relative;flex:none;width:var(--cw);scroll-snap-align:center;border-radius:14px;min-width:0;overflow:hidden;
+  border:2px solid var(--line);background:var(--panel-2);transform:scale(.86);opacity:.72;
+  transition:transform .18s,opacity .18s,border-color .15s,box-shadow .15s}
+.songrow.sel{transform:scale(1.08);opacity:1;z-index:1;border-color:var(--pink);box-shadow:0 0 0 1px var(--pink),0 10px 26px rgba(255,61,154,.35)}
 .songrow input[type=radio]{position:absolute;opacity:0;pointer-events:none}
-.songmain{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:8px;cursor:pointer}
-.songrow input:focus-visible + .songmain{outline:2px solid var(--gold);outline-offset:4px;border-radius:8px}
-.jk{--h:320;width:44px;height:44px;border-radius:11px;flex:none;
+.songmain{display:flex;flex-direction:column;cursor:pointer;min-width:0}
+.songrow input:focus-visible + .songmain{outline:2px solid var(--gold);outline-offset:-3px;border-radius:12px}
+.dtab{display:block;padding:4px 8px;font:800 10px/1.2 var(--body);letter-spacing:.08em;text-align:center;color:#0b0814;background:var(--c);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.jkw{position:relative;display:block;margin:8px 8px 0}
+.jk{--h:320;display:block;width:100%;aspect-ratio:1;border-radius:10px;
   background:radial-gradient(circle,#0b0814 0 30%,transparent 31%),
              radial-gradient(circle,transparent 0 42%,rgba(245,240,255,.9) 43% 47%,transparent 48%),
              conic-gradient(from 22deg,hsl(var(--h) 90% 62%),hsl(calc(var(--h) + 70) 90% 60%),hsl(calc(var(--h) + 170) 90% 62%),hsl(var(--h) 90% 62%));
   box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
-.st{min-width:0;display:flex;flex-direction:column;gap:5px}
-.st b{font:700 15px/1.25 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st small{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
-.st .lv{font-weight:800;letter-spacing:.04em;font-size:10px;padding:2px 7px;border-radius:6px;color:var(--c);
-  background:color-mix(in srgb,var(--c) 20%,transparent)}
-.st .lvn{font:800 15px/1 var(--display);color:var(--ink)}
-.mybest{margin-left:auto;flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;padding-left:4px;font-size:11px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1}
+.jkw .lvn{position:absolute;right:-2px;bottom:-4px;display:flex;align-items:baseline;gap:3px;padding:3px 8px 2px;border-radius:9px 0 9px 0;
+  background:#0b0814;border:1.5px solid var(--c);color:var(--ink);font:800 20px/1 var(--display);font-variant-numeric:tabular-nums}
+.jkw .lvn i{font:800 9px/1 var(--body);font-style:normal;color:var(--c);letter-spacing:.06em}
+.st{display:block;min-width:0;padding:8px 8px 0}
+.st b{display:block;font:700 13px/1.25 var(--display);text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mybest{display:flex;align-items:center;justify-content:center;gap:6px;margin:6px 8px 8px;padding:4px 6px;border-radius:7px;background:rgba(0,0,0,.35);
+  font-size:11px;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1;flex-direction:row-reverse}
 .mybest .rank{font:800 13px/1 var(--display);min-width:0;letter-spacing:0}
-.mybest.none{color:var(--muted);font-weight:600;font-size:10px}
+.mybest.none{color:var(--muted);font-weight:600;font-size:11px}
+.cnav{position:absolute;top:50%;z-index:2;width:44px;height:44px;margin-top:-22px;border-radius:50%;border:1.5px solid var(--line);
+  background:rgba(11,8,20,.82);color:var(--ink);font:700 16px/1 var(--body);cursor:pointer;display:grid;place-items:center;padding:0}
+.cnav.prev{left:-6px} .cnav.next{right:-6px}
+.cnav:disabled{opacity:.25;cursor:default}
+.cnav:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){ .songrow{transition:none} }
 .acts{display:flex;gap:6px;margin-left:auto;flex:none}
-.selinfo{display:flex;align-items:center;gap:8px;min-height:30px;margin-top:-4px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.selinfo{display:flex;align-items:center;justify-content:center;gap:8px;min-height:30px;margin-top:-4px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
 .selinfo > span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .selinfo .lv{font-weight:800;letter-spacing:.04em}
 .mini{appearance:none;position:relative;display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:transparent;
@@ -273,14 +287,12 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 
 @media (max-width:460px){ .fieldrow{grid-template-columns:1fr} }
 @media (min-width:900px) and (min-aspect-ratio:5/4){
-  /* 横長の画面：左に曲リスト（高さいっぱい）、右に設定とPLAY */
-  .overlay.title{padding-inline:28px;padding-block:18px;overflow:hidden}
-  .title .card{width:min(1120px,100%);flex:1 1 auto;min-height:0;margin-bottom:0;
-    display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);column-gap:22px;align-items:stretch}
-  .title .tcol{display:flex;flex-direction:column;gap:14px;min-width:0;min-height:0}
-  .title .tcol-set{overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:2px 6px 2px 2px;touch-action:pan-y}
-  .title .songbox{flex:1 1 auto;min-height:0}
-  .title .songscroll{flex:1 1 auto;min-height:0;max-height:none}
+  /* 横長の画面：上に曲のカード、下に設定を2列で */
+  .overlay.title{padding-inline:28px;padding-block:18px}
+  .title .card{width:min(1120px,100%)}
+  .title .tcol{display:flex;flex-direction:column;gap:14px;min-width:0}
+  .title .tcol-set{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 22px;align-items:center}
+  .title .tcol-set > .play, .title .tcol-set > .best, .title .tcol-set > details, .title .tcol-set > hr{grid-column:1 / -1}
 }
 @media (prefers-reduced-motion:reduce){
   .play,.songrow{transition:none}
@@ -331,7 +343,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v113</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v114</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -345,7 +357,11 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <button type="button" class="chip" data-sort="notes">ノーツ数</button>
           <button type="button" class="chip dir" id="sortDir" aria-label="昇順・降順を切りかえる"></button>
         </div>
-        <div class="songscroll" id="songScroll"><fieldset class="songs" id="songList"><legend class="sr">曲と難易度</legend></fieldset></div>
+        <div class="carousel">
+          <button type="button" class="cnav prev" id="songPrev" aria-label="前の曲">◀</button>
+          <div class="songscroll" id="songScroll"><fieldset class="songs" id="songList"><legend class="sr">曲と難易度</legend></fieldset></div>
+          <button type="button" class="cnav next" id="songNext" aria-label="次の曲">▶</button>
+        </div>
         <div class="selinfo" id="selInfo" aria-live="polite"></div>
       </div>
       <button type="button" class="ghost addbtn" id="addChartBtn">＋ simai譜面を追加</button>
@@ -2237,19 +2253,19 @@ function draw(now, pf) {
   shineT = pf / 1000;
   g.setTransform(dpr, 0, 0, dpr, 0, 0);
   g.globalAlpha = 1; g.globalCompositeOperation = 'source-over';
-  drawBg(pf);
-  if (mode === 'title') return;   // 曲選択は背景だけ（リングもノーツも描かない）
+  if (mode === 'title') { drawBg(pf); return; }   // 曲選択は背景だけ（リングもノーツも描かない）
+  g.fillStyle = '#000'; g.fillRect(0, 0, W, H);   // プレイ中の背景は真っ黒（光の粒も出さない）
   // 筐体の画面のような外枠：太い帯（上が明るく下が暗い）と、外側の細い光のふち
   circle(cx, cy, R * 1.05); g.lineWidth = R * .075;
   { const fr = g.createLinearGradient(cx, cy - R * 1.1, cx, cy + R * 1.1);
-    fr.addColorStop(0, '#4a4078'); fr.addColorStop(.5, '#231d44'); fr.addColorStop(1, '#3a2f5e'); g.strokeStyle = fr; }
+    fr.addColorStop(0, '#1c1c24'); fr.addColorStop(.5, '#0c0c12'); fr.addColorStop(1, '#16161d'); g.strokeStyle = fr; }
   g.stroke();
-  circle(cx, cy, R * 1.088); g.lineWidth = Math.max(1, R * .006); g.strokeStyle = 'rgba(214,200,255,.45)'; g.stroke();
+  circle(cx, cy, R * 1.088); g.lineWidth = Math.max(1, R * .006); g.strokeStyle = 'rgba(214,200,255,.22)'; g.stroke();
   circle(cx, cy, R * 1.012); g.lineWidth = Math.max(1, R * .005); g.strokeStyle = 'rgba(0,0,0,.6)'; g.stroke();
   // プレイ面（リングの内側）：中心が少し明るい紺。ノーツが見やすいように全体は暗いまま
   circle(cx, cy, R);
   { const pg = g.createRadialGradient(cx, cy, R * .05, cx, cy, R);
-    pg.addColorStop(0, 'rgba(34,27,66,.96)'); pg.addColorStop(.7, 'rgba(18,13,38,.96)'); pg.addColorStop(1, 'rgba(10,7,22,.97)'); g.fillStyle = pg; }
+    pg.addColorStop(0, '#000'); pg.addColorStop(1, '#000'); g.fillStyle = pg; }
   g.fill();
   circle(cx, cy, R * .62); g.lineWidth = 1; g.strokeStyle = 'rgba(196,178,255,.05)'; g.stroke();
 
@@ -2410,7 +2426,7 @@ function setMode(m) {
     hudDiff.textContent = playing.label + (run.practice ? ' · 練習' : '') + (settings.auto ? ' · AUTO' : '');
     hudAccTxt = ''; updPracticeUI();
   }
-  if (m === 'title') { stopTrack(true); killBus(bus); bus = null; syncForm(); run = null; }   // 曲選択ではデモプレイを流さない
+  if (m === 'title') { stopTrack(true); killBus(bus); bus = null; syncForm(); run = null; requestAnimationFrame(() => centerSel(false)); }   // 曲選択ではデモプレイを流さない
   layoutRing();
 }
 function pause(menu = true) {
@@ -3252,7 +3268,7 @@ $('#sortBar').addEventListener('click', e => {
   if (b.id === 'sortDir') settings.sortDesc = !settings.sortDesc;
   else if (b.dataset.sort === settings.sort) settings.sortDesc = !settings.sortDesc;   // 同じ項目をもう一度押すと昇順・降順が入れかわる
   else { settings.sort = b.dataset.sort; settings.sortDesc = b.dataset.sort === 'acc'; }
-  saveSettings(); renderSongs(); $('#songScroll').scrollTop = 0;
+  saveSettings(); renderSongs();
 });
 let ROWS = [];
 // 曲の行の右に、通常モード（練習・4分割・オートは入らない）の自己ベストを出す
@@ -3267,23 +3283,57 @@ function renderSongs() {
   syncSortBar();
   if (!rows.some(r => r.id === settings.chart)) settings.chart = 'b:basic';
   songList.innerHTML = '<legend class="sr">曲と難易度</legend>' + rows.map(r => `
-    <div class="songrow${r.id === settings.chart ? ' sel' : ''}" data-id="${esc(r.id)}">
+    <div class="songrow${r.id === settings.chart ? ' sel' : ''}" data-id="${esc(r.id)}" style="--c:${r.lvCol}">
       <input type="radio" name="chart" id="ch_${esc(r.id)}" value="${esc(r.id)}"${r.id === settings.chart ? ' checked' : ''}>
       <label for="ch_${esc(r.id)}" class="songmain">
-        <span class="jk" style="--h:${r.hue}"></span>
-        <span class="st"><b>${esc(r.title)}</b><small><span class="lv" style="--c:${r.lvCol}">${esc(r.label)}</span>${r.lv ? '<span class="lvn">' + esc(r.lv.replace(/^Lv\./, '')) + '</span>' : ''}</small></span>
+        <span class="dtab">${esc(r.label)}</span>
+        <span class="jkw"><span class="jk" style="--h:${r.hue}"></span>${r.lv ? '<span class="lvn"><i>LV</i>' + esc(r.lv.replace(/^Lv\./, '')) + '</span>' : ''}</span>
+        <span class="st"><b>${esc(r.title)}</b></span>
         ${pbHtml(r.id)}
       </label>
     </div>`).join('');
   renderSelInfo();
-  // 選んでいる曲が見える位置までリストだけをスクロール（ページ全体は動かさない）
-  const sel = songList.querySelector('.songrow.sel'), box = $('#songScroll');
-  if (sel && box.scrollHeight > box.clientHeight) {
-    const top = sel.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop, bot = top + sel.offsetHeight;
-    if (top < box.scrollTop) box.scrollTop = top - 4;
-    else if (bot > box.scrollTop + box.clientHeight) box.scrollTop = bot - box.clientHeight + 4;
-  }
+  centerSel(false);
 }
+// 選んでいる曲のカードを、横ならびの真ん中へ持ってくる
+let carAuto = 0, carT = 0;
+function centerSel(smooth) {
+  const sel = songList.querySelector('.songrow.sel'), box = $('#songScroll');
+  const all = [...songList.querySelectorAll('.songrow')], i = all.indexOf(sel);
+  $('#songPrev').disabled = i <= 0; $('#songNext').disabled = i < 0 || i >= all.length - 1;
+  if (!sel || !box.clientWidth) return;
+  const a = sel.getBoundingClientRect(), b = box.getBoundingClientRect();
+  const left = a.left + a.width / 2 - (b.left + b.width / 2) + box.scrollLeft;
+  carAuto = performance.now() + (smooth && !reduceMotion ? 700 : 150);
+  box.scrollTo({ left, behavior: smooth && !reduceMotion ? 'smooth' : 'auto' });
+}
+function pickRow(row) {
+  const inp = row && row.querySelector('input[type=radio]'); if (!inp || inp.checked) return;
+  inp.checked = true; inp.dispatchEvent(new Event('change', { bubbles: true }));
+}
+function stepSong(d) {
+  const all = [...songList.querySelectorAll('.songrow')], i = all.findIndex(r => r.classList.contains('sel'));
+  pickRow(all[clamp(i + d, 0, all.length - 1)]);
+}
+$('#songPrev').addEventListener('click', () => stepSong(-1));
+$('#songNext').addEventListener('click', () => stepSong(1));
+// 指で横に流して止まったら、真ん中に来たカードを選ぶ
+$('#songScroll').addEventListener('scroll', () => {
+  clearTimeout(carT);
+  carT = setTimeout(() => {
+    if (performance.now() < carAuto || mode !== 'title') return;
+    const box = $('#songScroll'), b = box.getBoundingClientRect(), mid = b.left + b.width / 2;
+    let best = null, bd = 1e9;
+    for (const r of songList.querySelectorAll('.songrow')) { const a = r.getBoundingClientRect(), d = Math.abs(a.left + a.width / 2 - mid); if (d < bd) { bd = d; best = r; } }
+    if (best && !best.classList.contains('sel')) pickRow(best); else centerSel(true);
+  }, 140);
+}, { passive: true });
+// マウスのホイール（縦）でも横に送れるように
+$('#songScroll').addEventListener('wheel', e => {
+  if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+  e.preventDefault(); stepSong(e.deltaY > 0 ? 1 : -1);
+}, { passive: false });
+addEventListener('resize', () => { if (mode === 'title') centerSel(false); });
 function renderSelInfo() {
   updSweepBtn();
   const r = ROWS.find(x => x.id === settings.chart); if (!r) { $('#selInfo').innerHTML = ''; return; }
@@ -3298,7 +3348,7 @@ songBox.addEventListener('change', async e => {
   if (el.name === 'chart') {
     settings.chart = el.value; saveSettings();
     songList.querySelectorAll('.songrow').forEach(r => r.classList.toggle('sel', r.dataset.id === el.value));
-    renderSelInfo(); bestLine();
+    renderSelInfo(); bestLine(); centerSel(true);
     // 保存してある音源は、選んだときに先に展開しておく（PLAY を押してから待たないように）
     if (STORED[el.value] && !AUDIO[el.value]) ensureAudio(el.value);
   } else if (el.dataset.audio) {
