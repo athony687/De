@@ -342,7 +342,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v116</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v117</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2484,7 +2484,9 @@ function onTap(el, fn) {
 
 /* ================= practice ================= */
 // 練習の操作（倍速ボタン・下のバー）を出すのは練習モードだけ。4分割（区間・特訓）では出さない
-const pracUI = () => !!(mode === 'play' && run && run.practice && !(run.drill && run.drill.split));
+// 通常・4分割から始まる練習（プレイ後の流し練習・復習・特訓）でも、倍速のボタンや倍率の文字は出さない
+const pracUI = () => !!(mode === 'play' && run && run.practice && !(run.drill && (run.drill.split || !run.drill.userPrac)));
+const rateUI = () => !!settings.practice;   // 倍率の文字を出していいのは、曲選択で「練習」を選んでいるときだけ
 const practiceEl = $('#practice'), pSeek = $('#pSeek'), pMarks = $('#pMarks'), pLoop = $('#pLoop'), pMenuBtn = $('#pMenuBtn');
 let seeking = false;
 // 練習コントロールは上のボタンで開くプルダウン。たたんでいる間は手が当たっても何も起きない
@@ -2624,9 +2626,9 @@ function showResult(r) {
   const rEl = $('#resRank'); rEl.textContent = rk; rEl.className = 'rank ' + cls + (rk.length > 2 ? ' long' : '');
   $('#resAcc').textContent = fmtAcc(acc) + '%';
   const b = $('#resBadge');
-  if (r.coach) { b.textContent = 'コーチ練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
+  if (r.coach) { b.textContent = 'コーチ練習' + (rateUI() ? ' ' + r.rate.toFixed(2).replace(/0$/, '') + 'x' : ''); b.className = 'badge auto'; b.hidden = false; }
   else if (r.drill && r.drill.split) { b.textContent = r.drill.split.tok ? `特訓 区間${r.drill.split.k + 1}` : `区間練習 ${r.drill.split.k + 1}/4`; b.className = 'badge auto'; b.hidden = false; }
-  else if (r.drill) { b.textContent = '流し練習 ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
+  else if (r.drill) { b.textContent = '流し練習' + (rateUI() ? ' ' + r.rate.toFixed(2).replace(/0$/, '') + 'x' : ''); b.className = 'badge auto'; b.hidden = false; }
   else if (r.practice) { b.textContent = 'PRACTICE ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.auto) { b.textContent = 'AUTO PLAY'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.cp === r.units) { b.textContent = 'ALL PERFECT+'; b.className = 'badge'; b.hidden = false; }
@@ -2821,7 +2823,7 @@ async function startDrill(d) {
   settings.practice = prevP; settings.prate = prevR;
   const r = run; if (!ok || !r || !r.practice) return;
   const segs = d.segs || [{ A: d.A, B: d.B }];
-  r.drill = { A: d.A, B: d.B, rate: d.rate, segs: d.segs || null, split: d.split || null, from: d.from, to: d.to };
+  r.drill = { A: d.A, B: d.B, rate: d.rate, segs: d.segs || null, split: d.split || null, from: d.from, to: d.to, userPrac: !!prevP };
   setPMenu(pOpen);
   seekTo(d.A);
   // 練習する所だけで採点する（それ以外のノーツは skip にして、巻き戻しても出てこないようにする）
@@ -2833,7 +2835,7 @@ async function startDrill(d) {
   const live = r.notes.filter(n => !n.fin);
   r.units = live.length || 1; r.totalW = live.reduce((a, n) => a + noteW(n), 0) || 1; r.nBrk = live.filter(n => n.brk).length;
   updPracticeUI();
-  toast(d.title && d.split ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)}` : d.title ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)} を ${d.rate.toFixed(2).replace(/0$/, '')}倍で練習` : d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
+  toast(d.title && (d.split || !rateUI()) ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)}` : !rateUI() ? (d.segs ? `流しだけ練習：${d.segs.length}か所を続けて練習` : `流し練習：${fmtTime(d.A)}〜${fmtTime(d.B)}`) : d.title ? `${d.title}：${fmtTime(d.A)}〜${fmtTime(d.B)} を ${d.rate.toFixed(2).replace(/0$/, '')}倍で練習` : d.segs ? `流しだけ練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${d.segs.length}か所を続けて練習`
     : `流し練習 ${d.rate.toFixed(2).replace(/0$/, '')}倍：${fmtTime(d.A)}〜${fmtTime(d.B)}`);
 }
 function sweepResult(r) {
@@ -2858,13 +2860,13 @@ function sweepResult(r) {
     else {
       const nr = rate >= .85 ? Math.min(1, cr + .1) : rate < .5 ? Math.max(.5, cr - .1) : cr;
       nextDrill = { A: r.drill.A, B: r.drill.B, segs: r.drill.segs, rate: Math.round(nr * 20) / 20 };
-      btn.textContent = nr > cr ? `速くして練習（${nextDrill.rate.toFixed(2).replace(/0$/, '')}倍）` : nr < cr ? `遅くして練習（${nextDrill.rate.toFixed(2).replace(/0$/, '')}倍）` : `もう一度練習（${cr.toFixed(2).replace(/0$/, '')}倍）`;
+      btn.textContent = !rateUI() ? (nr > cr ? '速くして練習' : nr < cr ? '遅くして練習' : 'もう一度練習') : nr > cr ? `速くして練習（${nextDrill.rate.toFixed(2).replace(/0$/, '')}倍）` : nr < cr ? `遅くして練習（${nextDrill.rate.toFixed(2).replace(/0$/, '')}倍）` : `もう一度練習（${cr.toFixed(2).replace(/0$/, '')}倍）`;
     }
     btn.hidden = false;
   } else if (rate < .85 && st.fails.length) {
     const w = worstSweep(r, st), dr = rate < .4 ? .7 : rate < .7 ? .8 : .9;
     nextDrill = { A: w.A, B: w.B, rate: dr };
-    btn.textContent = `苦手な流しを練習（${fmtTime(w.A)}〜・${dr.toFixed(2).replace(/0$/, '')}倍）`;
+    btn.textContent = rateUI() ? `苦手な流しを練習（${fmtTime(w.A)}〜・${dr.toFixed(2).replace(/0$/, '')}倍）` : `苦手な流しを練習（${fmtTime(w.A)}〜）`;
     btn.hidden = false;
   }
   el.textContent = line; el.style.whiteSpace = 'pre-line'; el.hidden = false;
@@ -3136,12 +3138,13 @@ async function startCoach(c) {
     return;
   }
   await startDrill({ A: g.A, B: g.B, rate: c.rate, title: `復習 ${c.idx + 1}/${c.secs.length}` });
-  if (run && run.drill) { run.coach = c; hudDiff.textContent = `復習 ${c.idx + 1}/${c.secs.length} · ${c.rate.toFixed(2).replace(/0$/, '')}倍`; }
+  if (run && run.drill) { run.coach = c; hudDiff.textContent = `復習 ${c.idx + 1}/${c.secs.length}` + (rateUI() ? ` · ${c.rate.toFixed(2).replace(/0$/, '')}倍` : ''); }
 }
 // 1回終わるごとに次を決める。結果画面を出さずに続けて始める
 function coachNext(r) {
   const c = r.coach, live = r.notes.filter(n => !n.skip && n.jr != null), n = live.length || 1;
   const pr = live.filter(x => x.jr === 0).length / n, cntJ = j => live.filter(x => x.jr === j).length;
+  const noRate = c.split || !rateUI();
   const sp = v => v.toFixed(2).replace(/0$/, '') + '倍';
   let msg = `PERFECT ${Math.round(pr * 100)}%（GREAT ${cntJ(1)}・GOOD ${cntJ(2)}・MISS ${cntJ(3)}）`;
   const ps = pkStats(r).filter(([, v]) => v.ok / v.n < .8)[0];
@@ -3157,12 +3160,12 @@ function coachNext(r) {
         c.idx++; c.rate = .8; c.tries = 0; msg += c.idx < c.secs.length ? ' → クリア！復習から外して次へ' : '';
       }
     }
-    else { c.rate = Math.min(1, Math.round((c.rate + .1) * 20) / 20); c.tries = 0; msg += c.split ? ' → 速くします' : ` → ${sp(c.rate)}に上げます`; }
-  } else if (pr < .6) { c.rate = Math.max(.5, Math.round((c.rate - .1) * 20) / 20); c.tries = 0; msg += c.split ? ' → 遅くします' : ` → ${sp(c.rate)}に下げます`; }
+    else { c.rate = Math.min(1, Math.round((c.rate + .1) * 20) / 20); c.tries = 0; msg += noRate ? ' → 速くします' : ` → ${sp(c.rate)}に上げます`; }
+  } else if (pr < .6) { c.rate = Math.max(.5, Math.round((c.rate - .1) * 20) / 20); c.tries = 0; msg += noRate ? ' → 遅くします' : ` → ${sp(c.rate)}に下げます`; }
   else {
     c.tries++;
-    if (c.tries >= 3 && pr >= .75) { c.rate = Math.min(1, Math.round((c.rate + .05) * 20) / 20); c.tries = 0; msg += c.split ? ' → 少しだけ速くします' : ` → 少しだけ上げて${sp(c.rate)}`; }
-    else msg += c.split ? ' → もう一度' : ` → もう一度（${sp(c.rate)}）`;
+    if (c.tries >= 3 && pr >= .75) { c.rate = Math.min(1, Math.round((c.rate + .05) * 20) / 20); c.tries = 0; msg += noRate ? ' → 少しだけ速くします' : ` → 少しだけ上げて${sp(c.rate)}`; }
+    else msg += noRate ? ' → もう一度' : ` → もう一度（${sp(c.rate)}）`;
   }
   if (ps) msg += `\nコツ（${ps[0]}）：${PK_TIP[ps[0]]}`;
   if (c.idx >= c.secs.length && c.split) {
