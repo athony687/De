@@ -96,11 +96,10 @@ body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:var(
 .dtab{display:block;padding:4px 8px;font:800 10px/1.2 var(--body);letter-spacing:.08em;text-align:center;color:#0b0814;background:var(--c);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .jkw{position:relative;display:block;margin:8px 8px 0}
-.jk{--h:320;display:block;width:100%;aspect-ratio:1;border-radius:10px;
-  background:radial-gradient(circle,#0b0814 0 30%,transparent 31%),
-             radial-gradient(circle,transparent 0 42%,rgba(245,240,255,.9) 43% 47%,transparent 48%),
-             conic-gradient(from 22deg,hsl(var(--h) 90% 62%),hsl(calc(var(--h) + 70) 90% 60%),hsl(calc(var(--h) + 170) 90% 62%),hsl(var(--h) 90% 62%));
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.jk{--h:320;display:grid;place-items:center;width:100%;aspect-ratio:1;border-radius:10px;overflow:hidden;
+  background:linear-gradient(140deg,hsl(var(--h) 62% 34%),hsl(calc(var(--h) + 50) 58% 20%));
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);
+  color:#fff;font:800 calc(var(--cw) * .5)/1 var(--display);text-shadow:0 2px 0 rgba(0,0,0,.28)}
 .jkw .lvn{position:absolute;right:-2px;bottom:-4px;display:flex;align-items:baseline;gap:3px;padding:3px 8px 2px;border-radius:9px 0 9px 0;
   background:#0b0814;border:1.5px solid var(--c);color:var(--ink);font:800 20px/1 var(--display);font-variant-numeric:tabular-nums}
 .jkw .lvn i{font:800 9px/1 var(--body);font-style:normal;color:var(--c);letter-spacing:.06em}
@@ -343,7 +342,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v115</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v116</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -3287,6 +3286,8 @@ $('#sortBar').addEventListener('click', e => {
 });
 let ROWS = [];
 // 曲の行の右に、通常モード（練習・4分割・オートは入らない）の自己ベストを出す
+// カードに大きく出す、曲名の頭文字（かっこ・記号は飛ばして最初の文字・数字）
+function initialOf(t) { const m = String(t || '').match(/[\p{L}\p{N}]/u); return (m ? m[0] : Array.from(String(t || '?').trim())[0] || '?').toUpperCase(); }
 function pbHtml(id) {
   const b = getBest(id === 'b:basic' ? 'basic' : id === 'b:expert' ? 'expert' : id);
   if (!b) return '<span class="mybest none">—</span>';
@@ -3302,7 +3303,7 @@ function renderSongs() {
       <input type="radio" name="chart" id="ch_${esc(r.id)}" value="${esc(r.id)}"${r.id === settings.chart ? ' checked' : ''}>
       <label for="ch_${esc(r.id)}" class="songmain">
         <span class="dtab">${esc(r.label)}</span>
-        <span class="jkw"><span class="jk" style="--h:${r.hue}"></span>${r.lv ? '<span class="lvn"><i>LV</i>' + esc(r.lv.replace(/^Lv\./, '')) + '</span>' : ''}</span>
+        <span class="jkw"><span class="jk" style="--h:${r.hue}" aria-hidden="true">${esc(initialOf(r.title))}</span>${r.lv ? '<span class="lvn"><i>LV</i>' + esc(r.lv.replace(/^Lv\./, '')) + '</span>' : ''}</span>
         <span class="st"><b>${esc(r.title)}</b></span>
         ${pbHtml(r.id)}
       </label>
