@@ -363,7 +363,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v127</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v128</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2451,22 +2451,23 @@ function drawCenter(now, pf) {
   // 真ん中は COMBO ではなく達成率（maimai でらっくす と同じく 101% から減っていく表示）
   const rd = !r.demo && !r.seeked && now < 1.4;
   if (!r.demo) {
-    const t = fmtAcc(Math.max(0, achieve(r, true)));
+    // ライフのときは、達成率のかわりに残りライフを真ん中に出す（達成率は右上に出ている）
+    const lf = r.life, t = lf ? String(lf.cur) : fmtAcc(Math.max(0, achieve(r, true))), unit = lf ? '' : '%';
     g.save(); g.translate(cx, cy - R * .02);
     g.globalAlpha = .85 * (rd ? clamp(now - .9, 0, .5) / .5 : 1);
     if (g.globalAlpha > 0) {
-      const big = Math.round(R * .105), sm = Math.round(R * .05);
+      const big = Math.round(R * (lf ? .16 : .105)), sm = Math.round(R * .05);
       g.font = `900 ${big}px ${DISP}`; const w1 = g.measureText(t).width;
-      g.font = `800 ${sm}px ${DISP}`; const w2 = g.measureText('%').width;
+      g.font = `800 ${sm}px ${DISP}`; const w2 = g.measureText(unit).width;
       const x0 = -(w1 + w2 + R * .008) / 2;
       const lg = g.createLinearGradient(0, -R * .06, 0, R * .06);
-      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
+      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, lf ? (lf.cur <= Math.max(5, lf.max * .2) ? '#ff4d5e' : '#3fd6ff') : r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
       g.textAlign = 'left'; g.fillStyle = lg;
       g.font = `900 ${big}px ${DISP}`; g.fillText(t, x0, 0);
-      g.font = `800 ${sm}px ${DISP}`; g.fillText('%', x0 + w1 + R * .008, R * .02);
+      g.font = `800 ${sm}px ${DISP}`; g.fillText(unit, x0 + w1 + R * .008, R * .02);
       g.textAlign = 'center';
       g.font = `800 ${Math.round(R * .04)}px ${BODY}`; g.fillStyle = 'rgba(245,240,255,.7)';
-      g.fillText('ACHIEVEMENT', 0, R * .1);
+      g.fillText(lf ? 'LIFE' : 'ACHIEVEMENT', 0, lf ? R * .125 : R * .1);
     }
     g.restore();
   }
@@ -2722,7 +2723,7 @@ function setMode(m) {
   if (m === 'title') { kataSaveBpm(); kataCur = null; }
   resultOv.hidden = m !== 'result';
   hudEl.hidden = m !== 'play';
-  $('#hudLife').hidden = !(m === 'play' && run && run.life);
+  $('#hudLife').hidden = true;
   const prac = pracUI();
   pMenuBtn.hidden = !prac;
   pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
