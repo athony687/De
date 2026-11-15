@@ -197,6 +197,22 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .hud-song strong{font:600 13px/1.2 var(--display);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hud-song span{font:700 11px/1.4 var(--body);letter-spacing:.12em;color:var(--muted);white-space:nowrap}
 .hud-acc{margin-left:auto;color:var(--ink);font:900 22px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:-.01em;white-space:nowrap}
+.hud-life{margin-left:auto;display:flex;align-items:baseline;gap:5px;color:var(--cyan);font:900 20px/1 var(--display);font-variant-numeric:tabular-nums;white-space:nowrap}
+.hud-life small{font-size:10px;letter-spacing:.14em;color:var(--muted)}
+.hud-life.low{color:var(--pink)}
+.hud-life:not([hidden]) ~ .hud-acc{margin-left:0}
+.badge.fail{background:#ff4d5e;color:#fff}
+.best.life,.best.wk{color:var(--ink);font-weight:700}
+.weekly{display:flex;flex-direction:column;gap:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px}
+.wk-head{display:flex;align-items:baseline;gap:8px;min-width:0}
+.wk-head b{font:900 11px/1 var(--display);letter-spacing:.1em;color:var(--gold);white-space:nowrap}
+.wk-head .wk-t{font-weight:800;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-head .wk-l{margin-left:auto;font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.wk-m{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.wk-m button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:transparent;color:var(--ink);font:700 13px/1.3 var(--body);cursor:pointer}
+.wk-m button small{font-size:11px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
+.wk-m button.ok{border-color:var(--gold);background:rgba(255,197,61,.12)}
+.wk-m button.ok small{color:var(--gold)}
 .hud-acc small{font-size:12px;margin-left:2px;color:var(--muted)}
 .prog{position:absolute;left:16px;right:16px;bottom:12px;height:3px;border-radius:3px;background:rgba(196,178,255,.14);overflow:hidden;pointer-events:none}
 .prog i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--gold));transform-origin:left center;transform:scaleX(0)}
@@ -309,6 +325,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
     </button>
     <div class="hud-song"><strong id="hudTitle">Neon Circuit</strong><span id="hudDiff">BASIC</span></div>
     <button id="pMenuBtn" class="pmenu" type="button" aria-expanded="false" aria-controls="practice" hidden>練習 <b id="pMenuRate">0.75x</b><span class="chev" aria-hidden="true">▾</span></button>
+    <div class="hud-life" id="hudLife" hidden><small>LIFE</small><span id="hudLifeN">150</span></div>
     <div class="hud-acc"><span id="hudAcc">101.0000</span><small>%</small></div>
     <button id="fsBtn" class="icon-btn fs-btn" type="button" aria-label="全画面表示"></button>
   </div>
@@ -342,7 +359,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v125</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v126</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -363,6 +380,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         </div>
         <div class="selinfo" id="selInfo" aria-live="polite"></div>
       </div>
+      <div class="weekly" id="weeklyBox" hidden></div>
       <button type="button" class="ghost addbtn" id="addChartBtn">＋ simai譜面を追加</button>
       </div>
       <div class="tcol tcol-set">
@@ -372,11 +390,16 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <input type="radio" name="pmode" id="m_play" value="play"><label for="m_play">通常<small>記録が残る</small></label>
           <input type="radio" name="pmode" id="m_prac" value="practice"><label for="m_prac">練習<small>スロー・巻き戻し</small></label>
           <input type="radio" name="pmode" id="m_split" value="split"><label for="m_split">4分割<small>区間だけプレイ</small></label>
+          <input type="radio" name="pmode" id="m_life" value="life"><label for="m_life">ライフ<small>0で終了</small></label>
         </div>
       </fieldset>
       <fieldset class="opt" id="splitField" hidden>
         <legend>区間（この区間だけ等速でプレイ）</legend>
         <div class="segs" id="splitSegs"></div>
+      </fieldset>
+      <fieldset class="opt" id="lifeField" hidden>
+        <legend>ライフ（GREAT −2・GOOD −3・MISS −5。0になったら終了）</legend>
+        <div class="segs" id="lifeSegs"></div>
       </fieldset>
       <div class="field" id="prateField">
         <label for="prate">再生速度</label><output id="prateOut" for="prate">0.75x</output>
@@ -434,6 +457,8 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>採点は maimai でらっくす と同じです。達成率は最大 101%（基本点 100% ＋ BREAKボーナス 1%）。重みは TAP・TOUCH 1、HOLD 2、SLIDE 3、BREAK 5 で、BREAK は GREAT・PERFECT がずれの大きさで細かく分かれます。EXノーツは GOOD 以上で CRITICAL PERFECT になります。ランクは SSS+ 100.5%・SSS 100%・SS+ 99.5%・SS 99%・S+ 98%・S 97%・AAA 94%・AA 90%・A 80% から。</li>
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
+          <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
+          <li>「今週の課題曲」は毎週月曜に入れかわります。課題は「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
         </ul>
         <div class="kb">
@@ -531,6 +556,8 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <p class="meta"><span>でらっくスコア <b id="resDx">0</b> <b id="resStar" class="stars"></b></span></p>
       <p class="meta"><span>MAX COMBO <b id="resCombo">0</b></span><span>FAST <b id="resFast">0</b> / LATE <b id="resLate">0</b></span></p>
       <p class="best" id="resBest"></p>
+      <p class="best life" id="resLife" hidden></p>
+      <p class="best wk" id="resWeekly" hidden></p>
       <p class="best" id="resTim" hidden></p>
       <p class="best" id="resNag" hidden></p>
       <p class="best" id="resCancel" hidden></p>
@@ -1139,7 +1166,7 @@ function buildSong(ex) {
 }
 
 /* ================= charts registry ================= */
-const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true, hands: true, sort: 'lv', sortDesc: false };
+const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true, hands: true, sort: 'lv', sortDesc: false, life: false, lifeN: 150 };
 // ノーツ速度 → ノーツが出てからリングに届くまでの秒数（7.0 で約 0.46 秒）
 const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
 let SONGS = null, IMPORTS = [];
@@ -2109,6 +2136,7 @@ function judge(j, d, px, py, col, kind, n) {
   if (n) n.jr = j;             // EXノーツ
   const crit = j === 0 && q === 0, w = n ? noteW(n) : 1;
   r.cnt[j]++; r.jn++; r.gotW += w;
+  if (r.life && !r.over && LIFE_DMG[j]) { r.life.cur = Math.max(0, r.life.cur - LIFE_DMG[j]); if (!r.life.cur) lifeFail(r); }
   if (n && n.brk) { r.got += w * BRK_BASE[j][q]; r.bonus += BRK_BONUS[j][q]; r.bjn++; }
   else r.got += w * NRM_BASE[j];
   if (crit) r.cp++;
@@ -2644,6 +2672,7 @@ async function startPlayInner() {
   const prac = settings.practice && !kataCur;   // 認識トレーニングは BPM で速さを決めるので、練習の再生速度は使わない
   run = newRun(ch.song, { auto: settings.auto, practice: prac });
   run.rate = prac ? clamp(+settings.prate || .75, .1, 1) : 1;
+  if (lifeOn() && !prac && !kataCur && !settings.auto) { const n = lifeN(); run.life = { max: n, cur: n, failed: false }; }
   if (kataCur) run.kata = { kind: kataCur.kind, bpm: kataCur.bpm, bars: kataCur.bars };
   let lead = .6;
   if (!ch.synth) {
@@ -2689,6 +2718,7 @@ function setMode(m) {
   if (m === 'title') { kataSaveBpm(); kataCur = null; }
   resultOv.hidden = m !== 'result';
   hudEl.hidden = m !== 'play';
+  $('#hudLife').hidden = !(m === 'play' && run && run.life);
   const prac = pracUI();
   pMenuBtn.hidden = !prac;
   pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
@@ -2698,8 +2728,8 @@ function setMode(m) {
     // 文字入力などでずれたページを元の位置に戻す
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
     hudTitle.textContent = playing.title;
-    hudDiff.textContent = playing.label + (run.practice ? ' · 練習' : '') + (settings.auto ? ' · AUTO' : '');
-    hudAccTxt = ''; updPracticeUI();
+    hudDiff.textContent = playing.label + (run.practice ? ' · 練習' : '') + (settings.auto ? ' · AUTO' : '') + (run.life ? ' · ライフ' + run.life.max : '');
+    hudAccTxt = ''; hudLifeTxt = ''; updPracticeUI();
   }
   if (m === 'title') { stopTrack(true); killBus(bus); bus = null; syncForm(); run = null; requestAnimationFrame(() => centerSel(false)); }   // 曲選択ではデモプレイを流さない
   layoutRing();
@@ -2892,6 +2922,7 @@ function showResult(r) {
   else if (r.drill) { b.textContent = '流し練習' + (rateUI() ? ' ' + r.rate.toFixed(2).replace(/0$/, '') + 'x' : ''); b.className = 'badge auto'; b.hidden = false; }
   else if (r.practice) { b.textContent = 'PRACTICE ' + r.rate.toFixed(2).replace(/0$/, '') + 'x'; b.className = 'badge auto'; b.hidden = false; }
   else if (r.auto) { b.textContent = 'AUTO PLAY'; b.className = 'badge auto'; b.hidden = false; }
+  else if (r.life && r.life.failed) { b.textContent = 'FAILED'; b.className = 'badge fail'; b.hidden = false; }
   else if (r.cp === r.units) { b.textContent = 'ALL PERFECT+'; b.className = 'badge'; b.hidden = false; }
   else if (r.cnt[0] === r.units) { b.textContent = 'ALL PERFECT'; b.className = 'badge'; b.hidden = false; }
   else if (r.cnt[2] + r.cnt[3] === 0) { b.textContent = 'FULL COMBO+'; b.className = 'badge fc'; b.hidden = false; }
@@ -2905,13 +2936,15 @@ function showResult(r) {
   if (r.practice) msg = r.misses.length ? `練習モードの結果は記録されません（この回のミス ${r.cnt[3]} 個）` : '練習モードの結果は記録されません';
   else if (r.auto) msg = 'オートプレイの結果は記録されません';
   else if (r.kata) msg = kataResult(r);
+  else if (r.life && r.life.failed) msg = 'ライフが0になったので、この回の記録は残りません';
   else {
     const prev = getBest(ch.bestKey);
     if (!prev || acc > prev.acc) { setBest(ch.bestKey, { acc, rank: rk }); msg = prev ? `自己ベスト更新（前回 ${fmtAcc(prev.acc)}%）` : '初クリア！記録を保存しました'; }
     else msg = `自己ベスト ${fmtAcc(prev.acc)}%（${prev.rank}）`;
   }
   $('#resBest').textContent = msg;
-  if (r.kata) { for (const id of ['#resTim', '#resNag', '#resCancel', '#coachBtn', '#drillBtn', '#resSplit', '#splitBtn', '#tokBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
+  lifeResult(r, ch, acc);
+  if (r.kata || (r.life && r.life.failed)) { for (const id of ['#resTim', '#resNag', '#resCancel', '#coachBtn', '#drillBtn', '#resSplit', '#splitBtn', '#tokBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
   else {
     timingResult(r);
     sweepResult(r);
@@ -3172,7 +3205,8 @@ function updSplitField() {
   const f = $('#splitField'), box = $('#splitSegs'), ch = currentChart();
   const on = !!settings.split && !settings.practice;
   f.hidden = !on;
-  $('#playBtn').textContent = settings.practice ? 'PRACTICE' : on ? `区間${splitK() + 1}をプレイ` : 'PLAY';
+  $('#playBtn').textContent = settings.practice ? 'PRACTICE' : on ? `区間${splitK() + 1}をプレイ` : lifeOn() ? `ライフ${lifeN()}でプレイ` : 'PLAY';
+  updLifeField();
   if (!on) return;
   const secs = ch && ch.song ? splitSecs(ch.song.notes) : [], hist = ch ? getSplitHist(ch.id) : [];
   box.innerHTML = secs.map(sc => {
@@ -3441,10 +3475,11 @@ function coachNext(r) {
   toast(msg); toastEl.style.whiteSpace = 'pre-line';
   setTimeout(() => { if (run === r && mode === 'play') startCoach(c); }, 2200);
 }
-let hudAccTxt = '';
+let hudAccTxt = '', hudLifeTxt = '';
 function hud(now) {
   const r = run, t = fmtAcc(Math.max(0, achieve(r, true)));
   if (t !== hudAccTxt) { hudAcc.textContent = t; hudAccTxt = t; }
+  if (r.life) { const lt = String(r.life.cur); if (lt !== hudLifeTxt) { $('#hudLifeN').textContent = lt; hudLifeTxt = lt; $('#hudLife').classList.toggle('low', r.life.cur <= Math.max(5, r.life.max * .2)); } }
   if (r.practice) {
     const cur = clamp(now, 0, r.endT);
     if (!seeking) { pSeek.value = cur; $('#pTime').textContent = `${fmtTime(cur)} / ${fmtTime(r.endT - 2)}`; }
@@ -3669,6 +3704,118 @@ songBox.addEventListener('click', e => {
   if (settings.chart === id) settings.chart = 'b:basic';
   saveSettings(); renderSongs(); bestLine();
 });
+/* ================= ライフチャレンジ =================
+   決めたライフを持って通しでプレイ。GREAT −2・GOOD −3・MISS −5（maimai の段位認定と同じ）。
+   0になったらその場で終了（記録は残さない）。最後まで残せばクリアで、ライフごとに「残り」のベストを残す */
+const LIFE_OPTS = [300, 150, 50, 10, 1], LIFE_DMG = [0, 2, 3, 5];
+const lifeN = () => LIFE_OPTS.includes(+settings.lifeN) ? +settings.lifeN : 150;
+const lifeOn = () => !!settings.life && !settings.practice && !settings.split;
+function getLifeRec(k) { try { const v = JSON.parse(localStorage.getItem('waiwai:life:' + k) || 'null'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
+function setLifeRec(k, v) { try { localStorage.setItem('waiwai:life:' + k, JSON.stringify(v)); } catch (e) {} }
+// 曲選択：ライフのときだけ、ライフの大きさを選ぶボタンを出す（下に、その曲でクリアしたときの残りを出す）
+function updLifeField() {
+  const f = $('#lifeField'), on = lifeOn();
+  f.hidden = !on;
+  if (!on) return;
+  const ch = currentChart(), rec = ch ? getLifeRec(ch.bestKey) : {}, cur = lifeN();
+  $('#lifeSegs').innerHTML = LIFE_OPTS.map(v =>
+    `<input type="radio" name="lifen" id="lf${v}" value="${v}"${v === cur ? ' checked' : ''}><label for="lf${v}">${v}<small>${rec[v] != null ? '残り ' + rec[v] : '未クリア'}</small></label>`).join('');
+}
+$('#lifeSegs').addEventListener('change', e => {
+  if (e.target.name !== 'lifen') return;
+  settings.lifeN = +e.target.value; saveSettings(); updSplitField();
+});
+function lifeFail(r) {
+  r.over = true; r.life.failed = true; r.life.prog = r.units ? r.jn / r.units : 0;
+  stopTrack(true);
+  toast('LIFE 0');
+  setTimeout(() => { if (run === r && mode === 'play') showResult(r); }, 900);
+}
+// リザルト：ライフの結果と、今週の課題の結果を出す
+function lifeResult(r, ch, acc) {
+  const el = $('#resLife'), wk = $('#resWeekly');
+  el.hidden = true; wk.hidden = true;
+  if (r.practice || r.auto || r.kata) return;
+  if (r.life) {
+    el.hidden = false;
+    if (r.life.failed) el.textContent = `ライフ${r.life.max}：失敗（曲の ${Math.floor(r.life.prog * 100)}% まで）`;
+    else {
+      const rec = getLifeRec(ch.bestKey), prev = rec[r.life.max];
+      if (prev == null || r.life.cur > prev) { rec[r.life.max] = r.life.cur; setLifeRec(ch.bestKey, rec); }
+      el.textContent = `ライフ${r.life.max}：クリア！残り ${r.life.cur}` + (prev == null ? '（初クリア）' : r.life.cur > prev ? `（ベスト更新・前回 残り${prev}）` : `（ベスト 残り${prev}）`);
+    }
+  }
+  if (r.life && r.life.failed) return;
+  const m = weeklyRecord(ch, acc, r);
+  if (m) { wk.textContent = m; wk.hidden = false; }
+}
+
+/* ================= 今週の課題曲 =================
+   毎週月曜の0時に入れかわる。収録曲を順番を混ぜて1曲ずつ回す（ひとまわりするまで同じ曲は出ない）。
+   課題は「達成率 97% 以上」と「ライフ150（以下）でクリア」。通常・ライフの通しプレイだけが対象 */
+const WEEKLY_ACC = 97, WEEKLY_LIFE = 150;
+function weekNow() {
+  const d = new Date(), days = Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 864e5);
+  return { idx: Math.floor((days + 3) / 7), left: 7 - ((days + 3) % 7) };   // 1970-01-01 は木曜
+}
+function weeklyPick(idx) {
+  const n = BUNDLED.length; if (!n) return null;
+  const at = i => {
+    const rnd = rng32(0x5eed + Math.floor(i / n) * 7919), o = BUNDLED.map(b => b.id);
+    for (let a = n - 1; a > 0; a--) { const b = Math.floor(rnd() * (a + 1)); [o[a], o[b]] = [o[b], o[a]]; }
+    return o[i % n];
+  };
+  const id = at(idx);
+  return n > 1 && id === at(idx - 1) ? at(idx + 1) : id;   // ひとまわりの境目で先週と同じになったら、次の曲にする
+}
+function getWeekly() {
+  const w = weekNow(); let st = null;
+  try { st = JSON.parse(localStorage.getItem('waiwai:weekly') || 'null'); } catch (e) {}
+  if (!st || st.week !== w.idx || !BUNDLED.some(b => b.id === st.chart)) {
+    st = { week: w.idx, chart: weeklyPick(w.idx), acc: null, life: null, counted: false, done: (st && +st.done) || 0 };
+    saveWeekly(st);
+  }
+  return { st, left: w.left };
+}
+function saveWeekly(st) { try { localStorage.setItem('waiwai:weekly', JSON.stringify(st)); } catch (e) {} }
+// 通しプレイの結果を今週の課題に入れる。新しく達成した課題があれば、その文を返す
+function weeklyRecord(ch, acc, r) {
+  const { st } = getWeekly();
+  if (!st.chart || ch.id !== st.chart) return '';
+  const had1 = st.acc != null && st.acc >= WEEKLY_ACC, had2 = st.life != null, out = [];
+  if (st.acc == null || acc > st.acc) st.acc = acc;
+  if (r.life && !r.life.failed && r.life.max <= WEEKLY_LIFE && (st.life == null || r.life.cur > st.life)) st.life = r.life.cur;
+  const ok1 = st.acc >= WEEKLY_ACC, ok2 = st.life != null;
+  if (ok1 && !had1) out.push(`達成率 ${WEEKLY_ACC}% 以上`);
+  if (ok2 && !had2) out.push(`ライフ${WEEKLY_LIFE}でクリア`);
+  if (ok1 && ok2 && !st.counted) { st.counted = true; st.done = (+st.done || 0) + 1; }
+  saveWeekly(st);
+  if (out.length) return `今週の課題 達成！：${out.join('・')}` + (ok1 && ok2 ? `（今週はコンプリート・通算 ${st.done} 週）` : '');
+  return ok1 && ok2 ? '' : `今週の課題曲：${ok1 ? '' : `達成率 ${WEEKLY_ACC}% まで あと ${fmtAcc(WEEKLY_ACC - Math.min(acc, WEEKLY_ACC))}%`}${!ok1 && !ok2 ? ' ／ ' : ''}${ok2 ? '' : `ライフ${WEEKLY_LIFE}は未クリア`}`;
+}
+function renderWeekly() {
+  const box = $('#weeklyBox'), { st, left } = getWeekly(), bd = BUNDLED.find(b => b.id === st.chart);
+  box.hidden = !bd;
+  if (!bd) return;
+  const ok1 = st.acc != null && st.acc >= WEEKLY_ACC, ok2 = st.life != null;
+  box.innerHTML = `<div class="wk-head"><b>今週の課題曲</b><span class="wk-t">${esc(bd.title)} <small>${esc(bd.label)} ${esc(bd.lv)}</small></span><span class="wk-l">${left <= 1 ? '今日まで' : 'あと' + left + '日'}${st.done ? ' · 通算' + st.done + '週' : ''}</span></div>
+    <div class="wk-m">
+      <button type="button" data-wk="acc"${ok1 ? ' class="ok"' : ''}>${ok1 ? '✓ ' : ''}達成率 ${WEEKLY_ACC}% 以上<small>${st.acc != null ? '今週のベスト ' + fmtAcc(st.acc) + '%' : 'まだプレイしていません'}</small></button>
+      <button type="button" data-wk="life"${ok2 ? ' class="ok"' : ''}>${ok2 ? '✓ ' : ''}ライフ${WEEKLY_LIFE}でクリア<small>${ok2 ? 'クリア（残り ' + st.life + '）' : '未クリア'}</small></button>
+    </div>`;
+}
+// 課題を押すと、その曲とモード（通常／ライフ150）を選んだ状態にする
+$('#weeklyBox').addEventListener('click', e => {
+  const b = e.target.closest('[data-wk]'); if (!b) return;
+  const { st } = getWeekly(); if (!st.chart) return;
+  const life = b.dataset.wk === 'life';
+  settings.chart = st.chart; settings.practice = false; settings.split = false; settings.life = life;
+  if (life) settings.lifeN = WEEKLY_LIFE;
+  saveSettings(); syncForm(); centerSel(true);
+  if (STORED[st.chart] && !AUDIO[st.chart]) ensureAudio(st.chart);
+  toast(life ? `課題曲をライフ${WEEKLY_LIFE}で選びました` : '課題曲を通常モードで選びました');
+});
+
 function outs() {
   spdOut.textContent = `${(+settings.nspd).toFixed(2).replace(/0$/, '')}（${approachOf(settings.nspd).toFixed(2)}秒）`;
   const o = +settings.ofs; ofsOut.textContent = (o > 0 ? '+' : o < 0 ? '−' : '±') + Math.abs(o) + ' ms';
@@ -3679,6 +3826,7 @@ function outs() {
 function bestLine() {
   const ch = currentChart(), b = getBest(ch.bestKey);
   $('#bestTxt').textContent = b ? `${ch.title} ${ch.label} 自己ベスト ${fmtAcc(b.acc)}%（${b.rank}）` : `${ch.title} ${ch.label} はまだ記録がありません`;
+  updLifeField();
 }
 function syncForm() {
   renderSongs();
@@ -3688,14 +3836,15 @@ function syncForm() {
   $('#nlv').value = nlvPct(); $('#nauto').checked = settings.nauto !== false;
   $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
   $('#hands').checked = settings.hands !== false;
-  ($('#m_' + (settings.practice ? 'prac' : settings.split ? 'split' : 'play'))).checked = true;
+  ($('#m_' + (settings.practice ? 'prac' : settings.split ? 'split' : settings.life ? 'life' : 'play'))).checked = true;
   $('#prate').value = settings.prate;
   updSweepBtn();
   updSplitField();
+  renderWeekly();
   outs(); bestLine();
 }
 document.querySelectorAll('input[name=pmode]').forEach(el => el.addEventListener('change', () => {
-  settings.practice = el.value === 'practice'; settings.split = el.value === 'split'; saveSettings();
+  settings.practice = el.value === 'practice'; settings.split = el.value === 'split'; settings.life = el.value === 'life'; saveSettings();
   updSweepBtn();
 }));
 $('#prate').addEventListener('input', () => { settings.prate = +$('#prate').value; outs(); saveSettings(); updSweepBtn(); });
