@@ -342,7 +342,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v124</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v125</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -1646,6 +1646,7 @@ function loadSettings() {
     const s = JSON.parse(localStorage.getItem('ringbeat:settings') || 'null');
     if (s) { Object.assign(settings, s); if (!s.chart && s.diff) settings.chart = 'b:' + s.diff; }
     // v92 で、iPad の古い時刻の合図のせいで判定タイミングが大きく早めにずれた（-12 → -72 ms）。一度だけ元に戻す
+    if (!settings.mig125) { if (+settings.jofs < -12) settings.jofs = -12; settings.mig125 = true; saveSettings(); }
     if (!settings.mig93) { if (+settings.jofs <= -60) settings.jofs = -12; settings.mig93 = true; saveSettings(); }
   } catch (e) {}
 }
@@ -1989,7 +1990,8 @@ function applyHit(n, t, assisted, pid) {
   run.hitN = (run.hitN || 0) + 1;
   // タッチ（タッチホールドの始点も）は早く押しても FAST にしない。早い分はちょうどの時刻に押したのと同じ判定にする
   const d = isTouch(n) ? Math.max(0, t - n.t) : t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
-  if (!run.auto && !run.demo && !assisted && Number.isFinite(d)) run.devs.push((t - n.t) / (run.rate || 1));
+  // タッチは早く押しても減点しないので、早めに押すのがふつう。タイミングの自動調整には数えない（数えると判定が遅い側へずれていく）
+  if (!run.auto && !run.demo && !assisted && !isTouch(n) && Number.isFinite(d)) run.devs.push((t - n.t) / (run.rate || 1));
   if (n.type === 'tap') { fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n); }
   else if (n.type === 'touch') { fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n); }
   else {
@@ -3006,7 +3008,7 @@ function timingResult(r) {
   const med = dv[dv.length >> 1] * 1000, am = Math.round(Math.abs(med));
   const tend = am < 6 ? 'ずれはほぼなし' : `平均 ${am}ms ${med > 0 ? '遅め' : '早め'}`;
   if (settings.jauto !== false && am >= 6) {
-    const cur = jofsMs(), nv = clamp(Math.round(cur + clamp(med, -25, 25)), -150, 150);   // 1回で動かすのは 25ms まで
+    const cur = jofsMs(), nv = clamp(Math.round(cur + clamp(med, -25, 25)), Math.min(cur, -40), Math.max(cur, 60));   // 1回で動かすのは 25ms まで
     if (nv !== cur) { settings.jofs = nv; saveSettings(); outs(); $('#jofs').value = nv; }
     el.textContent = `叩いたタイミング：${tend} → 判定タイミングを ${fmtMs(nv)} に自動で合わせました`;
   } else el.textContent = `叩いたタイミング：${tend}（判定タイミング ${fmtMs(jofsMs())}）`;
