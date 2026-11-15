@@ -342,7 +342,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v122</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v123</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -1960,7 +1960,7 @@ function driftHeld(n) {
   return Math.hypot(nx, ny) >= .28 && angGap(Math.atan2(ny, nx), laneAng(n.lane)) < Q * 1.3;
 }
 function touchHeld(n, P) {
-  for (const p of P) if (Math.hypot(p[0] - n.pos[0], p[1] - n.pos[1]) < .45) return true;
+  for (const p of P) if (Math.hypot(p[0] - n.pos[0], p[1] - n.pos[1]) < TR + .08) return true;
   return isCenter(n.pos) ? centerKey : keys.has(nearestLane(n.pos));
 }
 const press = (l, pf) => { if (l >= 0 && l < 8) lastPress[l] = pf; };
@@ -2027,8 +2027,11 @@ function hitPointer(nx, ny, t) {
   }
   // 押したマス（センサー）のタッチを最優先。そのマスに取れるタッチがないときだけ、近く（TR 以内）のタッチを時間順に取る。
   // 時間順だけだと、隣のマスの取り残したタッチを先に取ってしまい、押したタッチが反応しないことがあった
-  const sid = sensorAt(nx, ny), near = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR);
-  const tch = near.find(n => sidOf(n) === sid) || near[0];
+  // 指の腹で押すと触れた中心が1cmほどずれて、隣のマスを押した扱いになる。マスが合うかどうかではなく、
+  // 「時刻の近さ」と「押した所からの近さ」を合わせて、いちばん合うタッチを取る
+  const near = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR);
+  let tch = null, tc = Infinity;
+  for (const n of near) { const c = Math.abs(t - n.t) / T_D + .5 * distTo(n.pos, nx, ny) / TR; if (c < tc) { tc = c; tch = n; } }
   let pick = tap || tch;
   if (tap && tch) pick = tapOrTouch(tap, tch, nx, ny, t);
   if (!pick) return;
@@ -2043,6 +2046,9 @@ function hitPointer(nx, ny, t) {
 const angGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 function tapOrTouch(tap, tch, nx, ny, t) {
   if (Math.hypot(nx, ny) < .62) return tch;
+  // 片方だけがちょうど今のノーツなら、そちらを取る（指の腹のずれで向きが隣のボタン寄りになっても、まだ先のタップに取られない）
+  const tapDue = Math.abs(tap.t - t) <= W_P, tchDue = Math.abs(tch.t - t) <= T_P;
+  if (tapDue !== tchDue) return tapDue ? tap : tch;
   const pa = Math.atan2(ny, nx), ta = Math.atan2(tch.pos[1], tch.pos[0]), la = laneAng(tap.lane);
   if (angGap(ta, la) < .15) return Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch;
   return angGap(pa, ta) < angGap(pa, la) ? tch : tap;
@@ -3866,17 +3872,32 @@ function freshRect() { const r = cv.getBoundingClientRect(); ar = { left: r.left
 // マウスやペンはこれまでどおり Pointer Events で受ける
 const TOUCH_EV = 'ontouchstart' in window;
 const fromTouch = e => TOUCH_EV && e.pointerType === 'touch';
-function fingerDown(id, clientX, clientY, ev) {
+// 押した合図が届かなかった指は、いつ押したのか分からない（前の合図 t0 から今 t1 までのどこか）。
+// その間に時刻が来ていたノーツを押していたなら、そのノーツの時刻に押したことにする（遅れ扱いで抜けないように）
+function lateTime(nx, ny, t0, t1) {
+  if (!(t0 < t1)) return null;
+  t0 = Math.max(t0, t1 - .5);
+  const k = Math.hypot(nx, ny) >= .14 ? laneOfAngle(Math.atan2(ny, nx)) : -1, ns = run.notes;
+  for (let i = run.first; i < ns.length; i++) {
+    const n = ns[i];
+    if (n.t > t1) break;
+    if (n.fin || n.hh || n.type === 'slide' || n.t < t0 - winD(n)) continue;
+    if (isTouch(n) ? distTo(n.pos, nx, ny) < TR : (isHead(n) && n.lane === k)) return Math.max(n.t, t0);
+  }
+  return null;
+}
+function fingerDown(id, clientX, clientY, ev, late) {
   if (mode !== 'play' || !run || run.paused) return;
   freshRect();
   const x = clientX - ar.left, y = clientY - ar.top, nx = (x - cx) / R, ny = (y - cy) / R;
   const rg = regionAt(nx, ny);
   const lane0 = rg >= 0 && rg < 8 ? rg : -1;
+  const tFix = late != null && !run.auto && !run.over ? lateTime(nx, ny, late, inT(ev)) : null;
   ptrs.set(id, { id, x, y, x0: x, y0: y, moved: false, lane: lane0, hitLane: lane0, hx: x, hy: y, pend: false, lt: run.auto ? null : inT(ev) });
   if (rg < 0) return;
   if (rg < 8) press(rg, performance.now());
   if (run.auto || run.over) return;
-  const h0 = run.hitN || 0, t = inT(ev);
+  const h0 = run.hitN || 0, t = tFix != null ? tFix : inT(ev);
   if (!run.auto && ev && ev.timeStamp > 0) { const lag = performance.now() - ev.timeStamp; if (lag >= 0 && lag < 5000) { const ic = run.ic || (run.ic = {}); ic.lag = Math.max(ic.lag || 0, Math.round(lag)); if (lag > 150) ic.slow = (ic.slow || 0) + 1; } }
   lagNote(ev);
   downId = id; hitPointer(nx, ny, t); downId = null;
@@ -4043,6 +4064,7 @@ if (TOUCH_EV) {
      そこで、イベントのたびに「いま画面に触れている指の一覧」（e.touches）と見比べて、
      押した合図が来ていない指は見つけた時点で押したことにし、一覧から消えた指は離したことにする */
   const seenT = new Set();
+  let lastTS = null;   // 前の指の合図の時刻（曲の時刻）
   const icOf = () => (mode === 'play' && run && !run.paused && !run.auto && !run.demo) ? (run.ic || (run.ic = {})) : null;
   const icAdd = k => { const ic = icOf(); if (ic) ic[k] = (ic[k] || 0) + 1; };
   /* 指の合図の時刻。iPad の Safari は、ほかの指を押したままだと、合図の時刻（timeStamp）に
@@ -4062,7 +4084,7 @@ if (TOUCH_EV) {
     if (ic) { ic.maxT = Math.max(ic.maxT || 0, e.touches.length); for (const t of e.touches) ic.maxR = Math.max(ic.maxR || 0, Math.round(t.radiusX || 0)); }
     for (const t of e.touches) {
       const id = tid(t); live.add(id);
-      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, te); }
+      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, te, lastTS); }
     }
     for (const id of [...seenT]) if (!live.has(id)) seenT.delete(id);
     for (const id of [...ptrs.keys()]) if (typeof id === 'string' && id[0] === 't' && !live.has(id)) fingerUp(id, te);
@@ -4072,7 +4094,7 @@ if (TOUCH_EV) {
     e.preventDefault();
     const te = touchTime(e);
     for (const t of e.changedTouches) { icAdd('start'); seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, te); }
-    syncTouches(e, te);
+    syncTouches(e, te); lastTS = liveT(te);
   }, { passive: false });
   // 動かした・離した合図は passive で受ける（preventDefault しない。スクロールや拡大は touch-action:none と touchstart の preventDefault で止めている）
   cv.addEventListener('touchmove', e => {
@@ -4080,10 +4102,10 @@ if (TOUCH_EV) {
     lagNote(te);
     for (const t of e.changedTouches) {
       const id = tid(t);
-      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, te); }
+      if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, te, lastTS); }
       fingerMove(id, [{ clientX: t.clientX, clientY: t.clientY, timeStamp: te.timeStamp }]);
     }
-    syncTouches(e, te);
+    syncTouches(e, te); lastTS = liveT(te);
   }, { passive: true });
   const tEnd = e => {
     const te = touchTime(e);
@@ -4094,10 +4116,10 @@ if (TOUCH_EV) {
       const id = tid(t);
       // 押した合図が来ないまま離された指（短いタップ）。指が触れていたぶん（約0.05秒）さかのぼって叩いたことにする
       if (!seenT.has(id) && e.type === 'touchend') icAdd('endOnly');
-      if (!seenT.has(id) && e.type === 'touchend') fingerDown(id, t.clientX, t.clientY, { timeStamp: te.timeStamp - 50 });
+      if (!seenT.has(id) && e.type === 'touchend') fingerDown(id, t.clientX, t.clientY, { timeStamp: te.timeStamp - 50 }, lastTS);
       seenT.delete(id); fingerUp(id, te);
     }
-    syncTouches(e, te);
+    syncTouches(e, te); lastTS = liveT(te);
   };
   cv.addEventListener('touchend', tEnd, { passive: true });
   cv.addEventListener('touchcancel', tEnd, { passive: true });
