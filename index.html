@@ -342,7 +342,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v123</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v124</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2031,7 +2031,7 @@ function hitPointer(nx, ny, t) {
   // 「時刻の近さ」と「押した所からの近さ」を合わせて、いちばん合うタッチを取る
   const near = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR);
   let tch = null, tc = Infinity;
-  for (const n of near) { const c = Math.abs(t - n.t) / T_D + .5 * distTo(n.pos, nx, ny) / TR; if (c < tc) { tc = c; tch = n; } }
+  for (const n of near) { const c = Math.abs(t - n.t) / T_D + .3 * distTo(n.pos, nx, ny) / TR; if (c < tc) { tc = c; tch = n; } }
   let pick = tap || tch;
   if (tap && tch) pick = tapOrTouch(tap, tch, nx, ny, t);
   if (!pick) return;
@@ -2046,9 +2046,10 @@ function hitPointer(nx, ny, t) {
 const angGap = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 function tapOrTouch(tap, tch, nx, ny, t) {
   if (Math.hypot(nx, ny) < .62) return tch;
-  // 片方だけがちょうど今のノーツなら、そちらを取る（指の腹のずれで向きが隣のボタン寄りになっても、まだ先のタップに取られない）
-  const tapDue = Math.abs(tap.t - t) <= W_P, tchDue = Math.abs(tch.t - t) <= T_P;
-  if (tapDue !== tchDue) return tapDue ? tap : tch;
+  // 片方だけが時刻から大きく外れている（GREAT の幅の外）なら、もう片方を取る。
+  // 少し早い・遅いくらいでは入れ替えない（タップを叩いたのに、近くのタッチを早取りしてしまうため）
+  const tapFar = Math.abs(tap.t - t) > W_G, tchFar = Math.abs(tch.t - t) > T_G;
+  if (tapFar !== tchFar) return tapFar ? tch : tap;
   const pa = Math.atan2(ny, nx), ta = Math.atan2(tch.pos[1], tch.pos[0]), la = laneAng(tap.lane);
   if (angGap(ta, la) < .15) return Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch;
   return angGap(pa, ta) < angGap(pa, la) ? tch : tap;
