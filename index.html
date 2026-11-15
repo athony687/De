@@ -208,11 +208,15 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .wk-head b{font:900 11px/1 var(--display);letter-spacing:.1em;color:var(--gold);white-space:nowrap}
 .wk-head .wk-t{font-weight:800;color:var(--ink);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wk-head .wk-l{margin-left:auto;font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-.wk-m{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.wk-m button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:8px 10px;border-radius:10px;border:1.5px solid var(--line);background:transparent;color:var(--ink);font:700 13px/1.3 var(--body);cursor:pointer}
-.wk-m button small{font-size:11px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums}
-.wk-m button.ok{border-color:var(--gold);background:rgba(255,197,61,.12)}
-.wk-m button.ok small{color:var(--gold)}
+.wk-list{display:grid;grid-template-columns:1fr;gap:6px}
+.wk-row{display:flex;align-items:center;gap:6px;min-width:0;padding:5px 6px 5px 10px;border-radius:10px;border:1.5px solid var(--line)}
+.wk-row.ok{border-color:var(--gold);background:rgba(255,197,61,.1)}
+.wk-row .wk-n{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.wk-row .wk-n b{font-weight:800;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wk-row .wk-n small{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wk-row button{flex:none;padding:7px 9px;border-radius:8px;border:1.5px solid var(--line);background:transparent;color:var(--ink);font:700 12px/1.2 var(--body);cursor:pointer;white-space:nowrap;font-variant-numeric:tabular-nums}
+.wk-row button.ok{border-color:var(--gold);color:var(--gold);background:rgba(255,197,61,.12)}
+@media (min-width:900px){.wk-list{grid-template-columns:1fr 1fr}}
 .hud-acc small{font-size:12px;margin-left:2px;color:var(--muted)}
 .prog{position:absolute;left:16px;right:16px;bottom:12px;height:3px;border-radius:3px;background:rgba(196,178,255,.14);overflow:hidden;pointer-events:none}
 .prog i{display:block;height:100%;background:linear-gradient(90deg,var(--pink),var(--gold));transform-origin:left center;transform:scaleX(0)}
@@ -359,7 +363,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v126</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v127</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -458,7 +462,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
           <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
-          <li>「今週の課題曲」は毎週月曜に入れかわります。課題は「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
+          <li>「今週の課題曲」は7曲で、毎週月曜に入れかわります。課題は曲ごとに「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
         </ul>
         <div class="kb">
@@ -3751,68 +3755,76 @@ function lifeResult(r, ch, acc) {
 }
 
 /* ================= 今週の課題曲 =================
-   毎週月曜の0時に入れかわる。収録曲を順番を混ぜて1曲ずつ回す（ひとまわりするまで同じ曲は出ない）。
-   課題は「達成率 97% 以上」と「ライフ150（以下）でクリア」。通常・ライフの通しプレイだけが対象 */
-const WEEKLY_ACC = 97, WEEKLY_LIFE = 150;
+   毎週月曜の0時に入れかわる。収録曲から週ごとに7曲を選ぶ（レベルの低い順に並べる）。
+   課題は曲ごとに「達成率 97% 以上」と「ライフ150（以下）でクリア」。通常・ライフの通しプレイだけが対象 */
+const WEEKLY_ACC = 97, WEEKLY_LIFE = 150, WEEKLY_N = 7;
 function weekNow() {
   const d = new Date(), days = Math.floor((d.getTime() - d.getTimezoneOffset() * 60000) / 864e5);
   return { idx: Math.floor((days + 3) / 7), left: 7 - ((days + 3) % 7) };   // 1970-01-01 は木曜
 }
-function weeklyPick(idx) {
-  const n = BUNDLED.length; if (!n) return null;
-  const at = i => {
-    const rnd = rng32(0x5eed + Math.floor(i / n) * 7919), o = BUNDLED.map(b => b.id);
-    for (let a = n - 1; a > 0; a--) { const b = Math.floor(rnd() * (a + 1)); [o[a], o[b]] = [o[b], o[a]]; }
-    return o[i % n];
-  };
-  const id = at(idx);
-  return n > 1 && id === at(idx - 1) ? at(idx + 1) : id;   // ひとまわりの境目で先週と同じになったら、次の曲にする
+const wkLv = v => { const m = /(\d+(?:\.\d+)?)(\+)?/.exec(v || ''); return m ? +m[1] + (m[2] ? .5 : 0) : 99; };
+function weeklyPick(idx, keep) {
+  const rnd = rng32(0x5eed + idx * 7919), o = BUNDLED.map(b => b.id);
+  for (let a = o.length - 1; a > 0; a--) { const b = Math.floor(rnd() * (a + 1)); [o[a], o[b]] = [o[b], o[a]]; }
+  if (keep && o.includes(keep)) { o.splice(o.indexOf(keep), 1); o.unshift(keep); }   // 1曲だったころの課題曲はそのまま入れる
+  const lv = id => wkLv(BUNDLED.find(b => b.id === id).lv);
+  return o.slice(0, WEEKLY_N).sort((x, y) => lv(x) - lv(y));
 }
 function getWeekly() {
   const w = weekNow(); let st = null;
   try { st = JSON.parse(localStorage.getItem('waiwai:weekly') || 'null'); } catch (e) {}
-  if (!st || st.week !== w.idx || !BUNDLED.some(b => b.id === st.chart)) {
-    st = { week: w.idx, chart: weeklyPick(w.idx), acc: null, life: null, counted: false, done: (st && +st.done) || 0 };
+  const same = st && st.week === w.idx;
+  if (!same || !Array.isArray(st.charts) || !st.charts.length || !st.charts.every(id => BUNDLED.some(b => b.id === id))) {
+    const old = same && st.chart ? st.chart : null, rec = (same && st.rec) || {};
+    if (old && (st.acc != null || st.life != null)) rec[old] = { acc: st.acc, life: st.life };
+    st = { week: w.idx, charts: weeklyPick(w.idx, old), rec, counted: false, done: (st && +st.done) || 0 };
     saveWeekly(st);
   }
+  if (!st.rec) st.rec = {};
   return { st, left: w.left };
 }
 function saveWeekly(st) { try { localStorage.setItem('waiwai:weekly', JSON.stringify(st)); } catch (e) {} }
+const wkOk = rc => [!!rc && rc.acc != null && rc.acc >= WEEKLY_ACC, !!rc && rc.life != null];
+const wkCount = st => st.charts.reduce((a, id) => { const [x, y] = wkOk(st.rec[id]); return a + x + y; }, 0);
 // 通しプレイの結果を今週の課題に入れる。新しく達成した課題があれば、その文を返す
 function weeklyRecord(ch, acc, r) {
   const { st } = getWeekly();
-  if (!st.chart || ch.id !== st.chart) return '';
-  const had1 = st.acc != null && st.acc >= WEEKLY_ACC, had2 = st.life != null, out = [];
-  if (st.acc == null || acc > st.acc) st.acc = acc;
-  if (r.life && !r.life.failed && r.life.max <= WEEKLY_LIFE && (st.life == null || r.life.cur > st.life)) st.life = r.life.cur;
-  const ok1 = st.acc >= WEEKLY_ACC, ok2 = st.life != null;
+  if (!st.charts.includes(ch.id)) return '';
+  const rc = st.rec[ch.id] || (st.rec[ch.id] = { acc: null, life: null }), [had1, had2] = wkOk(rc), out = [];
+  if (rc.acc == null || acc > rc.acc) rc.acc = acc;
+  if (r.life && !r.life.failed && r.life.max <= WEEKLY_LIFE && (rc.life == null || r.life.cur > rc.life)) rc.life = r.life.cur;
+  const [ok1, ok2] = wkOk(rc), n = wkCount(st), all = st.charts.length * 2;
   if (ok1 && !had1) out.push(`達成率 ${WEEKLY_ACC}% 以上`);
   if (ok2 && !had2) out.push(`ライフ${WEEKLY_LIFE}でクリア`);
-  if (ok1 && ok2 && !st.counted) { st.counted = true; st.done = (+st.done || 0) + 1; }
+  if (n >= all && !st.counted) { st.counted = true; st.done = (+st.done || 0) + 1; }
   saveWeekly(st);
-  if (out.length) return `今週の課題 達成！：${out.join('・')}` + (ok1 && ok2 ? `（今週はコンプリート・通算 ${st.done} 週）` : '');
+  if (out.length) return `今週の課題 達成！：${out.join('・')}（${n}/${all}${n >= all ? '・今週はコンプリート' : ''}）`;
   return ok1 && ok2 ? '' : `今週の課題曲：${ok1 ? '' : `達成率 ${WEEKLY_ACC}% まで あと ${fmtAcc(WEEKLY_ACC - Math.min(acc, WEEKLY_ACC))}%`}${!ok1 && !ok2 ? ' ／ ' : ''}${ok2 ? '' : `ライフ${WEEKLY_LIFE}は未クリア`}`;
 }
 function renderWeekly() {
-  const box = $('#weeklyBox'), { st, left } = getWeekly(), bd = BUNDLED.find(b => b.id === st.chart);
-  box.hidden = !bd;
-  if (!bd) return;
-  const ok1 = st.acc != null && st.acc >= WEEKLY_ACC, ok2 = st.life != null;
-  box.innerHTML = `<div class="wk-head"><b>今週の課題曲</b><span class="wk-t">${esc(bd.title)} <small>${esc(bd.label)} ${esc(bd.lv)}</small></span><span class="wk-l">${left <= 1 ? '今日まで' : 'あと' + left + '日'}${st.done ? ' · 通算' + st.done + '週' : ''}</span></div>
-    <div class="wk-m">
-      <button type="button" data-wk="acc"${ok1 ? ' class="ok"' : ''}>${ok1 ? '✓ ' : ''}達成率 ${WEEKLY_ACC}% 以上<small>${st.acc != null ? '今週のベスト ' + fmtAcc(st.acc) + '%' : 'まだプレイしていません'}</small></button>
-      <button type="button" data-wk="life"${ok2 ? ' class="ok"' : ''}>${ok2 ? '✓ ' : ''}ライフ${WEEKLY_LIFE}でクリア<small>${ok2 ? 'クリア（残り ' + st.life + '）' : '未クリア'}</small></button>
+  const box = $('#weeklyBox'), { st, left } = getWeekly();
+  box.hidden = !st.charts.length;
+  if (!st.charts.length) return;
+  const n = wkCount(st), all = st.charts.length * 2;
+  box.innerHTML = `<div class="wk-head"><b>今週の課題曲</b><span class="wk-t">${st.charts.length}曲 · 達成 ${n}/${all}</span><span class="wk-l">${left <= 1 ? '今日まで' : 'あと' + left + '日'}${st.done ? ' · コンプリート' + st.done + '週' : ''}</span></div>
+    <div class="wk-list">` + st.charts.map(id => {
+    const bd = BUNDLED.find(b => b.id === id), rc = st.rec[id], [ok1, ok2] = wkOk(rc);
+    return `<div class="wk-row${ok1 && ok2 ? ' ok' : ''}">
+      <span class="wk-n"><b>${esc(bd.title)}</b><small>${esc(bd.label)} ${esc(bd.lv)}${rc && rc.acc != null ? ' · ' + fmtAcc(rc.acc) + '%' : ''}${ok2 ? ' · 残り' + rc.life : ''}</small></span>
+      <button type="button" data-wk="acc" data-id="${esc(id)}"${ok1 ? ' class="ok"' : ''} aria-label="${esc(bd.title)} 達成率${WEEKLY_ACC}%以上">${ok1 ? '✓ ' : ''}${WEEKLY_ACC}%</button>
+      <button type="button" data-wk="life" data-id="${esc(id)}"${ok2 ? ' class="ok"' : ''} aria-label="${esc(bd.title)} ライフ${WEEKLY_LIFE}でクリア">${ok2 ? '✓ ' : ''}ライフ${WEEKLY_LIFE}</button>
     </div>`;
+  }).join('') + '</div>';
 }
 // 課題を押すと、その曲とモード（通常／ライフ150）を選んだ状態にする
 $('#weeklyBox').addEventListener('click', e => {
   const b = e.target.closest('[data-wk]'); if (!b) return;
-  const { st } = getWeekly(); if (!st.chart) return;
+  const id = b.dataset.id; if (!BUNDLED.some(x => x.id === id)) return;
   const life = b.dataset.wk === 'life';
-  settings.chart = st.chart; settings.practice = false; settings.split = false; settings.life = life;
+  settings.chart = id; settings.practice = false; settings.split = false; settings.life = life;
   if (life) settings.lifeN = WEEKLY_LIFE;
   saveSettings(); syncForm(); centerSel(true);
-  if (STORED[st.chart] && !AUDIO[st.chart]) ensureAudio(st.chart);
+  if (STORED[id] && !AUDIO[id]) ensureAudio(id);
   toast(life ? `課題曲をライフ${WEEKLY_LIFE}で選びました` : '課題曲を通常モードで選びました');
 });
 
