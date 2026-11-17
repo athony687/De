@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v131</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v132</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -396,13 +396,14 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <input type="radio" name="pmode" id="m_play" value="play"><label for="m_play">通常<small>記録が残る</small></label>
           <input type="radio" name="pmode" id="m_prac" value="practice"><label for="m_prac">練習<small>スロー・巻き戻し</small></label>
           <input type="radio" name="pmode" id="m_split" value="split"><label for="m_split">4分割<small>区間だけプレイ</small></label>
+          <input type="radio" name="pmode" id="m_life" value="life"><label for="m_life">ライフ<small>0で終了</small></label>
         </div>
       </fieldset>
-      <fieldset class="opt">
-        <legend>数え方</legend>
+      <fieldset class="opt" id="countField">
+        <legend>数え方（通常・練習・4分割）</legend>
         <div class="segs">
           <input type="radio" name="cmode" id="c_acc" value="acc"><label for="c_acc">達成率<small>パーセント</small></label>
-          <input type="radio" name="cmode" id="c_life" value="life"><label for="c_life">ライフ<small>ミスで減る</small></label>
+          <input type="radio" name="cmode" id="c_minus" value="minus"><label for="c_minus">マイナス<small>0が最高・ミスで減る</small></label>
         </div>
       </fieldset>
       <fieldset class="opt" id="splitField" hidden>
@@ -410,7 +411,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <div class="segs" id="splitSegs"></div>
       </fieldset>
       <fieldset class="opt" id="lifeField" hidden>
-        <legend id="lifeLegend">ライフ（GREAT −2・GOOD −3・MISS −5）</legend>
+        <legend>ライフ（GREAT −2・GOOD −3・MISS −5。0になったら終了）</legend>
         <div class="segs" id="lifeSegs"></div>
       </fieldset>
       <div class="field" id="prateField">
@@ -469,7 +470,8 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>採点は maimai でらっくす と同じです。達成率は最大 101%（基本点 100% ＋ BREAKボーナス 1%）。重みは TAP・TOUCH 1、HOLD 2、SLIDE 3、BREAK 5 で、BREAK は GREAT・PERFECT がずれの大きさで細かく分かれます。EXノーツは GOOD 以上で CRITICAL PERFECT になります。ランクは SSS+ 100.5%・SSS 100%・SS+ 99.5%・SS 99%・S+ 98%・S 97%・AAA 94%・AA 90%・A 80% から。</li>
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
-          <li>「数え方」は、通常・練習・4分割のどれでも「達成率」か「ライフ」を選べます。ライフは決めた数（300・150・50・10・1）から、GREAT で −2、GOOD で −3、MISS で −5 ずつ減り、リングの真ん中に残りが出ます。通常では0になるとその場で終了し、記録は残りません（最後まで残せばクリア）。練習と4分割では0になっても止まらず、リザルトに残りが出ます。</li>
+          <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
+          <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき、リングの真ん中に出ます（途中で終了はしません）。通常では達成率の記録もそのまま残ります。</li>
           <li>「今週の課題曲」は7曲で、毎週月曜に入れかわります。課題は曲ごとに「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
         </ul>
@@ -2240,7 +2242,8 @@ function judge(j, d, px, py, col, kind, n) {
   if (n) n.jr = j;             // EXノーツ
   const crit = j === 0 && q === 0, w = n ? noteW(n) : 1;
   r.cnt[j]++; r.jn++; r.gotW += w;
-  if (r.life && !r.over && LIFE_DMG[j]) { r.life.cur = Math.max(0, r.life.cur - LIFE_DMG[j]); if (!r.life.cur) { if (r.life.soft) r.life.zero = true; else lifeFail(r); } }
+  if (r.life && !r.over && LIFE_DMG[j]) { r.life.cur = Math.max(0, r.life.cur - LIFE_DMG[j]); if (!r.life.cur) lifeFail(r); }
+  if (r.minus && LIFE_DMG[j]) r.minus.cur += LIFE_DMG[j];
   if (n && n.brk) { r.got += w * BRK_BASE[j][q]; r.bonus += BRK_BONUS[j][q]; r.bjn++; }
   else r.got += w * NRM_BASE[j];
   if (crit) r.cp++;
@@ -2552,7 +2555,7 @@ function drawCenter(now, pf) {
   const rd = !r.demo && !r.seeked && now < 1.4;
   if (!r.demo) {
     // ライフのときは、達成率のかわりに残りライフを真ん中に出す（達成率は右上に出ている）
-    const lf = r.life, t = lf ? String(lf.cur) : fmtAcc(Math.max(0, achieve(r, true))), unit = lf ? '' : '%';
+    const mn = r.minus, lf = r.life || mn, t = mn ? minusTxt(mn.cur) : lf ? String(lf.cur) : fmtAcc(Math.max(0, achieve(r, true))), unit = lf ? '' : '%';
     g.save(); g.translate(cx, cy - R * .02);
     g.globalAlpha = .85 * (rd ? clamp(now - .9, 0, .5) / .5 : 1);
     if (g.globalAlpha > 0) {
@@ -2561,7 +2564,7 @@ function drawCenter(now, pf) {
       g.font = `800 ${sm}px ${DISP}`; const w2 = g.measureText(unit).width;
       const x0 = -(w1 + w2 + R * .008) / 2;
       const lg = g.createLinearGradient(0, -R * .06, 0, R * .06);
-      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, lf ? (lf.cur <= Math.max(5, lf.max * .2) ? '#ff4d5e' : '#3fd6ff') : r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
+      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, lf ? (mn ? (mn.cur ? '#3fd6ff' : '#ffc53d') : lf.cur <= Math.max(5, lf.max * .2) ? '#ff4d5e' : '#3fd6ff') : r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
       g.textAlign = 'left'; g.fillStyle = lg;
       g.font = `900 ${big}px ${DISP}`; g.fillText(t, x0, 0);
       g.font = `800 ${sm}px ${DISP}`; g.fillText(unit, x0 + w1 + R * .008, R * .02);
@@ -2777,7 +2780,8 @@ async function startPlayInner() {
   const prac = settings.practice && !kataCur;   // 認識トレーニングは BPM で速さを決めるので、練習の再生速度は使わない
   run = newRun(ch.song, { auto: settings.auto, practice: prac });
   run.rate = prac ? clamp(+settings.prate || .75, .1, 1) : 1;
-  if (lifeOn() && !kataCur && !settings.auto) { const n = lifeN(); run.life = { max: n, cur: n, failed: false, soft: prac }; }   // 練習・4分割（soft）は0になっても止めない
+  if (lifeOn() && !prac && !kataCur && !settings.auto) { const n = lifeN(); run.life = { max: n, cur: n, failed: false }; }
+  else if (minusOn() && !kataCur) run.minus = { cur: 0 };   // マイナス：0から始めて、ミスのぶんだけ減っていく（止まらない）
   if (kataCur) run.kata = { kind: kataCur.kind, bpm: kataCur.bpm, bars: kataCur.bars };
   let lead = .6;
   if (!ch.synth) {
@@ -2824,7 +2828,7 @@ function setMode(m) {
   resultOv.hidden = m !== 'result';
   hudEl.hidden = m !== 'play';
   $('#hudLife').hidden = true;
-  hudAcc.parentNode.hidden = m === 'play' && !!(run && run.life);   // ライフ中は右上の達成率を出さない
+  hudAcc.parentNode.hidden = m === 'play' && !!(run && (run.life || run.minus));   // ライフ中は右上の達成率を出さない
   const prac = pracUI();
   pMenuBtn.hidden = !prac;
   pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
@@ -2834,7 +2838,7 @@ function setMode(m) {
     // 文字入力などでずれたページを元の位置に戻す
     try { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; } catch (e) {}
     hudTitle.textContent = playing.title;
-    hudDiff.textContent = playing.label + (run.practice ? ' · 練習' : '') + (settings.auto ? ' · AUTO' : '') + (run.life ? ' · ライフ' + run.life.max : '');
+    hudDiff.textContent = playing.label + (run.practice ? ' · 練習' : '') + (settings.auto ? ' · AUTO' : '') + (run.life ? ' · ライフ' + run.life.max : '');   
     hudAccTxt = ''; hudLifeTxt = ''; updPracticeUI();
   }
   if (m === 'title') { stopTrack(true); killBus(bus); bus = null; syncForm(); run = null; requestAnimationFrame(() => centerSel(false)); }   // 曲選択ではデモプレイを流さない
@@ -2912,7 +2916,7 @@ function rebase(pos, resetNotes) {
     }
     r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
     r.cnt = [0, 0, 0, 0]; r.got = 0; r.jn = 0; r.gotW = 0; r.bonus = 0; r.bjn = 0; r.cp = 0; r.dx = 0; r.combo = 0; r.maxc = 0; r.fast = 0; r.late = 0;
-    if (r.life) { r.life.cur = r.life.max; r.life.zero = false; }   // 巻き戻したらライフも元に戻す
+    if (r.minus) r.minus.cur = 0;   // 巻き戻したらマイナスも0に戻す
     r.units = r.notes.filter(n => !n.fin).length || 1;
     r.fx.length = 0; r.txt.length = 0; r.over = false; r.seeked = true; lastPress.fill(-1e9);
   }
@@ -3816,16 +3820,17 @@ songBox.addEventListener('click', e => {
    0になったらその場で終了（記録は残さない）。最後まで残せばクリアで、ライフごとに「残り」のベストを残す */
 const LIFE_OPTS = [300, 150, 50, 10, 1], LIFE_DMG = [0, 2, 3, 5];
 const lifeN = () => LIFE_OPTS.includes(+settings.lifeN) ? +settings.lifeN : 150;
-const lifeOn = () => !!settings.life;   // 数え方がライフ（通常・練習・4分割のどれでも選べる）
+const lifeOn = () => !!settings.life && !settings.practice && !settings.split;
+// 数え方「マイナス」：0が最高で、GREAT −2・GOOD −3・MISS −5 ずつ減っていく。通常・練習・4分割で選べる
+const minusOn = () => settings.count === 'minus';
+const minusTxt = v => v ? '-' + v : '0';
 function getLifeRec(k) { try { const v = JSON.parse(localStorage.getItem('waiwai:life:' + k) || 'null'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
 function setLifeRec(k, v) { try { localStorage.setItem('waiwai:life:' + k, JSON.stringify(v)); } catch (e) {} }
 // 曲選択：ライフのときだけ、ライフの大きさを選ぶボタンを出す（下に、その曲でクリアしたときの残りを出す）
 function updLifeField() {
   const f = $('#lifeField'), on = lifeOn();
-  f.hidden = !on;
+  f.hidden = !on; $('#countField').hidden = on;
   if (!on) return;
-  const soft = !!settings.practice || !!settings.split;
-  $('#lifeLegend').textContent = 'ライフ（GREAT −2・GOOD −3・MISS −5。' + (soft ? '0になっても止まりません）' : '0になったら終了）');
   const ch = currentChart(), rec = ch ? getLifeRec(ch.bestKey) : {}, cur = lifeN();
   $('#lifeSegs').innerHTML = LIFE_OPTS.map(v =>
     `<input type="radio" name="lifen" id="lf${v}" value="${v}"${v === cur ? ' checked' : ''}><label for="lf${v}">${v}<small>${rec[v] != null ? '残り ' + rec[v] : '未クリア'}</small></label>`).join('');
@@ -3844,8 +3849,18 @@ function lifeFail(r) {
 function lifeResult(r, ch, acc) {
   const el = $('#resLife'), wk = $('#resWeekly');
   el.hidden = true; wk.hidden = true;
-  // 練習・4分割：ライフは数えるだけ（記録は残さない）
-  if (r.life && r.life.soft && !r.auto && !r.kata) { el.hidden = false; el.textContent = r.life.zero ? `ライフ${r.life.max}：0になりました` : `ライフ${r.life.max}：残り ${r.life.cur}`; }
+  // マイナス：通常の通しだけベストを残す（練習・4分割・オートは出すだけ）
+  if (r.minus && !r.kata) {
+    el.hidden = false;
+    let t = `マイナス：${minusTxt(r.minus.cur)}`;
+    if (!r.practice && !r.auto) {
+      const k = 'waiwai:minus:' + ch.bestKey; let prev = null;
+      try { const v = localStorage.getItem(k); if (v != null && v !== '') prev = +v; } catch (e) {}
+      if (prev == null || r.minus.cur < prev) { try { localStorage.setItem(k, String(r.minus.cur)); } catch (e) {} }
+      t += prev == null ? '（初記録）' : r.minus.cur < prev ? `（ベスト更新・前回 ${minusTxt(prev)}）` : `（ベスト ${minusTxt(prev)}）`;
+    }
+    el.textContent = t;
+  }
   if (r.practice || r.auto || r.kata) return;
   if (r.life) {
     el.hidden = false;
@@ -3955,8 +3970,8 @@ function syncForm() {
   $('#nlv').value = nlvPct(); $('#nauto').checked = settings.nauto !== false;
   $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
   $('#hands').checked = settings.hands !== false;
-  ($('#m_' + (settings.practice ? 'prac' : settings.split ? 'split' : 'play'))).checked = true;
-  ($('#c_' + (settings.life ? 'life' : 'acc'))).checked = true;
+  ($('#m_' + (settings.practice ? 'prac' : settings.split ? 'split' : settings.life ? 'life' : 'play'))).checked = true;
+  ($('#c_' + (minusOn() ? 'minus' : 'acc'))).checked = true;
   $('#prate').value = settings.prate;
   updSweepBtn();
   updSplitField();
@@ -3964,11 +3979,11 @@ function syncForm() {
   outs(); bestLine();
 }
 document.querySelectorAll('input[name=pmode]').forEach(el => el.addEventListener('change', () => {
-  settings.practice = el.value === 'practice'; settings.split = el.value === 'split'; saveSettings();
+  settings.practice = el.value === 'practice'; settings.split = el.value === 'split'; settings.life = el.value === 'life'; saveSettings();
   updSweepBtn();
 }));
 document.querySelectorAll('input[name=cmode]').forEach(el => el.addEventListener('change', () => {
-  settings.life = el.value === 'life'; saveSettings();
+  settings.count = el.value === 'minus' ? 'minus' : 'acc'; saveSettings();
   updSplitField();
 }));
 $('#prate').addEventListener('input', () => { settings.prate = +$('#prate').value; outs(); saveSettings(); updSweepBtn(); });
