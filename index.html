@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v134</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v135</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -472,7 +472,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
           <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
-          <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも SSS+・SSS・SS・S の目安が付きます。プレイ中は、いま入っているいちばん上のランクの目安が真ん中に出ます（SSS+ の中は水色、S まではピンク、S をこえると赤）。GREAT だけで落とした場合の数なので、GOOD や MISS が多いと、目安の中でもそのランクに届かないことがあります。通常では達成率の記録もそのまま残ります。</li>
+          <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも SSS+・SSS・SS・S の目安が付きます。プレイ中は、いま入っているいちばん上のランクの目安が真ん中に出ます（SSS+ の中は水色、S まではピンク、S をこえると赤）。目安は GREAT・GOOD・MISS が混ざる想定の数で、通常の通しプレイをするたびに、自分の結果（マイナスと達成率）に合わせて直っていきます。通常では達成率の記録もそのまま残ります。</li>
           <li>「今週の課題曲」は7曲で、毎週月曜に入れかわります。課題は曲ごとに「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
         </ul>
@@ -3826,11 +3826,17 @@ const lifeOn = () => !!settings.life && !settings.practice && !settings.split;
 // 数え方「マイナス」：0が最高で、GREAT −2・GOOD −3・MISS −5 ずつ減っていく。通常・練習・4分割で選べる
 const minusOn = () => settings.count === 'minus';
 const minusTxt = v => v ? '-' + v : '0';
-// トリプラ（SSS+ 100.5%）の目安：GREAT だけで落とすとして、0.5% ぶんの GREAT の数 × 2。重みの合計から出すので、どの譜面にも付く
-const sssGuideW = W => W > 0 ? Math.floor(W / 40) * 2 : null;
-// ランクごとの目安（SSS+ 100.5%・SSS 100%・SS 99%・S 97%）。101% から落としていい % を GREAT の数に直して × 2
+// 目安の出し方：マイナス1あたり、達成率が（GUIDE_K ÷ 重みの合計）% 下がるとして計算する。
+// GREAT だけなら 10、MISS だけなら 20（スライド・ホールドはもっと大きい）。実際のプレイは MISS や GOOD が混ざるので、最初は 16 にしておき、
+// 通常の通しプレイのたびに「実際に下がった % × 重み ÷ マイナス」を残して、その人の真ん中の値（直近20回）に合わせていく
+const GUIDE_K0 = 16, GUIDE_KEY = 'waiwai:minusK';
+function guideHist() { try { const v = JSON.parse(localStorage.getItem(GUIDE_KEY) || '[]'); return Array.isArray(v) ? v.filter(x => x > 0 && isFinite(x)) : []; } catch (e) { return []; } }
+function guideK() { const h = guideHist().slice().sort((a, b) => a - b); if (!h.length) return GUIDE_K0; const m = h.length >> 1, md = h.length % 2 ? h[m] : (h[m - 1] + h[m]) / 2; return clamp(md, 8, 40); }
+function guideLearn(acc, W, cur) { if (!(W > 0) || cur < 10) return; const k = (101 - acc) * W / cur; if (!(k > 0)) return; const h = guideHist(); h.push(Math.round(k * 100) / 100); try { localStorage.setItem(GUIDE_KEY, JSON.stringify(h.slice(-20))); } catch (e) {} }
+const sssGuideW = W => W > 0 ? Math.floor(.5 * W / guideK()) : null;
+// ランクごとの目安（SSS+ 100.5%・SSS 100%・SS 99%・S 97%）。101% から落としていい % をマイナスの数に直す
 const RANK_GUIDE = [['SSS+', .5], ['SSS', 1], ['SS', 2], ['S', 4]];
-const rankGuidesW = W => W > 0 ? RANK_GUIDE.map(([nm, loss]) => [nm, Math.floor(loss * W / 20) * 2]) : null;
+const rankGuidesW = W => { if (!(W > 0)) return null; const k = guideK(); return RANK_GUIDE.map(([nm, loss]) => [nm, Math.floor(loss * W / k)]); };
 const rankGuides = ch => { const ns = ch && ch.song && ch.song.notes; return ns && ns.length ? rankGuidesW(ns.reduce((a, n) => a + noteW(n), 0)) : null; };
 const guideLine = gs => gs.map(([nm, v]) => `${nm} ${minusTxt(v)}`).join(' ／ ');
 // いまのマイナスが入っている、いちばん上のランクの目安（S もこえたら null）
@@ -3871,6 +3877,7 @@ function lifeResult(r, ch, acc) {
       const k = 'waiwai:minus:' + ch.bestKey; let prev = null;
       try { const v = localStorage.getItem(k); if (v != null && v !== '') prev = +v; } catch (e) {}
       if (prev == null || r.minus.cur < prev) { try { localStorage.setItem(k, String(r.minus.cur)); } catch (e) {} }
+      guideLearn(acc, r.totalW, r.minus.cur);   // この回の結果で、次からの目安を合わせる
       t += prev == null ? '（初記録）' : r.minus.cur < prev ? `（ベスト更新・前回 ${minusTxt(prev)}）` : `（ベスト ${minusTxt(prev)}）`;
     }
     el.textContent = t;
