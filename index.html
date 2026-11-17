@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v133</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v134</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -472,7 +472,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
           <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
-          <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも「トリプラ（SSS+）の目安」が付きます。GREAT だけで落とした場合の数なので、GOOD や MISS が多いと、目安の中でも SSS+ に届かないことがあります。目安をこえると数字が赤くなります。通常では達成率の記録もそのまま残ります。</li>
+          <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも SSS+・SSS・SS・S の目安が付きます。プレイ中は、いま入っているいちばん上のランクの目安が真ん中に出ます（SSS+ の中は水色、S まではピンク、S をこえると赤）。GREAT だけで落とした場合の数なので、GOOD や MISS が多いと、目安の中でもそのランクに届かないことがあります。通常では達成率の記録もそのまま残ります。</li>
           <li>「今週の課題曲」は7曲で、毎週月曜に入れかわります。課題は曲ごとに「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
         </ul>
@@ -2565,13 +2565,14 @@ function drawCenter(now, pf) {
       g.font = `800 ${sm}px ${DISP}`; const w2 = g.measureText(unit).width;
       const x0 = -(w1 + w2 + R * .008) / 2;
       const lg = g.createLinearGradient(0, -R * .06, 0, R * .06);
-      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, lf ? (mn ? (!mn.cur ? '#ffc53d' : mn.cur <= (sssGuideW(r.totalW) || 0) ? '#3fd6ff' : '#ff4d5e') : lf.cur <= Math.max(5, lf.max * .2) ? '#ff4d5e' : '#3fd6ff') : r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
+      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, lf ? (mn ? (!mn.cur ? '#ffc53d' : mn.cur <= (sssGuideW(r.totalW) || 0) ? '#3fd6ff' : guideNow(rankGuidesW(r.totalW), mn.cur) ? '#ff8cc6' : '#ff4d5e') : lf.cur <= Math.max(5, lf.max * .2) ? '#ff4d5e' : '#3fd6ff') : r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
       g.textAlign = 'left'; g.fillStyle = lg;
       g.font = `900 ${big}px ${DISP}`; g.fillText(t, x0, 0);
       g.font = `800 ${sm}px ${DISP}`; g.fillText(unit, x0 + w1 + R * .008, R * .02);
       g.textAlign = 'center';
       g.font = `800 ${Math.round(R * .04)}px ${BODY}`; g.fillStyle = 'rgba(245,240,255,.7)';
-      g.fillText(mn && sssGuideW(r.totalW) != null ? 'SSS+ 目安 ' + minusTxt(sssGuideW(r.totalW)) : lf ? 'LIFE' : 'ACHIEVEMENT', 0, lf ? R * .125 : R * .1);
+      { const gs = mn ? rankGuidesW(r.totalW) : null, gn = gs ? guideNow(gs, mn.cur) : null;
+        g.fillText(gn ? `${gn[0]} 目安 ${minusTxt(gn[1])}` : gs ? 'S 目安をこえた' : lf ? 'LIFE' : 'ACHIEVEMENT', 0, lf ? R * .125 : R * .1); }
     }
     g.restore();
   }
@@ -3827,15 +3828,21 @@ const minusOn = () => settings.count === 'minus';
 const minusTxt = v => v ? '-' + v : '0';
 // トリプラ（SSS+ 100.5%）の目安：GREAT だけで落とすとして、0.5% ぶんの GREAT の数 × 2。重みの合計から出すので、どの譜面にも付く
 const sssGuideW = W => W > 0 ? Math.floor(W / 40) * 2 : null;
-const sssGuide = ch => { const ns = ch && ch.song && ch.song.notes; return ns && ns.length ? sssGuideW(ns.reduce((a, n) => a + noteW(n), 0)) : null; };
+// ランクごとの目安（SSS+ 100.5%・SSS 100%・SS 99%・S 97%）。101% から落としていい % を GREAT の数に直して × 2
+const RANK_GUIDE = [['SSS+', .5], ['SSS', 1], ['SS', 2], ['S', 4]];
+const rankGuidesW = W => W > 0 ? RANK_GUIDE.map(([nm, loss]) => [nm, Math.floor(loss * W / 20) * 2]) : null;
+const rankGuides = ch => { const ns = ch && ch.song && ch.song.notes; return ns && ns.length ? rankGuidesW(ns.reduce((a, n) => a + noteW(n), 0)) : null; };
+const guideLine = gs => gs.map(([nm, v]) => `${nm} ${minusTxt(v)}`).join(' ／ ');
+// いまのマイナスが入っている、いちばん上のランクの目安（S もこえたら null）
+const guideNow = (gs, cur) => gs ? gs.find(([, v]) => cur <= v) || null : null;
 function getLifeRec(k) { try { const v = JSON.parse(localStorage.getItem('waiwai:life:' + k) || 'null'); return v && typeof v === 'object' ? v : {}; } catch (e) { return {}; } }
 function setLifeRec(k, v) { try { localStorage.setItem('waiwai:life:' + k, JSON.stringify(v)); } catch (e) {} }
 // 曲選択：ライフのときだけ、ライフの大きさを選ぶボタンを出す（下に、その曲でクリアしたときの残りを出す）
 function updLifeField() {
   const f = $('#lifeField'), on = lifeOn();
   f.hidden = !on; $('#countField').hidden = on;
-  { const mg = $('#minusGuide'), gv = !on && minusOn() ? sssGuide(currentChart()) : null;
-    mg.hidden = gv == null; if (gv != null) mg.textContent = `この譜面のトリプラ（SSS+）の目安：${minusTxt(gv)} まで`; }
+  { const mg = $('#minusGuide'), gs = !on && minusOn() ? rankGuides(currentChart()) : null;
+    mg.hidden = !gs; if (gs) mg.textContent = `この譜面の目安：${guideLine(gs)}`; }
   if (!on) return;
   const ch = currentChart(), rec = ch ? getLifeRec(ch.bestKey) : {}, cur = lifeN();
   $('#lifeSegs').innerHTML = LIFE_OPTS.map(v =>
@@ -3858,8 +3865,8 @@ function lifeResult(r, ch, acc) {
   // マイナス：通常の通しだけベストを残す（練習・4分割・オートは出すだけ）
   if (r.minus && !r.kata) {
     el.hidden = false;
-    const gv = sssGuideW(r.totalW);
-    let t = `マイナス：${minusTxt(r.minus.cur)}` + (gv != null ? `（トリプラ目安 ${minusTxt(gv)}）` : '');
+    const gs = rankGuidesW(r.totalW);
+    let t = `マイナス：${minusTxt(r.minus.cur)}` + (gs ? `（目安 ${guideLine(gs)}）` : '');
     if (!r.practice && !r.auto) {
       const k = 'waiwai:minus:' + ch.bestKey; let prev = null;
       try { const v = localStorage.getItem(k); if (v != null && v !== '') prev = +v; } catch (e) {}
