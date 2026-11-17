@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v135</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v136</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2565,13 +2565,13 @@ function drawCenter(now, pf) {
       g.font = `800 ${sm}px ${DISP}`; const w2 = g.measureText(unit).width;
       const x0 = -(w1 + w2 + R * .008) / 2;
       const lg = g.createLinearGradient(0, -R * .06, 0, R * .06);
-      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, lf ? (mn ? (!mn.cur ? '#ffc53d' : mn.cur <= (sssGuideW(r.totalW) || 0) ? '#3fd6ff' : guideNow(rankGuidesW(r.totalW), mn.cur) ? '#ff8cc6' : '#ff4d5e') : lf.cur <= Math.max(5, lf.max * .2) ? '#ff4d5e' : '#3fd6ff') : r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
+      lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, lf ? (mn ? (!mn.cur ? '#ffc53d' : mn.cur <= (sssGuideN(r.units) || 0) ? '#3fd6ff' : guideNow(rankGuidesN(r.units), mn.cur) ? '#ff8cc6' : '#ff4d5e') : lf.cur <= Math.max(5, lf.max * .2) ? '#ff4d5e' : '#3fd6ff') : r.cnt[3] === 0 ? '#ffc53d' : '#ff8cc6');
       g.textAlign = 'left'; g.fillStyle = lg;
       g.font = `900 ${big}px ${DISP}`; g.fillText(t, x0, 0);
       g.font = `800 ${sm}px ${DISP}`; g.fillText(unit, x0 + w1 + R * .008, R * .02);
       g.textAlign = 'center';
       g.font = `800 ${Math.round(R * .04)}px ${BODY}`; g.fillStyle = 'rgba(245,240,255,.7)';
-      { const gs = mn ? rankGuidesW(r.totalW) : null, gn = gs ? guideNow(gs, mn.cur) : null;
+      { const gs = mn ? rankGuidesN(r.units) : null, gn = gs ? guideNow(gs, mn.cur) : null;
         g.fillText(gn ? `${gn[0]} 目安 ${minusTxt(gn[1])}` : gs ? 'S 目安をこえた' : lf ? 'LIFE' : 'ACHIEVEMENT', 0, lf ? R * .125 : R * .1); }
     }
     g.restore();
@@ -3826,18 +3826,20 @@ const lifeOn = () => !!settings.life && !settings.practice && !settings.split;
 // 数え方「マイナス」：0が最高で、GREAT −2・GOOD −3・MISS −5 ずつ減っていく。通常・練習・4分割で選べる
 const minusOn = () => settings.count === 'minus';
 const minusTxt = v => v ? '-' + v : '0';
-// 目安の出し方：マイナス1あたり、達成率が（GUIDE_K ÷ 重みの合計）% 下がるとして計算する。
-// GREAT だけなら 10、MISS だけなら 20（スライド・ホールドはもっと大きい）。実際のプレイは MISS や GOOD が混ざるので、最初は 16 にしておき、
-// 通常の通しプレイのたびに「実際に下がった % × 重み ÷ マイナス」を残して、その人の真ん中の値（直近20回）に合わせていく
-const GUIDE_K0 = 16, GUIDE_KEY = 'waiwai:minusK';
+// 目安の出し方：マイナス1あたり、達成率が（GUIDE_C ÷ ノーツ数）% 下がるとして計算する。
+// 重みの合計ではなくノーツ数で割るのは、スライド・ホールド・BREAK の多い譜面ほど、同じマイナスでも達成率が大きく下がるから
+// （ミスがどのノーツにも同じように出るなら、1ミスで下がる % は 平均の重み ÷ 重みの合計 ＝ 1 ÷ ノーツ数 に比例する）。
+// TAP の GREAT だけなら 10、MISS だけなら 20。実際のプレイ（Destr0yer −81 で 99.4%、Schwarzschild −146 で S+）に合わせて最初は 17 にしておき、
+// 通常の通しプレイのたびに「実際に下がった % × ノーツ数 ÷ マイナス」を残して、その人の真ん中の値（直近20回）に合わせていく
+const GUIDE_C0 = 17, GUIDE_KEY = 'waiwai:minusC';
 function guideHist() { try { const v = JSON.parse(localStorage.getItem(GUIDE_KEY) || '[]'); return Array.isArray(v) ? v.filter(x => x > 0 && isFinite(x)) : []; } catch (e) { return []; } }
-function guideK() { const h = guideHist().slice().sort((a, b) => a - b); if (!h.length) return GUIDE_K0; const m = h.length >> 1, md = h.length % 2 ? h[m] : (h[m - 1] + h[m]) / 2; return clamp(md, 8, 40); }
-function guideLearn(acc, W, cur) { if (!(W > 0) || cur < 10) return; const k = (101 - acc) * W / cur; if (!(k > 0)) return; const h = guideHist(); h.push(Math.round(k * 100) / 100); try { localStorage.setItem(GUIDE_KEY, JSON.stringify(h.slice(-20))); } catch (e) {} }
-const sssGuideW = W => W > 0 ? Math.floor(.5 * W / guideK()) : null;
+function guideC() { const h = guideHist().slice().sort((a, b) => a - b); if (!h.length) return GUIDE_C0; const m = h.length >> 1, md = h.length % 2 ? h[m] : (h[m - 1] + h[m]) / 2; return clamp(md, 8, 40); }
+function guideLearn(acc, N, cur) { if (!(N > 0) || cur < 10) return; const c = (101 - acc) * N / cur; if (!(c > 0)) return; const h = guideHist(); h.push(Math.round(c * 100) / 100); try { localStorage.setItem(GUIDE_KEY, JSON.stringify(h.slice(-20))); } catch (e) {} }
+const sssGuideN = N => N > 0 ? Math.floor(.5 * N / guideC()) : null;
 // ランクごとの目安（SSS+ 100.5%・SSS 100%・SS 99%・S 97%）。101% から落としていい % をマイナスの数に直す
 const RANK_GUIDE = [['SSS+', .5], ['SSS', 1], ['SS', 2], ['S', 4]];
-const rankGuidesW = W => { if (!(W > 0)) return null; const k = guideK(); return RANK_GUIDE.map(([nm, loss]) => [nm, Math.floor(loss * W / k)]); };
-const rankGuides = ch => { const ns = ch && ch.song && ch.song.notes; return ns && ns.length ? rankGuidesW(ns.reduce((a, n) => a + noteW(n), 0)) : null; };
+const rankGuidesN = N => { if (!(N > 0)) return null; const c = guideC(); return RANK_GUIDE.map(([nm, loss]) => [nm, Math.floor(loss * N / c)]); };
+const rankGuides = ch => { const ns = ch && ch.song && ch.song.notes; return ns && ns.length ? rankGuidesN(ns.length) : null; };
 const guideLine = gs => gs.map(([nm, v]) => `${nm} ${minusTxt(v)}`).join(' ／ ');
 // いまのマイナスが入っている、いちばん上のランクの目安（S もこえたら null）
 const guideNow = (gs, cur) => gs ? gs.find(([, v]) => cur <= v) || null : null;
@@ -3871,13 +3873,13 @@ function lifeResult(r, ch, acc) {
   // マイナス：通常の通しだけベストを残す（練習・4分割・オートは出すだけ）
   if (r.minus && !r.kata) {
     el.hidden = false;
-    const gs = rankGuidesW(r.totalW);
+    const gs = rankGuidesN(r.units);
     let t = `マイナス：${minusTxt(r.minus.cur)}` + (gs ? `（目安 ${guideLine(gs)}）` : '');
     if (!r.practice && !r.auto) {
       const k = 'waiwai:minus:' + ch.bestKey; let prev = null;
       try { const v = localStorage.getItem(k); if (v != null && v !== '') prev = +v; } catch (e) {}
       if (prev == null || r.minus.cur < prev) { try { localStorage.setItem(k, String(r.minus.cur)); } catch (e) {} }
-      guideLearn(acc, r.totalW, r.minus.cur);   // この回の結果で、次からの目安を合わせる
+      guideLearn(acc, r.units, r.minus.cur);   // この回の結果で、次からの目安を合わせる
       t += prev == null ? '（初記録）' : r.minus.cur < prev ? `（ベスト更新・前回 ${minusTxt(prev)}）` : `（ベスト ${minusTxt(prev)}）`;
     }
     el.textContent = t;
