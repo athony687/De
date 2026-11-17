@@ -201,6 +201,8 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
 .hud-life small{font-size:10px;letter-spacing:.14em;color:var(--muted)}
 .hud-life.low{color:var(--pink)}
 .hud-life:not([hidden]) ~ .hud-acc{margin-left:0}
+.hud-acc[hidden]{display:none}
+.hud-acc[hidden] ~ .fs-btn{margin-left:auto}
 .badge.fail{background:#ff4d5e;color:#fff}
 .best.life,.best.wk{color:var(--ink);font-weight:700}
 .weekly{display:flex;flex-direction:column;gap:8px;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;padding:10px 12px;font-size:13px}
@@ -363,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v128</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v129</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2724,6 +2726,7 @@ function setMode(m) {
   resultOv.hidden = m !== 'result';
   hudEl.hidden = m !== 'play';
   $('#hudLife').hidden = true;
+  hudAcc.parentNode.hidden = m === 'play' && !!(run && run.life);   // ライフ中は右上の達成率を出さない
   const prac = pracUI();
   pMenuBtn.hidden = !prac;
   pMenuBtn.setAttribute('aria-expanded', String(!!(prac && pOpen)));
