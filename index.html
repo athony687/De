@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v136</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v137</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2156,6 +2156,9 @@ function hitPointer(nx, ny, t) {
     // 同じボタンのノーツを、すべらせた指（補助）がついさっき取っていたら、この指はそのノーツを叩きに来た指。
     // ここで次のノーツ（連打の2つ目）を早取りすると、そのあとの連打が1つずつずれて抜けるので、何も取らない
     if (tap && tap.t - t > W_G && run.notes.some(m => m.fin && m.asRaw != null && m.lane === k && m.type === 'tap' && Math.abs(t - m.t) <= W_G)) tap = null;
+    // 隣のボタンを押した指がこのボタンの EACH もまとめて取っていたら、この指は同じ EACH を押しに来た指。
+    // まとめて取ったノーツより次のノーツの方が時刻が近いときだけ取る（次のノーツを早取りしない）
+    else if (tap && run.notes.some(m => m.grp && m.lane === k && m.t < tap.t && Math.abs(t - m.t) <= W_G && Math.abs(t - m.t) <= Math.abs(t - tap.t))) tap = null;
     else if (!tap && Math.abs(off) > Q / 2 - NEIGHBOR_ZONE) {
       const L = mod8(k + (off > 0 ? 1 : -1));
       tap = scanCands(t, n => isHead(n) && n.lane === L && Math.abs(t - n.t) <= W_G)[0] || null;
@@ -2173,6 +2176,15 @@ function hitPointer(nx, ny, t) {
   if (!pick) return;
   applyHit(pick, t);
   if (isTouch(pick)) hitTouchGroup(pick, t, n => distTo(n.pos, nx, ny) < .7);
+  else hitEachPair(pick, t);
+}
+// 隣どうしのボタンの EACH タップ（1/2 など）は、ひとつのタップとみなす。
+// 片方を押したら、同じ時刻の隣のボタンのタップも同じずれでまとめて取る（指1本で2つのボタンの境目を押せばよい）
+function hitEachPair(first, t) {
+  if (!first.each || first.lane == null) return;
+  for (const n of scanCands(t, n => n.type === 'tap' && n.each && Math.abs(n.t - first.t) < 1e-3 && Math.abs(mod8(n.lane - first.lane + 4) - 4) === 1)) {
+    n.grp = true; applyHit(n, t);
+  }
 }
 // タップとタッチのどちらも取れるとき、どちらを取るか。時間の近さだけで決めると、
 // ボタンの間（D・E）のタッチを押したのに隣のボタンのタップを取ってしまい、両方ミスになることがある
@@ -2913,7 +2925,7 @@ function rebase(pos, resetNotes) {
   killBus(bus); bus = makeBus(); stopTrack(false);
   if (resetNotes) {
     for (const n of r.notes) {
-      if (n.t >= pos && !n.skip) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.rel = 0; n.lastT = null; n.jr = null; n.asRaw = null; n.asInner = false; }
+      if (n.t >= pos && !n.skip) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.rel = 0; n.lastT = null; n.jr = null; n.asRaw = null; n.asInner = false; n.grp = false; }
       else n.fin = true;
     }
     r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
