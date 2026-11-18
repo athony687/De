@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v137</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v138</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -900,6 +900,21 @@ function parseSimai(src) {
   flush();
   return { notes, timing, bpm: bpm0 || 120, unknown };
 }
+// 隣どうしのボタンの EACH タップ（1/2・8/1 など）は、ひとつのタップとみなす。
+// 2つを組にして（a.pair / b.pair）、片方（b）は見やすいように描かない（b.hid）。どちらかを取れば両方取れる
+function pairEach(notes) {
+  const taps = notes.filter(n => n.type === 'tap' && n.each && !n.star && n.lane != null);
+  for (let i = 0; i < taps.length;) {
+    let j = i; while (j < taps.length && Math.abs(taps[j].t - taps[i].t) < 1e-4) j++;
+    const g = taps.slice(i, j).sort((a, b) => a.lane - b.lane), used = new Set();
+    const tryPair = (a, b) => { if (!used.has(a) && !used.has(b)) { used.add(a); used.add(b); a.pair = b; b.pair = a; b.hid = true; } };
+    for (let k = 0; k + 1 < g.length; k++) if (g[k + 1].lane - g[k].lane === 1) tryPair(g[k], g[k + 1]);
+    // 8 と 1 も隣どうし（8 の方を残す）
+    const l1 = g.find(n => n.lane === 0), l8 = g.find(n => n.lane === 7);
+    if (l1 && l8) tryPair(l8, l1);
+    i = j;
+  }
+}
 function finalize(notes, tail = 2) {
   notes.sort((a, b) => a.t - b.t || ((a.lane == null) ? -1 : a.lane) - ((b.lane == null) ? -1 : b.lane));
   const markEach = list => {
@@ -911,6 +926,7 @@ function finalize(notes, tail = 2) {
   };
   markEach(notes.filter(n => n.type !== 'slide'));
   markEach(notes.filter(n => n.type === 'slide'));
+  pairEach(notes);
   let end = 0;
   for (const n of notes) end = Math.max(end, n.t + (n.dur || 0), n.s1 || 0);
   return { notes, units: notes.length, endT: end + tail };
@@ -2126,7 +2142,12 @@ function applyHit(n, t, assisted, pid) {
   const d = isTouch(n) ? Math.max(0, t - n.t) : t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
   // タッチは早く押しても減点しないので、早めに押すのがふつう。タイミングの自動調整には数えない（数えると判定が遅い側へずれていく）
   if (!run.auto && !run.demo && !assisted && !isTouch(n) && Number.isFinite(d)) run.devs.push((t - n.t) / (run.rate || 1));
-  if (n.type === 'tap') { fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n); }
+  if (n.type === 'tap') {
+    fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n);
+    // 組になった EACH の相方も、同じずれでまとめて取る
+    const m = n.pair;
+    if (m && !m.fin) { fin(m); m.grp = true; press(m.lane, performance.now()); const [qx, qy] = lanePt(m.lane); judge(j, d, qx, qy, colOf(m), 'tap', m); }
+  }
   else if (n.type === 'touch') { fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n); }
   else {
     n.hh = true; n.hj = j; n.hd = d; n.holding = true; n.rel = 0; n.lastT = t; n.hp = pid != null ? pid : downId;
@@ -2145,7 +2166,10 @@ function hitTouchGroup(first, t, near) {
 // 境目のすぐ近く（NEIGHBOR_ZONE 以内）を押していれば隣のボタンのノーツも取る。
 // 隣から取るのは GREAT 幅以内のノーツだけにして、指のぶれや余計な指で隣のノーツを横取りしない
 // （横取りすると、そのノーツを叩きに来た本来の指が空振りしてミスになる）
-const NEIGHBOR_ZONE = .16;   // 境目から約9°以内
+const NEIGHBOR_ZONE = .16;
+// 相方の指がこのボタンの EACH もまとめて取っていたら、この指は同じ EACH を押しに来た指。
+// まとめて取ったノーツより次のノーツ（tap）の方が時刻が近いときだけ取る（次のノーツを早取りしない）
+const pairTaken = (tap, k, t) => run.notes.some(m => m.grp && m.lane === k && m.t < tap.t && Math.abs(t - m.t) <= W_G && Math.abs(t - m.t) <= Math.abs(t - tap.t));   // 境目から約9°以内
 function hitPointer(nx, ny, t) {
   const rg = regionAt(nx, ny); if (rg < 0) return;
   let tap = null;
@@ -2158,7 +2182,7 @@ function hitPointer(nx, ny, t) {
     if (tap && tap.t - t > W_G && run.notes.some(m => m.fin && m.asRaw != null && m.lane === k && m.type === 'tap' && Math.abs(t - m.t) <= W_G)) tap = null;
     // 隣のボタンを押した指がこのボタンの EACH もまとめて取っていたら、この指は同じ EACH を押しに来た指。
     // まとめて取ったノーツより次のノーツの方が時刻が近いときだけ取る（次のノーツを早取りしない）
-    else if (tap && run.notes.some(m => m.grp && m.lane === k && m.t < tap.t && Math.abs(t - m.t) <= W_G && Math.abs(t - m.t) <= Math.abs(t - tap.t))) tap = null;
+    else if (tap && pairTaken(tap, k, t)) tap = null;
     else if (!tap && Math.abs(off) > Q / 2 - NEIGHBOR_ZONE) {
       const L = mod8(k + (off > 0 ? 1 : -1));
       tap = scanCands(t, n => isHead(n) && n.lane === L && Math.abs(t - n.t) <= W_G)[0] || null;
@@ -2176,15 +2200,6 @@ function hitPointer(nx, ny, t) {
   if (!pick) return;
   applyHit(pick, t);
   if (isTouch(pick)) hitTouchGroup(pick, t, n => distTo(n.pos, nx, ny) < .7);
-  else hitEachPair(pick, t);
-}
-// 隣どうしのボタンの EACH タップ（1/2 など）は、ひとつのタップとみなす。
-// 片方を押したら、同じ時刻の隣のボタンのタップも同じずれでまとめて取る（指1本で2つのボタンの境目を押せばよい）
-function hitEachPair(first, t) {
-  if (!first.each || first.lane == null) return;
-  for (const n of scanCands(t, n => n.type === 'tap' && n.each && Math.abs(n.t - first.t) < 1e-3 && Math.abs(mod8(n.lane - first.lane + 4) - 4) === 1)) {
-    n.grp = true; applyHit(n, t);
-  }
 }
 // タップとタッチのどちらも取れるとき、どちらを取るか。時間の近さだけで決めると、
 // ボタンの間（D・E）のタッチを押したのに隣のボタンのタップを取ってしまい、両方ミスになることがある
@@ -2203,7 +2218,8 @@ function tapOrTouch(tap, tch, nx, ny, t) {
   return angGap(pa, ta) < angGap(pa, la) ? tch : tap;
 }
 function hitKey(lane, t) {
-  const tap = scanCands(t, n => isHead(n) && n.lane === lane)[0];
+  let tap = scanCands(t, n => isHead(n) && n.lane === lane)[0];
+  if (tap && pairTaken(tap, lane, t)) tap = null;
   const tch = scanCands(t, n => isTouch(n) && !isCenter(n.pos) && nearestLane(n.pos) === lane)[0];
   let pick = tap || tch;
   if (tap && tch) pick = Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch;
@@ -2265,7 +2281,7 @@ function judge(j, d, px, py, col, kind, n) {
   let fl = '';
   if ((j === 1 || j === 2) && Number.isFinite(d)) { if (d < 0) { fl = 'FAST'; r.fast++; } else { fl = 'LATE'; r.late++; } }
   const inner = kind === 'touch';
-  r.txt.push({ x: inner ? px : px * .72, y: inner ? py - .17 : py * .72, j, cr: crit, fl, t: performance.now() });
+  if (!(n && n.hid)) r.txt.push({ x: inner ? px : px * .72, y: inner ? py - .17 : py * .72, j, cr: crit, fl, t: performance.now() });
   // 叩いたときの光のエフェクトは出さない（音だけ鳴らす）
   if (j < 3) {
     if (n && n.fw) se('fw');
@@ -2726,7 +2742,7 @@ function draw(now, pf) {
   for (let i = last - 1; i >= run.first; i--) { const n = notes[i]; if (isTouch(n) && !n.fin) drawTouch(n, now); }
   for (let i = last - 1; i >= run.first; i--) {
     const n = notes[i];
-    if (n.type !== 'tap' || n.fin) continue;
+    if (n.type !== 'tap' || n.fin || n.hid) continue;
     const ph = 1 - (n.t - now) / A;
     if (ph < -.25) continue;
     let r, s = 1;
