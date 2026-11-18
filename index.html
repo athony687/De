@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v138</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v139</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -900,18 +900,25 @@ function parseSimai(src) {
   flush();
   return { notes, timing, bpm: bpm0 || 120, unknown };
 }
-// 隣どうしのボタンの EACH タップ（1/2・8/1 など）は、ひとつのタップとみなす。
-// 2つを組にして（a.pair / b.pair）、片方（b）は見やすいように描かない（b.hid）。どちらかを取れば両方取れる
-function pairEach(notes) {
-  const taps = notes.filter(n => n.type === 'tap' && n.each && !n.star && n.lane != null);
-  for (let i = 0; i < taps.length;) {
-    let j = i; while (j < taps.length && Math.abs(taps[j].t - taps[i].t) < 1e-4) j++;
-    const g = taps.slice(i, j).sort((a, b) => a.lane - b.lane), used = new Set();
-    const tryPair = (a, b) => { if (!used.has(a) && !used.has(b)) { used.add(a); used.add(b); a.pair = b; b.pair = a; b.hid = true; } };
-    for (let k = 0; k + 1 < g.length; k++) if (g[k + 1].lane - g[k].lane === 1) tryPair(g[k], g[k + 1]);
-    // 8 と 1 も隣どうし（8 の方を残す）
-    const l1 = g.find(n => n.lane === 0), l8 = g.find(n => n.lane === 7);
-    if (l1 && l8) tryPair(l8, l1);
+// 同じ時刻で隣どうしのマスにあるタッチ（つながって見えるタッチ）は、ひとつのタッチとみなす。
+// 1つだけ描いて（ほかは m.hid）、どれかを取れば全部取れる（n.tg が同じ組の全員）。タッチホールドはそのまま
+const TOUCH_LINK = .52;   // これより近いタッチどうしをつなげる（E同士が約0.49、Bと隣のEが約0.27）
+function linkTouches(notes) {
+  const ts = notes.filter(n => n.type === 'touch' && n.pos);
+  for (let i = 0; i < ts.length;) {
+    let j = i; while (j < ts.length && Math.abs(ts[j].t - ts[i].t) < 1e-4) j++;
+    const left = ts.slice(i, j);
+    while (left.length > 1) {
+      // 近くのタッチがいちばん多いものを残して、その近くのタッチを消す
+      let lead = null, mates = null;
+      for (const a of left) {
+        const m = left.filter(b => b !== a && Math.hypot(a.pos[0] - b.pos[0], a.pos[1] - b.pos[1]) < TOUCH_LINK);
+        if (!mates || m.length > mates.length || (m.length === mates.length && a.brk && !lead.brk)) { lead = a; mates = m; }
+      }
+      if (!mates.length) break;
+      const tg = [lead, ...mates];
+      for (const m of tg) { m.tg = tg; m.hid = m !== lead; left.splice(left.indexOf(m), 1); }
+    }
     i = j;
   }
 }
@@ -926,7 +933,7 @@ function finalize(notes, tail = 2) {
   };
   markEach(notes.filter(n => n.type !== 'slide'));
   markEach(notes.filter(n => n.type === 'slide'));
-  pairEach(notes);
+  linkTouches(notes);
   let end = 0;
   for (const n of notes) end = Math.max(end, n.t + (n.dur || 0), n.s1 || 0);
   return { notes, units: notes.length, endT: end + tail };
@@ -2142,13 +2149,12 @@ function applyHit(n, t, assisted, pid) {
   const d = isTouch(n) ? Math.max(0, t - n.t) : t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
   // タッチは早く押しても減点しないので、早めに押すのがふつう。タイミングの自動調整には数えない（数えると判定が遅い側へずれていく）
   if (!run.auto && !run.demo && !assisted && !isTouch(n) && Number.isFinite(d)) run.devs.push((t - n.t) / (run.rate || 1));
-  if (n.type === 'tap') {
-    fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n);
-    // 組になった EACH の相方も、同じずれでまとめて取る
-    const m = n.pair;
-    if (m && !m.fin) { fin(m); m.grp = true; press(m.lane, performance.now()); const [qx, qy] = lanePt(m.lane); judge(j, d, qx, qy, colOf(m), 'tap', m); }
+  if (n.type === 'tap') { fin(n); const [px, py] = lanePt(n.lane); press(n.lane, performance.now()); judge(j, d, px, py, col, 'tap', n); }
+  else if (n.type === 'touch') {
+    fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n);
+    // つながったタッチは、組の全員を同じずれでまとめて取る
+    if (n.tg) for (const m of n.tg) if (!m.fin) { fin(m); m.grp = true; judge(j, d, m.pos[0], m.pos[1], colOf(m), 'touch', m); }
   }
-  else if (n.type === 'touch') { fin(n); judge(j, d, n.pos[0], n.pos[1], col, 'touch', n); }
   else {
     n.hh = true; n.hj = j; n.hd = d; n.holding = true; n.rel = 0; n.lastT = t; n.hp = pid != null ? pid : downId;
     if (n.type === 'hold') press(n.lane, performance.now());
@@ -2166,10 +2172,7 @@ function hitTouchGroup(first, t, near) {
 // 境目のすぐ近く（NEIGHBOR_ZONE 以内）を押していれば隣のボタンのノーツも取る。
 // 隣から取るのは GREAT 幅以内のノーツだけにして、指のぶれや余計な指で隣のノーツを横取りしない
 // （横取りすると、そのノーツを叩きに来た本来の指が空振りしてミスになる）
-const NEIGHBOR_ZONE = .16;
-// 相方の指がこのボタンの EACH もまとめて取っていたら、この指は同じ EACH を押しに来た指。
-// まとめて取ったノーツより次のノーツ（tap）の方が時刻が近いときだけ取る（次のノーツを早取りしない）
-const pairTaken = (tap, k, t) => run.notes.some(m => m.grp && m.lane === k && m.t < tap.t && Math.abs(t - m.t) <= W_G && Math.abs(t - m.t) <= Math.abs(t - tap.t));   // 境目から約9°以内
+const NEIGHBOR_ZONE = .16;   // 境目から約9°以内
 function hitPointer(nx, ny, t) {
   const rg = regionAt(nx, ny); if (rg < 0) return;
   let tap = null;
@@ -2180,9 +2183,6 @@ function hitPointer(nx, ny, t) {
     // 同じボタンのノーツを、すべらせた指（補助）がついさっき取っていたら、この指はそのノーツを叩きに来た指。
     // ここで次のノーツ（連打の2つ目）を早取りすると、そのあとの連打が1つずつずれて抜けるので、何も取らない
     if (tap && tap.t - t > W_G && run.notes.some(m => m.fin && m.asRaw != null && m.lane === k && m.type === 'tap' && Math.abs(t - m.t) <= W_G)) tap = null;
-    // 隣のボタンを押した指がこのボタンの EACH もまとめて取っていたら、この指は同じ EACH を押しに来た指。
-    // まとめて取ったノーツより次のノーツの方が時刻が近いときだけ取る（次のノーツを早取りしない）
-    else if (tap && pairTaken(tap, k, t)) tap = null;
     else if (!tap && Math.abs(off) > Q / 2 - NEIGHBOR_ZONE) {
       const L = mod8(k + (off > 0 ? 1 : -1));
       tap = scanCands(t, n => isHead(n) && n.lane === L && Math.abs(t - n.t) <= W_G)[0] || null;
@@ -2192,7 +2192,8 @@ function hitPointer(nx, ny, t) {
   // 時間順だけだと、隣のマスの取り残したタッチを先に取ってしまい、押したタッチが反応しないことがあった
   // 指の腹で押すと触れた中心が1cmほどずれて、隣のマスを押した扱いになる。マスが合うかどうかではなく、
   // 「時刻の近さ」と「押した所からの近さ」を合わせて、いちばん合うタッチを取る
-  const near = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR);
+  // つながったタッチをまとめて取ったすぐあとに、同じ所を押した別の指は、次のタッチを早取りしない
+  const near = scanCands(t, n => isTouch(n) && distTo(n.pos, nx, ny) < TR && !run.notes.some(m => m.grp && m.t < n.t && Math.abs(t - m.t) <= T_G && Math.abs(t - m.t) <= Math.abs(t - n.t) && distTo(m.pos, nx, ny) < TR));
   let tch = null, tc = Infinity;
   for (const n of near) { const c = Math.abs(t - n.t) / T_D + .3 * distTo(n.pos, nx, ny) / TR; if (c < tc) { tc = c; tch = n; } }
   let pick = tap || tch;
@@ -2218,8 +2219,7 @@ function tapOrTouch(tap, tch, nx, ny, t) {
   return angGap(pa, ta) < angGap(pa, la) ? tch : tap;
 }
 function hitKey(lane, t) {
-  let tap = scanCands(t, n => isHead(n) && n.lane === lane)[0];
-  if (tap && pairTaken(tap, lane, t)) tap = null;
+  const tap = scanCands(t, n => isHead(n) && n.lane === lane)[0];
   const tch = scanCands(t, n => isTouch(n) && !isCenter(n.pos) && nearestLane(n.pos) === lane)[0];
   let pick = tap || tch;
   if (tap && tch) pick = Math.abs(tap.t - t) <= Math.abs(tch.t - t) ? tap : tch;
@@ -2739,10 +2739,10 @@ function draw(now, pf) {
   let last = run.first; while (last < notes.length && notes[last].t <= vis) last++;
   for (let i = run.first; i < last; i++) { const n = notes[i]; if (n.type === 'slide' && !n.fin) drawSlidePath(n, now, pf); }
   for (let i = last - 1; i >= run.first; i--) { const n = notes[i]; if (n.type === 'hold' && !n.fin) drawHold(n, now, pf); }
-  for (let i = last - 1; i >= run.first; i--) { const n = notes[i]; if (isTouch(n) && !n.fin) drawTouch(n, now); }
+  for (let i = last - 1; i >= run.first; i--) { const n = notes[i]; if (isTouch(n) && !n.fin && !n.hid) drawTouch(n, now); }
   for (let i = last - 1; i >= run.first; i--) {
     const n = notes[i];
-    if (n.type !== 'tap' || n.fin || n.hid) continue;
+    if (n.type !== 'tap' || n.fin) continue;
     const ph = 1 - (n.t - now) / A;
     if (ph < -.25) continue;
     let r, s = 1;
