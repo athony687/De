@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v139</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v140</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -1979,7 +1979,12 @@ function assignHands(notes) {
 }
 function newRun(song, opt) {
   lagHi = 0; lagAt = 0; fwSum = 0; fwN = 0; fwMax = 0;   // 合図の遅れ・描画の重さの記録はプレイごとに取り直す
-  const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0, rel: 0, lastT: null }));
+  const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0, rel: 0, lastT: null, grp: false }));
+  // つながったタッチの組（n.tg）は、コピーする前のノーツを指したままになっているので、このプレイ用のコピーに付け替える。
+  // 付け替えないと、組の残りが「元のノーツ」で判定されて、コピーの方は別にもう一度（MISS などで）判定され、
+  // 1つのノーツを2回数えて達成率が101%をこえたり、マイナスが増えすぎたりしていた
+  { const cp = new Map(song.notes.map((o, i) => [o, notes[i]]));
+    for (const n of notes) if (n.tg) n.tg = n.tg.map(o => cp.get(o) || o); }
   markSweeps(notes);
   // 同じボタンの次のノーツまでの間隔（流しの補助が、直接叩く指を待つ長さに使う）
   const nxt = new Array(8).fill(Infinity);
