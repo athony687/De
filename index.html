@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v141</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v142</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -789,7 +789,24 @@ function makeSlide(lane, segs, t, s0, s1, brk) {
   for (let i = 0; i <= n.K; i++) { const [x, y] = pathAt(n, Math.min(1, i * n.ss / n.len)); n.samp[i * 2] = x; n.samp[i * 2 + 1] = y; }
   n.chev = chevrons(n, L => L);
   n.end = pts[pts.length - 1];
+  n.cor = cornersOf(pts, n.cum);
   return n;
+}
+
+// 直線スライドの曲がり角（30°以上曲がる所）。人は角の手前で曲がり始めてショートカットするので、
+// 角の前後 ext までは、なぞらずに飛ばして次の辺へ進んでよいことにする（経路からの距離の許容 SL_TOL は同じ）。
+// 鋭い角ほど、同じように曲がっても角から離れるので、ext を長くする
+function cornersOf(pts, cum) {
+  const out = [];
+  for (let i = 1; i < pts.length - 1; i++) {
+    const ax = pts[i - 1][0] - pts[i][0], ay = pts[i - 1][1] - pts[i][1], bx = pts[i + 1][0] - pts[i][0], by = pts[i + 1][1] - pts[i][1];
+    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by); if (la < 1e-6 || lb < 1e-6) continue;
+    const th = Math.acos(clamp((ax * bx + ay * by) / (la * lb), -1, 1));   // 角の内側の角度（180° = まっすぐ）
+    if (th > Math.PI * 5 / 6) continue;
+    const ext = th < .45 ? .5 : clamp(.35 / Math.tan(th / 2), .6, .9);   // 折り返し（ほぼ180°もどる）は飛ばしすぎないよう短め
+    out.push({ L: cum[i], ext: Math.min(ext, la * .8, lb * .8) });
+  }
+  return out;
 }
 
 /* ================= simai parser ================= */
@@ -2096,7 +2113,10 @@ function advanceSlide(n, S) {
   if (!S.length) return;
   const tol2 = SL_TOL * SL_TOL;
   for (let guard = 0; guard < 24; guard++) {
-    const i0 = Math.floor(n.prog / n.ss), i1 = Math.min(n.K, Math.ceil((n.prog + SL_LOOK) / n.ss));
+    // 曲がり角の近くまでなぞれていたら、角をショートカットして次の辺に乗った指でも進める
+    let look = SL_LOOK;
+    if (n.cor) for (const c of n.cor) { const d = c.L - n.prog; if (d > 0 && d <= c.ext) look = Math.max(look, d + c.ext); }
+    const i0 = Math.floor(n.prog / n.ss), i1 = Math.min(n.K, Math.ceil((n.prog + look) / n.ss));
     // gate：このスライドをなぞれるようになる時刻。合図が遅れて届いたとき、それより前になぞった跡（前のスライドなど）は数えない
     let best = -1, bp = null;
     const gate = n.t - W_D;
