@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v142</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v143</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -647,6 +647,7 @@ function applyJudge(name) {
   const p = JUDGE_PRESETS[name] || JUDGE_PRESETS.wide;
   [W_P, W_G, W_D] = p.tap; [T_P, T_G, T_D] = p.touch; [SL_P, SL_G, SL_M] = p.slide;
   SL_TOL = SLIDE_TOL[name] || SLIDE_TOL.wide;
+  try { if (run) for (const n of run.notes) n.slw = null; } catch (e) {}
 }
 const TR = .56;                                   // タッチの当たり判定半径（リング=1）
 const PSEUDO = .015;                              // 疑似EACH（`）のずれ幅
@@ -2095,6 +2096,9 @@ function readInput() {
   return { h, P, S };
 }
 // スライド：経路に沿ってどこまでなぞれたか（許容幅 SL_TOL、先読み SL_LOOK）
+// なぞりを受け付け始めるのは ☆の時刻の 0.1 秒前から（maimai と同じ 6 フレーム前）。早くから受け付けると、
+// 前のスライドをなぞっている指が通っただけで、まだ☆が来ていないスライドが FAST GOOD で取れてしまう
+const SL_OPEN = .1;
 const SL_LOOK = .5;             // 一度に進めるのは経路の少し先まで（離れたボタンを押しても飛ばない）
 // 指の点 p が経路上の点 (sx, sy) をなぞったことになるか。
 // リング付近の経路（円周のスライドなど）は、リングの外側（ボタンのあたり）でも、リングの少し内側でも、
@@ -2119,7 +2123,7 @@ function advanceSlide(n, S) {
     const i0 = Math.floor(n.prog / n.ss), i1 = Math.min(n.K, Math.ceil((n.prog + look) / n.ss));
     // gate：このスライドをなぞれるようになる時刻。合図が遅れて届いたとき、それより前になぞった跡（前のスライドなど）は数えない
     let best = -1, bp = null;
-    const gate = n.t - W_D;
+    const gate = n.t - SL_OPEN;
     for (let i = i1; i > i0 && best < 0; i--) {
       const x = n.samp[i * 2], y = n.samp[i * 2 + 1];
       for (const p of S) {
@@ -2303,9 +2307,10 @@ function sweepTouch(st, x, y, t) {
   st.tl = best.pos;
 }
 // PERFECT・GREAT の中をずれの大きさで3つに分ける（0 = いちばん内側。PERFECT の 0 が CRITICAL PERFECT）
-function subTier(j, d, kind) {
+function subTier(j, d, kind, n) {
   if (j >= 2 || !Number.isFinite(d)) return 0;
-  const P = kind === 'slide' ? SL_P : kind === 'touch' ? T_P : W_P, G = kind === 'slide' ? SL_G : kind === 'touch' ? T_G : W_G;
+  const sw = kind === 'slide' && n && n.type === 'slide' ? slideWin(n) : null;
+  const P = sw ? sw.P : kind === 'slide' ? SL_P : kind === 'touch' ? T_P : W_P, G = sw ? sw.G : kind === 'slide' ? SL_G : kind === 'touch' ? T_G : W_G;
   const lo = j === 0 ? 0 : P, hi = j === 0 ? P : G, x = (Math.abs(d) - lo) / Math.max(hi - lo, 1e-6);
   return x <= 1 / 3 ? 0 : x <= 2 / 3 ? 1 : 2;
 }
@@ -2317,7 +2322,7 @@ function achieve(r, live) {
 }
 function judge(j, d, px, py, col, kind, n) {
   const r = run;
-  let q = subTier(j, d, kind);
+  let q = subTier(j, d, kind, n);
   if (n && n.ex && j < 3) { j = 0; q = 0; }
   if (n) n.jr = j;             // EXノーツ
   const crit = j === 0 && q === 0, w = n ? noteW(n) : 1;
@@ -2343,6 +2348,19 @@ function judge(j, d, px, py, col, kind, n) {
 /* ================= update ================= */
 // ホールド：始点はタップと同じ判定。押したまま終点まで行けばそのまま成功（終点で離さなくてよい）。
 // 途中で離しても押し直せる。離していた時間が長いほど評価が下がる
+/* スライドの判定は maimai でらっくす に合わせる。
+   ・基準の時刻は、☆が「最後のエリア」（終点のボタンのあたり）に入った時刻（☆が終点に着いた時刻ではない）。
+     指も最後のエリアに入ったところで取れるので、以前は☆が終点に着く時刻とくらべていて、ちょうどになぞっても FAST の GREAT・GOOD になっていた
+   ・☆が最後のエリアにいる時間 T の 1/4 だけ、PERFECT の幅を前後に広げる（最大 ±0.6 秒）。
+     ゆっくりのスライドほど PERFECT が出やすく、ふつうになぞれば GREAT・GOOD はほとんど出ない
+   ・早すぎ・遅すぎだけ GREAT・GOOD（FAST / LATE）。最後のエリアだけ残したときは LATE GOOD */
+const SL_LAST = .38;   // 最後のエリアの長さ（経路にそって。終点のボタンのマスに入ってから終点まで）
+function slideWin(n) {
+  if (n.slw) return n.slw;
+  const dur = Math.max(n.s1 - n.s0, .001), ref = n.s0 + dur * clamp((n.len - SL_LAST) / n.len, .5, 1), T = n.s1 - ref;
+  const P = Math.max(SL_P, Math.min(SL_P + T / 4, .6));
+  return (n.slw = { ref, P, G: Math.max(SL_G, P + .05) });
+}
 const HOLD_SHORT = .3;    // これより短いホールドはタップと同じ操作でOK（離しても減点なし）
 const HOLD_GRACE = .15;   // 終点の直前は離しても数えない
 function holdGrade(n, dur) {
@@ -2408,10 +2426,18 @@ function update(now, pf) {
       if (now >= n.s1) { n.prog = n.len; fin(n); judge(0, NaN, ex, ey, col, 'slide', n); }
       continue;
     }
-    if (now < n.t - W_D) continue;
+    if (now < n.t - SL_OPEN) continue;
     advanceSlide(n, S);
-    if (n.prog >= n.len - .18) { fin(n); const d = (n.progT != null ? Math.min(n.progT, nj) : nj) - n.s1, ad = Math.abs(d); judge(ad <= SL_P ? 0 : ad <= SL_G ? 1 : 2, d, ex, ey, col, 'slide', n); }
-    else if (nj > n.s1 + SL_M + mg - MISS_LATE) { fin(n); judge(3, NaN, ex, ey, col, 'slide', n); }
+    if (n.prog >= n.len - .18) {
+      fin(n); const w = slideWin(n), d = (n.progT != null ? Math.min(n.progT, nj) : nj) - w.ref, ad = Math.abs(d);
+      judge(ad <= w.P ? 0 : ad <= w.G ? 1 : 2, d, ex, ey, col, 'slide', n);
+    }
+    else if (nj > n.s1 + SL_M + mg - MISS_LATE) {
+      fin(n);
+      // maimai と同じ：最後のエリアだけなぞり残したときは MISS ではなく LATE GOOD
+      if (n.prog > 0 && n.prog >= n.len - .18 - SL_LAST) judge(2, nj - slideWin(n).ref, ex, ey, col, 'slide', n);
+      else judge(3, NaN, ex, ey, col, 'slide', n);
+    }
   }
   while (r.first < notes.length && notes[r.first].fin) r.first++;
   r.held = h;
