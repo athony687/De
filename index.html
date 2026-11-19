@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v140</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v141</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2149,7 +2149,7 @@ function scanCands(t, pred) {
 }
 let downId = null;   // いま押した指の番号（ホールドの始点を取った指を覚えておく）
 function applyHit(n, t, assisted, pid) {
-  run.hitN = (run.hitN || 0) + 1;
+  run.hitN = (run.hitN || 0) + 1; run.lastHit = n;
   // タッチ（タッチホールドの始点も）は早く押しても FAST にしない。早い分はちょうどの時刻に押したのと同じ判定にする
   const d = isTouch(n) ? Math.max(0, t - n.t) : t - n.t, j = grade(d, isTouch(n)), col = colOf(n);
   // タッチは早く押しても減点しないので、早めに押すのがふつう。タイミングの自動調整には数えない（数えると判定が遅い側へずれていく）
@@ -2245,16 +2245,42 @@ function slideIntoTouch(x0, y0, x1, y1, t, pid, st) {
   const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / .04));
   st = st || {};
   let cur = st.sid != null ? st.sid : sensorAt(ax, ay);
+  const lx = st.x0 != null ? (st.x0 - cx) / R : ax, ly = st.y0 != null ? (st.y0 - cy) / R : ay;
   for (let s = 1; s <= steps; s++) {
     const x = ax + (bx - ax) * s / steps, y = ay + (by - ay) * s / steps, ns = sensorAt(x, y);
+    // 押した所から少し動かした指は、タップと同じ当たり判定で、なぞって通ったタッチも取る（流し）
+    if (st.moved || Math.hypot(x - lx, y - ly) > .12) sweepTouch(st, x, y, t);
     if (ns < 0 || ns === cur) continue;
     // 境目で指がぷるぷるしても入ったことにしない（新しいマスの中心の方が少しはっきり近いときだけ入る）
     if (cur >= 0 && distTo(SENSORS[ns], x, y) > distTo(SENSORS[cur], x, y) - .03) continue;
     cur = ns;
     const n = scanCands(t, m => isTouch(m) && sidOf(m) === ns)[0];
-    if (n) applyHit(n, t, false, pid);
+    if (n) { applyHit(n, t, false, pid); st.tl = n.pos; }
   }
   st.sid = cur;
+}
+/* 流しでタッチを取る。以前は「指がそのタッチのマスに入った瞬間」だけ取っていたので、
+   ・指がマスの中心から少しずれた所（隣のマス）を通ると取れない（マスはタップの当たり判定 TR よりずっと小さい）
+   ・判定の時間になる前にマスに着いて、そのままなぞり続けると取れない
+   ことがあり、流しのタッチがよく無反応になっていた。
+   いまは、動かしている指がタッチから TR 以内（タップで押すときと同じ当たり判定。広げてはいない）にあって、
+   そのタッチが取れる時間なら取る。判定の幅（時間）も TR もそのまま。
+   ただし、その指がさっき取ったタッチ（st.tl）より新しいタッチの方に近づいてからにする。
+   こうしないと、1つ取った所で次のタッチ（隣のマス・同じマス）まで指を動かさずにまとめて取ってしまう。
+   同じ場所に続くタッチは、指がいったん離れて（TL_AWAY 以上）戻ってきたら取れる */
+const TL_AWAY = .28;
+function sweepTouch(st, x, y, t) {
+  if (st.tl && distTo(st.tl, x, y) > TL_AWAY) st.tl = null;
+  let best = null, bc = Infinity;
+  for (const n of scanCands(t, m => isTouch(m) && distTo(m.pos, x, y) < TR)) {
+    const dn = distTo(n.pos, x, y);
+    if (st.tl && dn >= distTo(st.tl, x, y)) continue;
+    const c = Math.abs(t - n.t) / T_D + .3 * dn / TR;
+    if (c < bc) { bc = c; best = n; }
+  }
+  if (!best) return;
+  applyHit(best, t, false, st.id);
+  st.tl = best.pos;
 }
 // PERFECT・GREAT の中をずれの大きさで3つに分ける（0 = いちばん内側。PERFECT の 0 が CRITICAL PERFECT）
 function subTier(j, d, kind) {
@@ -2313,6 +2339,9 @@ function update(now, pf) {
   else ({ h, S, P } = readInput());
   const notes = r.notes, nj = now - jShift();   // 判定用の時刻（判定タイミング補正の分ずらす）
   if (!r.auto) assistSweeps(nj);
+  // なぞってタッチの所に早めに着き、そのまま指を止めて待っていた（動かないので合図が来ない）ときも、
+  // そのタッチの時間になったら取る。少し前（0.4秒以内）まで動かしていた指だけ（置きっぱなしの指では取らない）
+  if (!r.auto) for (const p of ptrs.values()) if (p.moved && p.lt != null && nj - p.lt < .4) sweepTouch(p, (p.x - cx) / R, (p.y - cy) / R, nj);
   const mg = missGrace();
   for (let i = r.first; i < notes.length; i++) {
     const n = notes[i];
@@ -2946,7 +2975,7 @@ function rebase(pos, resetNotes) {
   killBus(bus); bus = makeBus(); stopTrack(false);
   if (resetNotes) {
     for (const n of r.notes) {
-      if (n.t >= pos && !n.skip) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.rel = 0; n.lastT = null; n.jr = null; n.asRaw = null; n.asInner = false; n.grp = false; }
+      if (n.t >= pos && !n.skip) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.progT = null; n.rel = 0; n.lastT = null; n.jr = null; n.asRaw = null; n.asInner = false; n.grp = false; }
       else n.fin = true;
     }
     r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
@@ -4247,7 +4276,9 @@ function fingerDown(id, clientX, clientY, ev, late) {
   const h0 = run.hitN || 0, t = tFix != null ? tFix : inT(ev);
   if (!run.auto && ev && ev.timeStamp > 0) { const lag = performance.now() - ev.timeStamp; if (lag >= 0 && lag < 5000) { const ic = run.ic || (run.ic = {}); ic.lag = Math.max(ic.lag || 0, Math.round(lag)); if (lag > 150) ic.slow = (ic.slow || 0) + 1; } }
   lagNote(ev);
+  const lh0 = run.lastHit;
   downId = id; hitPointer(nx, ny, t); downId = null;
+  { const p = ptrs.get(id), lh = run.lastHit; if (p && lh !== lh0 && lh && isTouch(lh)) p.tl = lh.pos; }
   // 入力チェック：ボタンを叩いたのに何も取れなかったとき、そのボタンの近くのノーツがどうなっていたかを数える
   if ((run.hitN || 0) === h0 && rg < 8) {
     let near = null;
