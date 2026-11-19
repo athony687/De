@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v143</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v144</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -586,7 +586,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
         <button type="button" class="play" id="retryBtn">もう一度</button>
         <button type="button" class="ghost" id="backBtn">曲選択へ</button>
       </div>
-      <p class="sharerow"><button type="button" class="mini" id="shareBtn" hidden>結果をシェア</button></p>
+      <p class="sharerow"><button type="button" class="mini" id="shareBtn" hidden>結果をシェア</button> <button type="button" class="mini" id="logBtn" hidden>入力ログを保存</button></p>
     </div>
   </section>
 </div>
@@ -3165,6 +3165,7 @@ function showResult(r) {
   }
   $('#resBest').textContent = msg;
   lifeResult(r, ch, acc);
+  lastLog = makeLog(r, ch); logBtn.hidden = !lastLog;
   if (r.kata || (r.life && r.life.failed)) { for (const id of ['#resTim', '#resNag', '#resCancel', '#coachBtn', '#drillBtn', '#resSplit', '#splitBtn', '#tokBtn']) $(id).hidden = true; nextDrill = null; coachPlan = null; }
   else {
     timingResult(r);
@@ -3183,6 +3184,29 @@ function showResult(r) {
 }
 /* ================= 結果のシェア（Web Share API） =================
    iPad では押した直後に共有シートを出さないと止められるので、画像はリザルトを出したときに先に作っておく */
+/* 入力ログの書き出し：譜面・設定・画面の大きさ・ノーツごとの判定と、指の合図（recT）をまとめて JSON にする */
+let lastLog = null;
+function makeLog(r, ch) {
+  if (!r || !r.rec || !r.rec.length) return null;
+  const sel = ['judge', 'jofs', 'jauto', 'ofs', 'nagashi', 'nassist', 'nlv', 'nauto', 'nspd', 'chart'], st = {};
+  for (const k of sel) st[k] = settings[k];
+  return { v: 1, ver: ($('#verTxt') || {}).textContent || '', at: new Date().toISOString(), ua: navigator.userAgent,
+    chart: ch ? { id: ch.id, title: ch.title, label: ch.label } : null, text: ch && !ch.builtin ? ((IMPORTS.find(x => x.id === ch.id) || {}).text || null) : null,
+    settings: st, rate: r.rate, practice: !!r.practice, drill: !!r.drill, base: r.base,
+    screen: { W, H, R, cx, cy, dpr }, ic: r.ic || null, cancels: r.cancels || 0,
+    jr: r.notes.map(n => n.jr == null ? -1 : n.jr), ev: r.rec };
+}
+const logBtn = $('#logBtn');
+logBtn.addEventListener('click', () => {
+  if (!lastLog) return;
+  const name = 'waiwai-log-' + lastLog.at.replace(/[:.]/g, '-').slice(0, 19) + '.json';
+  const blob = new Blob([JSON.stringify(lastLog)], { type: 'application/json' });
+  let file = null; try { file = new File([blob], name, { type: 'application/json' }); } catch (e) {}
+  if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: name }).catch(err => { if (!err || err.name !== 'AbortError') dl(); });
+  } else dl();
+  function dl() { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); toast('入力ログを保存しました'); }
+});
 const shareBtn = $('#shareBtn');
 let shareData = null;
 const canShare = !!navigator.share, canCopy = !!(navigator.clipboard && navigator.clipboard.writeText);
@@ -4488,7 +4512,19 @@ if (TOUCH_EV) {
      そこで、イベントのたびに「いま画面に触れている指の一覧」（e.touches）と見比べて、
      押した合図が来ていない指は見つけた時点で押したことにし、一覧から消えた指は離したことにする */
   const seenT = new Set();
-  let lastTS = null;   // 前の指の合図の時刻（曲の時刻）
+  let lastTS = null;
+  // 入力ログ：iPad で実際に届いた指の合図をそのまま記録する（リザルトの「入力ログを保存」で書き出し、こちらで再生して原因を調べる）
+  const RCODE = { touchstart: 0, touchmove: 1, touchend: 2, touchcancel: 3 };
+  const recT = e => {
+    const r = run;
+    if (!r || mode !== 'play' || r.paused || r.auto || r.demo || r.over) return;
+    const L = r.rec || (r.rec = []);
+    if (L.length > 120000) return;
+    const pf = performance.now(), f4 = v => Math.round(v * 1e4) / 1e4;
+    const one = t => [t.identifier, f4((t.clientX - ar.left - cx) / R), f4((t.clientY - ar.top - cy) / R), Math.round(t.radiusX || 0)];
+    // [種類, 受け取った時刻, 合図の時刻, 曲の時刻, 変わった指, 触れている指ぜんぶ]
+    L.push([RCODE[e.type], Math.round(pf * 10) / 10, Math.round((e.timeStamp || 0) * 10) / 10, f4(songAt(pf)), [...e.changedTouches].map(one), [...e.touches].map(one)]);
+  };   // 前の指の合図の時刻（曲の時刻）
   const icOf = () => (mode === 'play' && run && !run.paused && !run.auto && !run.demo) ? (run.ic || (run.ic = {})) : null;
   const icAdd = k => { const ic = icOf(); if (ic) ic[k] = (ic[k] || 0) + 1; };
   /* 指の合図の時刻。iPad の Safari は、ほかの指を押したままだと、合図の時刻（timeStamp）に
@@ -4516,12 +4552,14 @@ if (TOUCH_EV) {
   cv.addEventListener('touchstart', e => {
     if (mode !== 'play' || !run) { for (const t of e.changedTouches) seenT.add(tid(t)); return; }
     e.preventDefault();
+    recT(e);
     const te = touchTime(e);
     for (const t of e.changedTouches) { icAdd('start'); seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, te); }
     syncTouches(e, te); lastTS = liveT(te);
   }, { passive: false });
   // 動かした・離した合図は passive で受ける（preventDefault しない。スクロールや拡大は touch-action:none と touchstart の preventDefault で止めている）
   cv.addEventListener('touchmove', e => {
+    recT(e);
     const te = touchTime(e);
     lagNote(te);
     for (const t of e.changedTouches) {
@@ -4532,6 +4570,7 @@ if (TOUCH_EV) {
     syncTouches(e, te); lastTS = liveT(te);
   }, { passive: true });
   const tEnd = e => {
+    recT(e);
     const te = touchTime(e);
     lagNote(te);
     // iPad が指の入力を取り消した（4本指・5本指のジェスチャや、手のひらと見なしたとき）。リザルトで知らせる
