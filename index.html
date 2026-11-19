@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v145</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v146</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -1996,6 +1996,7 @@ function assignHands(notes) {
   return tips;
 }
 function newRun(song, opt) {
+  whiffs.length = 0;
   lagHi = 0; lagAt = 0; fwSum = 0; fwN = 0; fwMax = 0;   // 合図の遅れ・描画の重さの記録はプレイごとに取り直す
   const notes = song.notes.map(n => ({ ...n, fin: false, hh: false, holding: false, prog: 0, rel: 0, lastT: null, grp: false }));
   // つながったタッチの組（n.tg）は、コピーする前のノーツを指したままになっているので、このプレイ用のコピーに付け替える。
@@ -2197,6 +2198,33 @@ const distTo = (p, x, y) => Math.hypot(p[0] - x, p[1] - y);
 function hitTouchGroup(first, t, near) {
   for (const n of scanCands(t, n => isTouch(n) && Math.abs(n.t - first.t) < .02 && near(n))) applyHit(n, t);
 }
+/* 空振りの拾い直し（Phigros・プロセカなどと同じく「叩いた指が当たり判定の中にあって、時間の幅の中なら取れる」を必ず守る）。
+   押した指がどのノーツにも使われなかったとき（空振り）を覚えておき、ノーツが MISS になる直前に、
+   そのノーツの当たり判定（タップはボタンの向き・境目の近く、タッチは TR 以内）と時間の幅の中に、
+   まだ使っていない空振りがあれば、その時刻で取ったことにする。
+   横取りを防ぐ細かい決まりや、合図の届く順番のせいで、ちゃんと叩いたのに取れなかったノーツを MISS にしない。
+   判定の幅も当たり判定も広げていない（同じ幅・同じ範囲で、使われなかった入力を使うだけ） */
+const whiffs = [];
+function rescueWhiff(n) {
+  if (!whiffs.length || run.auto) return false;
+  const w0 = winD(n);
+  let best = null;
+  for (const w of whiffs) {
+    if (w.used || Math.abs(w.t - n.t) > w0) continue;
+    let ok;
+    if (isTouch(n)) ok = distTo(n.pos, w.x, w.y) < TR;
+    else {
+      if (Math.hypot(w.x, w.y) < .14) continue;
+      const a = Math.atan2(w.y, w.x);
+      ok = angGap(a, laneAng(n.lane)) < Q / 2 + NEIGHBOR_ZONE;
+    }
+    if (ok && (!best || Math.abs(w.t - n.t) < Math.abs(best.t - n.t))) best = w;
+  }
+  if (!best) return false;
+  best.used = true;
+  applyHit(n, best.t, false, best.id);
+  return true;
+}
 // 押した方向のボタンのノーツを最優先で取る。そのボタンに取れるノーツがないときだけ、
 // 境目のすぐ近く（NEIGHBOR_ZONE 以内）を押していれば隣のボタンのノーツも取る。
 // 隣から取るのは GREAT 幅以内のノーツだけにして、指のぶれや余計な指で隣のノーツを横取りしない
@@ -2389,7 +2417,7 @@ function update(now, pf) {
     if (n.type === 'tap' || n.type === 'touch') {
       const [px, py] = n.type === 'tap' ? lanePt(n.lane) : n.pos, kind = n.type === 'tap' ? 'tap' : 'touch';
       if (r.auto) { if (now >= n.t) { fin(n); if (n.type === 'tap') press(n.lane, pf); judge(0, NaN, px, py, col, kind, n); } }
-      else if (nj > n.t + winD(n) + mg) { fin(n); judge(3, NaN, px, py, col, kind, n); }
+      else if (nj > n.t + winD(n) + mg) { if (rescueWhiff(n)) continue; fin(n); judge(3, NaN, px, py, col, kind, n); }
       continue;
     }
     if (n.type === 'hold' || n.type === 'thold') {
@@ -2398,7 +2426,7 @@ function update(now, pf) {
         if (r.auto) {
           if (now < n.t) continue;
           n.hh = true; n.hj = 0; n.hd = NaN; n.holding = true; n.rel = 0; n.lastT = now; if (!isT) press(n.lane, pf);
-        } else { if (nj > n.t + winD(n) + mg) { fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
+        } else { if (nj > n.t + winD(n) + mg) { if (rescueWhiff(n)) continue; fin(n); judge(3, NaN, px, py, col, kind, n); } continue; }
       }
       const dur = Math.max(n.dur, .05), te = n.t + dur;
       if (r.auto && !isT) h[n.lane] = true;
@@ -3017,7 +3045,7 @@ const curSong = () => run.paused ? run.pausedAt + settings.ofs / 1000 : songRaw(
 // pos（曲の時刻）から再生し直す。resetNotes なら pos 以降のノーツを未判定に戻す
 function rebase(pos, resetNotes) {
   const r = run;
-  sweeps.length = 0;
+  sweeps.length = 0; whiffs.length = 0;
   killBus(bus); bus = makeBus(); stopTrack(false);
   if (resetNotes) {
     for (const n of r.notes) {
@@ -4348,6 +4376,7 @@ function fingerDown(id, clientX, clientY, ev, late) {
   lagNote(ev);
   const lh0 = run.lastHit;
   downId = id; hitPointer(nx, ny, t); downId = null;
+  if ((run.hitN || 0) === h0) { whiffs.push({ t, x: nx, y: ny, id, used: false }); if (whiffs.length > 64) whiffs.shift(); }
   { const p = ptrs.get(id), lh = run.lastHit; if (p && lh !== lh0 && lh && isTouch(lh)) p.tl = lh.pos; }
   // 入力チェック：ボタンを叩いたのに何も取れなかったとき、そのボタンの近くのノーツがどうなっていたかを数える
   if ((run.hitN || 0) === h0 && rg < 8) {
