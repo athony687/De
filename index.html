@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v144</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v145</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -4530,14 +4530,14 @@ if (TOUCH_EV) {
   /* 指の合図の時刻。iPad の Safari は、ほかの指を押したままだと、合図の時刻（timeStamp）に
      押したまま止まっている指の古い時刻（数秒前のこともある）を入れてくる。その時刻で判定すると、
      ちゃんと叩いたのに早すぎる扱いになって MISS や空振りになる。
-     そこで、2本以上触れているときと、時刻が古すぎるときは、合図を受け取った今の時刻を使う */
+     以前は「1本だけのときは合図の時刻、2本以上なら受け取った時刻」と使い分けていたが、それだと指の本数で
+     判定の時刻が数十ms ずれ、同じタイミングで叩いても判定がばらつく。
+     プロセカなどのアプリ（Unity）と同じく、すべての指を「ゲームが受け取った時刻」で判定する。
+     受け取るまでの一定の遅れは「判定タイミング」の補正（自動で合わせる）で打ち消す */
   const touchTime = e => {
     const n = performance.now(), t = e.timeStamp;
-    const ends = e.type === 'touchend' || e.type === 'touchcancel';
-    const many = e.touches.length + (ends ? e.changedTouches.length : 0) > 1;
-    const ok = t > 0 && t <= n + 5 && n - t < 120;
-    if (many && t > 0 && n - t >= 120) icAdd('stale');
-    return { timeStamp: !many && ok ? t : n };
+    if (t > 0 && n - t >= 120 && e.touches.length > 1) icAdd('stale');
+    return { timeStamp: n };
   };
   const syncTouches = (e, te) => {
     const live = new Set(), ic = icOf();
@@ -4554,6 +4554,7 @@ if (TOUCH_EV) {
     e.preventDefault();
     recT(e);
     const te = touchTime(e);
+    lagNote(e);
     for (const t of e.changedTouches) { icAdd('start'); seenT.add(tid(t)); fingerDown(tid(t), t.clientX, t.clientY, te); }
     syncTouches(e, te); lastTS = liveT(te);
   }, { passive: false });
@@ -4561,7 +4562,7 @@ if (TOUCH_EV) {
   cv.addEventListener('touchmove', e => {
     recT(e);
     const te = touchTime(e);
-    lagNote(te);
+    lagNote(e);
     for (const t of e.changedTouches) {
       const id = tid(t);
       if (!seenT.has(id)) { seenT.add(id); icAdd('late'); fingerDown(id, t.clientX, t.clientY, te, lastTS); }
@@ -4572,7 +4573,7 @@ if (TOUCH_EV) {
   const tEnd = e => {
     recT(e);
     const te = touchTime(e);
-    lagNote(te);
+    lagNote(e);
     // iPad が指の入力を取り消した（4本指・5本指のジェスチャや、手のひらと見なしたとき）。リザルトで知らせる
     if (e.type === 'touchcancel' && mode === 'play' && run && !run.paused && !run.auto && !run.demo) run.cancels = (run.cancels || 0) + e.changedTouches.length;
     for (const t of e.changedTouches) {
