@@ -365,7 +365,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v146</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v147</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -472,7 +472,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
           <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
-          <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも SSS+・SSS・SS・S の目安が付きます。プレイ中は、いま入っているいちばん上のランクの目安が真ん中に出ます（SSS+ の中は水色、S まではピンク、S をこえると赤）。目安は GREAT・GOOD・MISS が混ざる想定の数で、通常の通しプレイをするたびに、自分の結果（マイナスと達成率）に合わせて直っていきます。通常では達成率の記録もそのまま残ります。</li>
+          <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき（BREAK だけは達成率の減り方に合わせて重く数えます。BREAK が少ない譜面ほど1個が重く、ふつうの譜面で GREAT −5〜−11・MISS −20 前後です。CRITICAL 以外の PERFECT も少し減ります。曲選択に、その譜面の BREAK 1個ぶんが出ます）、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも SSS+・SSS・SS・S の目安が付きます。プレイ中は、いま入っているいちばん上のランクの目安が真ん中に出ます（SSS+ の中は水色、S まではピンク、S をこえると赤）。目安は GREAT・GOOD・MISS が混ざる想定の数で、通常の通しプレイをするたびに、自分の結果（マイナスと達成率）に合わせて直っていきます。通常では達成率の記録もそのまま残ります。</li>
           <li>「今週の課題曲」は7曲で、毎週月曜に入れかわります。課題は曲ごとに「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
         </ul>
@@ -2356,7 +2356,7 @@ function judge(j, d, px, py, col, kind, n) {
   const crit = j === 0 && q === 0, w = n ? noteW(n) : 1;
   r.cnt[j]++; r.jn++; r.gotW += w;
   if (r.life && !r.over && LIFE_DMG[j]) { r.life.cur = Math.max(0, r.life.cur - LIFE_DMG[j]); if (!r.life.cur) lifeFail(r); }
-  if (r.minus && LIFE_DMG[j]) r.minus.cur += LIFE_DMG[j];
+  if (r.minus) minusAdd(r, j, q, n);
   if (n && n.brk) { r.got += w * BRK_BASE[j][q]; r.bonus += BRK_BONUS[j][q]; r.bjn++; }
   else r.got += w * NRM_BASE[j];
   if (crit) r.cp++;
@@ -2919,7 +2919,7 @@ async function startPlayInner() {
   run = newRun(ch.song, { auto: settings.auto, practice: prac });
   run.rate = prac ? clamp(+settings.prate || .75, .1, 1) : 1;
   if (lifeOn() && !prac && !kataCur && !settings.auto) { const n = lifeN(); run.life = { max: n, cur: n, failed: false }; }
-  else if (minusOn() && !kataCur) run.minus = { cur: 0 };   // マイナス：0から始めて、ミスのぶんだけ減っていく（止まらない）
+  else if (minusOn() && !kataCur) run.minus = { cur: 0, raw: 0 };   // マイナス：0から始めて、ミスのぶんだけ減っていく（止まらない）
   if (kataCur) run.kata = { kind: kataCur.kind, bpm: kataCur.bpm, bars: kataCur.bars };
   let lead = .6;
   if (!ch.synth) {
@@ -3054,7 +3054,7 @@ function rebase(pos, resetNotes) {
     }
     r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
     r.cnt = [0, 0, 0, 0]; r.got = 0; r.jn = 0; r.gotW = 0; r.bonus = 0; r.bjn = 0; r.cp = 0; r.dx = 0; r.combo = 0; r.maxc = 0; r.fast = 0; r.late = 0;
-    if (r.minus) r.minus.cur = 0;   // 巻き戻したらマイナスも0に戻す
+    if (r.minus) { r.minus.cur = 0; r.minus.raw = 0; }   // 巻き戻したらマイナスも0に戻す
     r.units = r.notes.filter(n => !n.fin).length || 1;
     r.fx.length = 0; r.txt.length = 0; r.over = false; r.seeked = true; lastPress.fill(-1e9);
   }
@@ -3983,7 +3983,7 @@ songBox.addEventListener('click', e => {
 const LIFE_OPTS = [300, 150, 50, 10, 1], LIFE_DMG = [0, 2, 3, 5];
 const lifeN = () => LIFE_OPTS.includes(+settings.lifeN) ? +settings.lifeN : 150;
 const lifeOn = () => !!settings.life && !settings.practice && !settings.split;
-// 数え方「マイナス」：0が最高で、GREAT −2・GOOD −3・MISS −5 ずつ減っていく。通常・練習・4分割で選べる
+// 数え方「マイナス」：0が最高で、GREAT −2・GOOD −3・MISS −5 ずつ減っていく（BREAK は重み付け。下の brkMinus）。通常・練習・4分割で選べる
 const minusOn = () => settings.count === 'minus';
 const minusTxt = v => v ? '-' + v : '0';
 // 目安の出し方：マイナス1あたり、達成率が（GUIDE_C ÷ ノーツ数）% 下がるとして計算する。
@@ -3991,7 +3991,29 @@ const minusTxt = v => v ? '-' + v : '0';
 // （ミスがどのノーツにも同じように出るなら、1ミスで下がる % は 平均の重み ÷ 重みの合計 ＝ 1 ÷ ノーツ数 に比例する）。
 // TAP の GREAT だけなら 10、MISS だけなら 20。実際のプレイ（Destr0yer −81 で 99.4%、Schwarzschild −146 で S+）に合わせて最初は 17 にしておき、
 // 通常の通しプレイのたびに「実際に下がった % × ノーツ数 ÷ マイナス」を残して、その人の真ん中の値（直近20回）に合わせていく
-const GUIDE_C0 = 17, GUIDE_KEY = 'waiwai:minusC';
+// v147 から BREAK を重み付けしたので、それより前の学習の値（BREAK の減りを数えていない）は使わない
+const GUIDE_C0 = 17, GUIDE_KEY = 'waiwai:minusC2';
+// BREAK の重み付け：TAP・HOLD・SLIDE・TOUCH は GREAT −2・GOOD −3・MISS −5 のまま。
+// BREAK だけは、その判定で実際に下がる達成率（重み5の点数 ＋ BREAK ボーナス）を、マイナス1 ＝ (GUIDE_C0 ÷ ノーツ数)% で数に直す。
+// CRITICAL 以外の PERFECT（50落ち・100落ち）もボーナスが減るので小さく引く。BREAK の多い譜面・少ない譜面でも目安がずれにくくなる。
+// 1つずつ四捨五入すると小さいものが消えたりふくらんだりするので、小数のまま足して表示だけ整数にする
+function brkMinus(r, j, q, n) {
+  const lp = (r.totalW ? noteW(n) * (1 - BRK_BASE[j][q]) / r.totalW * 100 : 0) + (r.nBrk ? (1 - BRK_BONUS[j][q]) / r.nBrk : 0);
+  return lp * (r.units || 1) / GUIDE_C0;
+}
+// 曲選択に出す、この譜面の BREAK 1個ぶんのマイナス（GREAT は内側〜外側、MISS）
+function brkInfo(ch) {
+  const ns = ch && ch.song && ch.song.notes; if (!ns || !ns.length) return '';
+  const r = { totalW: ns.reduce((a, n) => a + noteW(n), 0), nBrk: ns.filter(n => n.brk).length, units: ns.length }, n = { brk: true, type: 'tap' };
+  if (!r.nBrk) return '';
+  const v = (j, q) => Math.max(1, Math.round(brkMinus(r, j, q, n)));
+  return `（BREAK 1個：GREAT ${minusTxt(v(1, 0))}〜${minusTxt(v(1, 2))}・MISS ${minusTxt(v(3, 0))}）`;
+}
+function minusAdd(r, j, q, n) {
+  const d = n && n.brk ? brkMinus(r, j, q, n) : LIFE_DMG[j];
+  if (!(d > 0)) return;
+  r.minus.raw = (r.minus.raw || 0) + d; r.minus.cur = Math.round(r.minus.raw);
+}
 function guideHist() { try { const v = JSON.parse(localStorage.getItem(GUIDE_KEY) || '[]'); return Array.isArray(v) ? v.filter(x => x > 0 && isFinite(x)) : []; } catch (e) { return []; } }
 function guideC() { const h = guideHist().slice().sort((a, b) => a - b); if (!h.length) return GUIDE_C0; const m = h.length >> 1, md = h.length % 2 ? h[m] : (h[m - 1] + h[m]) / 2; return clamp(md, 8, 40); }
 function guideLearn(acc, N, cur) { if (!(N > 0) || cur < 10) return; const c = (101 - acc) * N / cur; if (!(c > 0)) return; const h = guideHist(); h.push(Math.round(c * 100) / 100); try { localStorage.setItem(GUIDE_KEY, JSON.stringify(h.slice(-20))); } catch (e) {} }
@@ -4010,7 +4032,7 @@ function updLifeField() {
   const f = $('#lifeField'), on = lifeOn();
   f.hidden = !on; $('#countField').hidden = on;
   { const mg = $('#minusGuide'), gs = !on && minusOn() ? rankGuides(currentChart()) : null;
-    mg.hidden = !gs; if (gs) mg.textContent = `この譜面の目安：${guideLine(gs)}`; }
+    mg.hidden = !gs; if (gs) mg.textContent = `この譜面の目安：${guideLine(gs)}` + brkInfo(currentChart()); }
   if (!on) return;
   const ch = currentChart(), rec = ch ? getLifeRec(ch.bestKey) : {}, cur = lifeN();
   $('#lifeSegs').innerHTML = LIFE_OPTS.map(v =>
