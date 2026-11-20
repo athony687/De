@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v148</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v149</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -477,7 +477,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
           <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
-          <li>「おまかせで上達（やるだけ）」を押すと、ウォームアップ（いちばん苦手な配置の認識トレーニング）→ 課題曲を等速で通す → 難しい所でミスした所を 0.8倍から等速まで自動で復習 → もう一度通して確認 → 次の曲、を自動でくり返します。課題曲は、いまのレベル目安（1回目の通しの達成率で上げ下げ）に近くて、苦手な配置が多い曲・前に復習が残った曲から選びます。結果画面は6秒で自動で次へ進みます。止めるときは「おまかせを終わる」か曲選択へ。</li>
+          <li>「おまかせで上達（やるだけ）」を押すと、ウォームアップ（いちばん苦手な配置の認識トレーニング）→ 課題曲を等速で通す → 難しい所でミスした所を 0.8倍から等速まで自動で復習 → もう一度通して確認 → 次の曲、を自動でくり返します。課題曲は、いまのレベル目安の近く（実力どおり・背のび・精度上げを順に）で、苦手な配置が多い曲・前に復習が残った曲から選びます。レベル目安は、いまのレベル以上の曲を S（97%）以上で3曲クリアすると1つ上がります（14 → 14+ → 15）。結果画面は6秒で自動で次へ進みます。止めるときは「おまかせを終わる」か曲選択へ。</li>
           <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき（BREAK だけは達成率の減り方に合わせて重く数えます。BREAK が少ない譜面ほど1個が重く、ふつうの譜面で GREAT −5〜−11・MISS −20 前後です。CRITICAL 以外の PERFECT も少し減ります。曲選択に、その譜面の BREAK 1個ぶんが出ます）、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも SSS+・SSS・SS・S の目安が付きます。プレイ中は、いま入っているいちばん上のランクの目安が真ん中に出ます（SSS+ の中は水色、S まではピンク、S をこえると赤）。目安は GREAT・GOOD・MISS が混ざる想定の数で、通常の通しプレイをするたびに、自分の結果（マイナスと達成率）に合わせて直っていきます。通常では達成率の記録もそのまま残ります。</li>
           <li>「今週の課題曲」は7曲で、毎週月曜に入れかわります。課題は曲ごとに「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
@@ -633,7 +633,7 @@ const BODY = '"M PLUS Rounded 1c", "Hiragino Sans", system-ui, sans-serif';
 // 認識トレーニング（下の「認識トレーニング」の所で使う）
 const KATA_ID = 'k:kata';
 const KATA_KINDS = { renda: '連打流し', starrenda: '☆＋連打', nagashi: '流し', alt: '交互連打', yose: '寄せ同時押し', rot: '回転', mix: 'ミックス' };
-const KATA_HINT = { renda: '1,1,2,2,3,3', starrenda: '☆→同じ所→スライド', nagashi: '3〜5個をすべらせる', alt: '8,1,7,2 を左右で', yose: '1/8→2/7→3/6→4/5', rot: 'リングを回る6〜8個', mix: '全部まぜて出す' };
+const KATA_HINT = { renda: '1,1,2,2,3,3', starrenda: '☆→同じ所→スライド', nagashi: '長い流し・折り返し・両手（レベル1〜5）', alt: '8,1,7,2 を左右で', yose: '1/8→2/7→3/6→4/5', rot: 'リングを回る6〜8個', mix: '全部まぜて出す' };
 const KATA_BARS = 12;
 let kataCur = null;
 const TAU = Math.PI * 2, Q = Math.PI / 4, D2R = Math.PI / 180;
@@ -1802,7 +1802,7 @@ const normChart = t => { const x = String(t).replace(/\s+/g, ''); const i = x.in
 function chartInfo(id) {
   if (id === 'b:basic') return { id, builtin: true, synth: true, title: 'Neon Circuit', label: 'BASIC', lv: 'Lv.4', song: SONGS.basic, first: 0, bestKey: 'basic' };
   if (id === 'b:expert') return { id, builtin: true, synth: true, title: 'Neon Circuit', label: 'EXPERT', lv: 'Lv.9', song: SONGS.expert, first: 0, bestKey: 'expert' };
-  if (id === KATA_ID) return kataCur && kataCur.song ? { id, builtin: true, synth: false, title: '認識トレーニング', label: `${KATA_KINDS[kataCur.kind]} · BPM ${kataCur.bpm}`, lv: '', song: kataCur.song, first: 0, bestKey: KATA_ID } : null;
+  if (id === KATA_ID) return kataCur && kataCur.song ? { id, builtin: true, synth: false, title: '認識トレーニング', label: `${KATA_KINDS[kataCur.kind]}${kataCur.kind === 'nagashi' ? ' Lv' + (kataCur.lvl || NAG_DEF) : ''} · BPM ${kataCur.bpm}`, lv: '', song: kataCur.song, first: 0, bestKey: KATA_ID } : null;
   const bd = BUNDLED.find(x => x.id === id);
   if (bd) {
     if (!PARSED[id]) { PARSED[id] = parseChart(bd.text); if (bd.music) PARSED[id].mus = bd.music(); }
@@ -2927,7 +2927,7 @@ async function startPlayInner() {
   run.rate = prac ? clamp(+settings.prate || .75, .1, 1) : 1;
   if (lifeOn() && !prac && !kataCur && !settings.auto) { const n = lifeN(); run.life = { max: n, cur: n, failed: false }; }
   else if (minusOn() && !kataCur) run.minus = { cur: 0, raw: 0 };   // マイナス：0から始めて、ミスのぶんだけ減っていく（止まらない）
-  if (kataCur) run.kata = { kind: kataCur.kind, bpm: kataCur.bpm, bars: kataCur.bars };
+  if (kataCur) run.kata = { kind: kataCur.kind, bpm: kataCur.bpm, lvl: kataCur.lvl, bars: kataCur.bars };
   let lead = .6;
   if (!ch.synth) {
     const au = AUDIO[ch.id], firstNote = ch.song.notes[0].t;
@@ -4727,7 +4727,70 @@ addEventListener('resize', resize);
 const B8 = k => mod8(k) + 1;                 // 0〜7 → ボタン番号 1〜8
 const rndI = n => Math.floor(Math.random() * n);
 const rndDir = () => Math.random() < .5 ? 1 : -1;
-function kataBar(kind) {
+/* 流しのレベル（1〜5）。ミスなしなら次はレベル+1、レベル5でミスなしなら BPM +10
+   1：16分の流し3〜5個を、休みを長めに
+   2：4〜6個。24分がまざる。折り返し（1→4→1）が少し
+   3：4〜7個を休み短く。24分・折り返し・終わりの同時押しがまざる
+   4：5〜8個。24分が多い。両手流し（左右から同時に）もまざる
+   5：小節を休みなしの流しでうめる。次の流しは続きから・反対側から・別の所から */
+const NAG_MAX = 5, NAG_DEF = 3;
+const NAG_P = [null,
+  { n: [3, 5], st24: 0,   gap: 12, turn: 0,   each: 0,   both: 0 },
+  { n: [4, 6], st24: .3,  gap: 6,  turn: .15, each: 0,   both: 0 },
+  { n: [4, 7], st24: .45, gap: 3,  turn: .3,  each: .3,  both: 0 },
+  { n: [5, 8], st24: .65, gap: 3,  turn: .35, each: .3,  both: .25 },
+  { n: [6, 9], st24: .8,  gap: 0,  turn: .4,  each: .25, both: .3 },
+];
+function nagashiBar(c, put, lv) {
+  const P = NAG_P[clamp(Math.round(lv) || NAG_DEF, 1, NAG_MAX)], ds = [];
+  let at = 0, s = rndI(8), prevEnd = null, prevDir = 1;
+  while (at <= 47) {
+    const st = Math.random() < P.st24 ? 2 : 3;
+    const room = Math.floor((47 - at) / st) + 1;          // この小節にあと何個入るか
+    let n = Math.min(P.n[0] + rndI(P.n[1] - P.n[0] + 1), room);
+    if (n < 3) break;
+    const r = Math.random(), mode = r < P.both ? 'both' : r < P.both + P.turn && n >= 5 ? 'turn' : 'one';
+    let d = rndDir(), seq, mir = null;
+    if (mode === 'both') {
+      // 左右（または上下）に分けて、両手で同時に流す。半分の中だけを動くので、手が交差しない
+      const half = Math.random() < .5 ? [0, 1, 2, 3] : [6, 7, 0, 1];
+      mir = half[0] === 0 ? (k => mod8(7 - k)) : (k => mod8(3 - k));
+      n = Math.min(n, 3 + rndI(2));
+      const j0 = d > 0 ? rndI(4 - n + 1) : 3 - rndI(4 - n + 1);
+      seq = Array.from({ length: n }, (_, i) => half[j0 + d * i]);
+    } else {
+      // レベル3からは、前の流しの続き・反対側からも始まる
+      if (prevEnd != null && P.gap <= 3) {
+        const q = Math.random();
+        if (q < .4) { s = prevEnd + prevDir; d = prevDir; } else if (q < .7) s = prevEnd + 4; else s = rndI(8);
+      }
+      seq = [];
+      if (mode === 'turn') {
+        const go = Math.ceil(n / 2) + 1;
+        for (let i = 0; i < go; i++) seq.push(s + d * i);
+        for (let i = go - 2; seq.length < n; i--) seq.push(s + d * i);
+      } else for (let i = 0; i < n; i++) seq.push(s + d * i);
+    }
+    seq.forEach((k, i) => put(at + st * i, mir ? `${B8(k)}/${B8(mir(k))}` : B8(k)));
+    let last = at + st * (n - 1), e = seq[n - 1];
+    let txt = mode === 'both' ? `両手 ${B8(seq[0])}→${B8(e)}＋${B8(mir(seq[0]))}→${B8(mir(e))}`
+      : mode === 'turn' ? `${B8(seq[0])}→${B8(seq[Math.ceil(n / 2)])}→${B8(e)}`
+      : `${B8(seq[0])}→${B8(e)}`;
+    const dir = mode === 'turn' ? -d : d;
+    if (mode !== 'both' && Math.random() < P.each && last + st <= 47) {
+      // 流しの続きのボタンと、その左右反対のボタンを同時押しして終わる
+      e = mod8(e + dir); last += st; put(last, `${B8(e)}/${B8(7 - e)}`);
+      txt += `→${B8(e)}/${B8(7 - e)}同時`;
+    }
+    txt += `（${n}個${st === 2 ? '・24分' : ''}）`;
+    ds.push(txt);
+    prevEnd = mod8(e); prevDir = dir;
+    at = last + st + P.gap;
+    if (P.gap > 3) s = rndI(8);
+  }
+  return { cells: c, desc: ds.join('、') };
+}
+function kataBar(kind, lvl) {
   const c = new Array(48).fill(''), put = (i, s) => { c[i] = c[i] ? c[i] + '/' + s : s; };
   let desc = '';
   if (kind === 'renda') {
@@ -4743,13 +4806,7 @@ function kataBar(kind) {
     }
     desc = xs.join('・');
   } else if (kind === 'nagashi') {
-    const ds = [];
-    for (const at of [0, 30]) {
-      const s = rndI(8), d = rndDir(), n = 3 + rndI(3);
-      for (let i = 0; i < n; i++) put(at + 3 * i, B8(s + d * i));
-      ds.push(`${B8(s)}→${B8(s + d * (n - 1))}`);
-    }
-    desc = ds.join('、');
+    return nagashiBar(c, put, lvl || 3);
   } else if (kind === 'alt') {
     const ds = [];
     for (const at of [0, 24]) {
@@ -4776,9 +4833,10 @@ function kataBar(kind) {
 }
 function kataBuild() {
   const k = kataCur, kinds = Object.keys(KATA_KINDS).filter(x => x !== 'mix');
+  if (!Number.isFinite(k.lvl)) k.lvl = NAG_DEF;
   k.bars = []; let txt = `(${k.bpm})\n{4},,,,\n`;
   for (let i = 0; i < KATA_BARS; i++) {
-    const kind = k.kind === 'mix' ? kinds[rndI(kinds.length)] : k.kind, b = kataBar(kind);
+    const kind = k.kind === 'mix' ? kinds[rndI(kinds.length)] : k.kind, b = kataBar(kind, k.lvl);
     k.bars.push({ kind, desc: b.desc });
     txt += '{48}' + b.cells.join(',') + ',\n';
   }
@@ -4794,18 +4852,20 @@ function kataResult(r) {
     const ng = ns.filter(n => n.jr >= 2).length;
     if (ng) bad.push(`${i + 1}本目 ${KATA_KINDS[b.kind]}（${b.desc}）：${ng}/${ns.length}個`);
   });
-  const clean = r.cnt[2] + r.cnt[3] === 0;
-  let next = k.bpm;
+  const clean = r.cnt[2] + r.cnt[3] === 0, nag = k.kind === 'nagashi', lv = k.lvl || NAG_DEF;
+  let next = k.bpm, nlv = lv;
   if (kataCur && kataCur.up && !r.auto) {
-    if (clean) next = Math.min(300, k.bpm + 10);
-    else if (r.cnt[3] > r.units * .15) next = Math.max(80, k.bpm - 10);
+    // 流し：先にレベル（配置のむずかしさ）を上げ下げし、レベル5・レベル1で BPM を動かす
+    if (clean) { if (nag && lv < NAG_MAX) nlv = lv + 1; else next = Math.min(300, k.bpm + 10); }
+    else if (r.cnt[3] > r.units * .15) { if (nag && lv > 1) nlv = lv - 1; else next = Math.max(80, k.bpm - 10); }
   }
-  if (kataCur && !r.auto) kataCur.bpm = next;
+  if (kataCur && !r.auto) { kataCur.bpm = next; kataCur.lvl = nlv; }
   const el = $('#resCoach');
   el.textContent = bad.length ? 'GOOD・MISS が出た型：\n' + bad.slice(0, 6).join('\n') + (bad.length > 6 ? `\nほか ${bad.length - 6} 本` : '') : '';
   el.hidden = !bad.length;
-  const head = r.auto ? 'オートプレイ（お手本）' : clean ? `BPM ${k.bpm}：GOOD・MISS なし！` : `BPM ${k.bpm}：GOOD・MISS ${r.cnt[2] + r.cnt[3]}個`;
-  return `${head}　次は BPM ${next}（「もう一度」で新しい配置）`;
+  const now = nag ? `レベル${lv}・BPM ${k.bpm}` : `BPM ${k.bpm}`, nx = nag ? `レベル${nlv}・BPM ${next}` : `BPM ${next}`;
+  const head = r.auto ? 'オートプレイ（お手本）' : clean ? `${now}：GOOD・MISS なし！` : `${now}：GOOD・MISS ${r.cnt[2] + r.cnt[3]}個`;
+  return `${head}　次は ${nx}（「もう一度」で新しい配置）`;
 }
 function openKata() {
   const box = $('#kataKinds');
@@ -4825,13 +4885,15 @@ $('#kataBpm').addEventListener('input', () => { $('#kataBpmOut').textContent = $
 $('#kataForm').addEventListener('submit', e => {
   e.preventDefault();
   const sel = $('#kataKinds input:checked'), kind = sel ? sel.value : 'renda', bpm = clamp(+$('#kataBpm').value || 150, 80, 300), up = $('#kataUp').checked;
-  try { localStorage.setItem('waiwai-kata', JSON.stringify({ kind, bpm, up })); } catch (err) {}
-  kataCur = { kind, bpm, up };
+  let lvl = NAG_DEF;
+  try { const old = JSON.parse(localStorage.getItem('waiwai-kata') || '{}'); if (Number.isFinite(old.lvl)) lvl = old.lvl; } catch (err) {}
+  try { localStorage.setItem('waiwai-kata', JSON.stringify({ kind, bpm, up, lvl })); } catch (err) {}
+  kataCur = { kind, bpm, up, lvl };
   kataOv.hidden = true;
   startPlay();
 });
 // 結果画面から曲選択へ戻るときに、次に開く BPM を覚えておく
-function kataSaveBpm() { if (!kataCur) return; try { const st = JSON.parse(localStorage.getItem('waiwai-kata') || '{}'); st.bpm = kataCur.bpm; localStorage.setItem('waiwai-kata', JSON.stringify(st)); } catch (e) {} }
+function kataSaveBpm() { if (!kataCur) return; try { const st = JSON.parse(localStorage.getItem('waiwai-kata') || '{}'); st.bpm = kataCur.bpm; if (kataCur.kind === 'nagashi') st.lvl = kataCur.lvl; localStorage.setItem('waiwai-kata', JSON.stringify(st)); } catch (e) {} }
 
 /* ================= おまかせ上達（ボタン1つで、やるだけで上達） =================
    1セット：ウォームアップ（苦手な型の認識トレーニング。BPM は自動で上げ下げ）→ 課題曲を等速で通す →
@@ -4840,7 +4902,7 @@ function kataSaveBpm() { if (!kataCur) return; try { const st = JSON.parse(local
    ・課題曲：いまのレベル（通しの達成率で自動で上げ下げ）に近く、苦手な配置が多く、復習が残っている曲を選ぶ。
      SSS+ を取った曲や、さっき遊んだ曲は後回し。
    ・苦手な配置：通しのたびに配置（流し・回転・交互・同時押し・スライド…）ごとの PERFECT 率を、古い回を少しずつ薄めて貯める。
-   ・レベル：1回目の通しが 99.5% 以上なら +0.1、98.5% 以上なら +0.05、96% 未満なら −0.1、93% 未満なら −0.2 */
+   ・レベル：いまのレベル以上の曲を S（97%）以上で3曲クリアしたら1つ上がる。いまのレベル以下の曲で94%未満が3回続いたら1つ下がる */
 const OMK_KEY = 'waiwai:omakase', OMK_WAIT = 6;
 const OMK_KATA = { '流し': 'nagashi', '交互': 'alt', '回転': 'rot', '同時押し': 'yose', 'タップ': 'renda', 'スライド': 'starrenda' };
 let omk = null, omkTimer = 0;
@@ -4851,11 +4913,22 @@ function omkCharts() {
   const rows = ROWS && ROWS.length ? ROWS : rowsData();
   return rows.filter(r => r.id !== 'b:basic' && r.id !== 'b:expert' && omkLvNum(r.lv) != null).map(r => ({ id: r.id, title: r.title, label: r.label, lvTxt: r.lv, lv: omkLvNum(r.lv) }));
 }
-// いまのレベル。まだ決まっていなければ、S（97%）以上を取った譜面の上位5つの平均から始める
+/* いまのレベル。譜面と同じ「14」「14+」の刻みで持つ。
+   ・クリア＝課題曲の1回目の通しで S（97%）以上。いまのレベル以上の曲で3曲クリアしたら1つ上がる（14 → 14+ → 15）
+   ・いまのレベル以下の曲で94%未満が3回続いたら1つ下がる。背のびの曲で落としても下がらない
+   ・まだ決まっていなければ、S以上を取った譜面のうち一番高いレベルから始める（記録がなければ13）。
+     v149 より前の lv（13.5 などの細かい数字）は使わず、st.lvStep で持ちなおす */
+const OMK_CLEAR = 97, OMK_FAIL = 94, OMK_UP = 3, OMK_DOWN = 3, OMK_TOP = 15;
+const omkLvTxt = v => Math.floor(v) + (v % 1 >= .5 ? '+' : '');
 function omkLevel(st) {
-  if (Number.isFinite(st.lv)) return st.lv;
-  const top = omkCharts().filter(c => { const b = getBest(c.id); return b && b.acc >= 97; }).map(c => c.lv).sort((a, b) => b - a).slice(0, 5);
-  return top.length ? Math.round(top.reduce((a, b) => a + b, 0) / top.length * 10) / 10 : 13.5;
+  if (Number.isFinite(st.lvStep)) return clamp(Math.floor(st.lvStep * 2) / 2, 1, OMK_TOP);
+  const top = omkCharts().filter(c => { const b = getBest(c.id); return b && b.acc >= OMK_CLEAR; }).map(c => c.lv);
+  return top.length ? clamp(Math.floor(Math.max(...top) * 2) / 2, 1, OMK_TOP) : 13;
+}
+// 「14+（あと2曲クリアで15）」
+function omkProg(st) {
+  const L = omkLevel(st), left = OMK_UP - (st.clr || 0);
+  return L >= OMK_TOP ? `レベル目安 ${omkLvTxt(L)}（最高）` : `レベル目安 ${omkLvTxt(L)}（${omkLvTxt(L)}以上の曲を${OMK_CLEAR}%以上で、あと${left}曲クリアすると ${omkLvTxt(L + .5)}）`;
 }
 // 苦手な配置（PERFECT 率の低い順。数が少ないもの・95% 以上のものは入れない）
 const omkWeak = st => Object.entries(st.weak || {}).filter(([, v]) => v.n >= 15 && v.ok / v.n < .95).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n);
@@ -4869,12 +4942,26 @@ function chartProf(id) {
   for (const n of ns) if (n.pk) m[n.pk] = (m[n.pk] || 0) + 1;
   return omkProf[id] = { m, N: ns.length };
 }
-function omkPick(st, used) {
+// 課題曲のレベルの幅。セットごとに「実力どおり → 背のび → 実力どおり → 精度」の順に変える
+// （いまのレベルの近くだけから選ぶと、14+ のように同じレベルの譜面しか出なくなるため）
+const OMK_BANDS = {
+  main: { lo: -.5, hi: .5,  name: '実力どおり' },
+  up:   { lo: .4,  hi: 1.1, name: '背のび' },
+  down: { lo: -1.1, hi: -.4, name: '精度上げ' },
+};
+const OMK_ORDER = ['main', 'up', 'main', 'down'];
+function omkPick(st, used, band) {
   const L = omkLevel(st), weak = omkWeak(st).slice(0, 2).map(([k]) => k), all = omkCharts(), now = Date.now(), seen = st.seen || {};
+  const B = OMK_BANDS[band] || OMK_BANDS.main, mid = L + (B.lo + B.hi) / 2;
   let pool = [];
-  for (let d = .2; pool.length < 6 && d <= 2; d += .2) pool = all.filter(c => c.lv >= L - d && c.lv <= L + d + .1);
+  for (let w = 0; pool.length < 4 && w <= 2; w += .25) pool = all.filter(c => c.lv >= L + B.lo - w && c.lv <= L + B.hi + w);
   if (!pool.length) pool = all;
   if (!pool.length) return null;
+  // 先にレベル（14・14+・15…）を選んでから、その中で曲を選ぶ。曲の数が多いレベルばかりにならないように
+  const lvs = [...new Set(pool.map(c => c.lv))], lw = lvs.map(v => 1 / (1 + Math.abs(v - mid) * 1.5));
+  let pickLv = lvs[0], x = Math.random() * lw.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < lvs.length; i++) { x -= lw[i]; if (x <= 0) { pickLv = lvs[i]; break; } }
+  if (pool.some(c => c.lv === pickLv && !used.includes(c.id))) pool = pool.filter(c => c.lv === pickLv);
   const fr = (c, k) => { const p = chartProf(c.id); return (p.m[k] || 0) / p.N; };
   const avg = weak.map(k => pool.reduce((a, c) => a + fr(c, k), 0) / pool.length || 1e-6);
   const sc = pool.map(c => {
@@ -4885,8 +4972,8 @@ function omkPick(st, used) {
     if (!b) s += .2; else if (b.acc >= 100.5) s -= 1;
     if (ago < .3) s -= 1.5; else if (ago < 1) s -= .4;
     if (used.includes(c.id)) s -= 5;
-    s -= Math.abs(c.lv - L) * .5;
-    return { c, s: s + Math.random() * .35 };
+    s -= Math.abs(c.lv - mid) * .3;
+    return { c, s: s + Math.random() * .5 };
   }).sort((a, b) => b.s - a.s);
   return sc[0].c;
 }
@@ -4895,8 +4982,27 @@ function omkLearn(r, acc, first) {
   for (const k in w) { w[k].n *= .85; w[k].ok *= .85; }
   for (const n of r.notes) { if (!n.pk || n.skip || n.jr == null) continue; const x = w[n.pk] || (w[n.pk] = { n: 0, ok: 0 }); x.n++; if (n.jr === 0) x.ok++; }
   if (first) {
-    const L = omkLevel(st), d = acc >= 99.5 ? .1 : acc >= 98.5 ? .05 : acc < 93 ? -.2 : acc < 96 ? -.1 : 0;
-    st.lv = Math.round(clamp(L + d, 8, 15.2) * 100) / 100;
+    // クリアの数でレベル目安を上げ下げする（くわしくは omkLevel の上）
+    const L = omkLevel(st), cl = (omk.chart.lv || L);
+    omk.lvMsg = '';
+    st.lvStep = L;
+    if (acc >= OMK_CLEAR) {
+      st.fail = 0;
+      if (cl >= L) {
+        st.clr = (st.clr || 0) + 1;
+        omk.lvMsg = `クリア！（${OMK_UP}曲中${Math.min(st.clr, OMK_UP)}曲目）`;
+      } else omk.lvMsg = `クリア（${omkLvTxt(L)}より下の曲なので、上がるための数には入りません）`;
+    } else if (acc < OMK_FAIL && cl <= L) {
+      st.fail = (st.fail || 0) + 1;
+      omk.lvMsg = `${OMK_FAIL}%未満（${OMK_DOWN}回続くとレベル目安が下がります：${st.fail}回目）`;
+    } else if (acc < OMK_CLEAR) omk.lvMsg = `クリアならず（${OMK_CLEAR}%以上でクリア）`;
+    if ((st.clr || 0) >= OMK_UP && L < OMK_TOP) {
+      st.lvStep = L + .5; st.clr = 0; st.fail = 0;
+      omk.lvMsg = `${OMK_UP}曲クリア！レベル目安が ${omkLvTxt(L)} → ${omkLvTxt(st.lvStep)} に上がりました`;
+    } else if ((st.fail || 0) >= OMK_DOWN && L > 1) {
+      st.lvStep = L - .5; st.clr = 0; st.fail = 0;
+      omk.lvMsg = `${OMK_FAIL}%未満が${OMK_DOWN}回続いたので、レベル目安を ${omkLvTxt(L)} → ${omkLvTxt(st.lvStep)} に下げました`;
+    }
   }
   (st.seen || (st.seen = {}))[omk.chart.id] = Date.now();
   omkSave(st);
@@ -4904,7 +5010,7 @@ function omkLearn(r, acc, first) {
 function omkInfo() {
   const el = $('#omkTxt'); if (!el) return;
   const st = omkLoad(), wk = omkWeak(st).slice(0, 3);
-  el.textContent = `レベル目安 ${omkLevel(st).toFixed(1)}` + (wk.length ? `　苦手：${wk.map(([k, v]) => `${k} ${Math.round(v.ok / v.n * 100)}%`).join('・')}` : '　（通しを遊ぶと苦手な配置がわかります）');
+  el.textContent = omkProg(st) +(wk.length ? `　苦手：${wk.map(([k, v]) => `${k} ${Math.round(v.ok / v.n * 100)}%`).join('・')}` : '　（通しを遊ぶと苦手な配置がわかります）');
 }
 function omkStart() {
   omk = { st: omkLoad(), set: 0, step: null, chart: null, first: null, used: [],
@@ -4921,7 +5027,8 @@ function omkEnd() {
 }
 function omkNextSet() {
   omk.set++; omk.first = null;
-  omk.chart = omkPick(omk.st, omk.used);
+  omk.band = OMK_ORDER[(omk.set - 1) % OMK_ORDER.length];
+  omk.chart = omkPick(omk.st, omk.used, omk.band);
   if (!omk.chart) { toast('おまかせ：遊べる譜面が見つかりませんでした'); setMode('title'); return; }
   omk.used.push(omk.chart.id);
   const wk = omkWeak(omk.st)[0], kind = wk && OMK_KATA[wk[0]];
@@ -4933,7 +5040,7 @@ async function omkGo(step, kind) {
   omk.step = step;
   const head = `おまかせ ${omk.set}セット目`;
   if (step === 'warm') {
-    kataCur = { kind, bpm: (omk.st.kbpm || {})[kind] || 150, up: true };
+    kataCur = { kind, bpm: (omk.st.kbpm || {})[kind] || 150, lvl: (omk.st.klv || {})[kind] || NAG_DEF, up: true };
     await startPlay();
     if (run && run.kata) hudDiff.textContent = `${head} · ウォームアップ（${KATA_KINDS[kind]}）`;
     return;
@@ -4941,22 +5048,24 @@ async function omkGo(step, kind) {
   kataCur = null; settings.chart = omk.chart.id;
   if (step === 'review' && coachPlan) { await startCoach(coachPlan); return; }
   await startPlay();
-  if (run && !run.drill) hudDiff.textContent = `${head} · ${step === 'check' ? '確認の通し' : '課題曲'} · ${omk.chart.label} ${omk.chart.lvTxt}`;
+  if (run && !run.drill) hudDiff.textContent = `${head} · ${step === 'check' ? '確認の通し' : `課題曲（${(OMK_BANDS[omk.band] || OMK_BANDS.main).name}）`} ·${omk.chart.label} ${omk.chart.lvTxt}`;
 }
 function omkAfter(r, acc) {
   if (!omk) return;
   const normal = !r.drill && !r.kata && !r.practice && !r.auto && !r.coach;
   let txt, next;
   if (omk.step === 'warm' && r.kata) {
-    (omk.st.kbpm || (omk.st.kbpm = {}))[r.kata.kind] = kataCur ? kataCur.bpm : r.kata.bpm; omkSave(omk.st);
-    txt = `ウォームアップおわり。次は課題曲「${omk.chart.title}」${omk.chart.label} ${omk.chart.lvTxt}`;
+    (omk.st.kbpm || (omk.st.kbpm = {}))[r.kata.kind] = kataCur ? kataCur.bpm : r.kata.bpm;
+    (omk.st.klv || (omk.st.klv = {}))[r.kata.kind] = kataCur ? kataCur.lvl : r.kata.lvl; omkSave(omk.st);
+    txt = `ウォームアップおわり。次は課題曲（${(OMK_BANDS[omk.band] || OMK_BANDS.main).name}）「${omk.chart.title}」${omk.chart.label} ${omk.chart.lvTxt}`;
     next = () => omkGo('play');
   } else if (omk.step === 'play' && normal) {
     omk.first = acc; omkLearn(r, acc, true);
+    const lvLine = `${omk.lvMsg ? omk.lvMsg + '\n' : ''}${omkProg(omk.st)}`;
     if (coachPlan && coachPlan.chart === omk.chart.id) {
-      txt = `${fmtAcc(acc)}%。難しい所のミス（${coachPlan.secs.length}か所）を、0.8倍から等速まで自動で練習します`;
+      txt = `${fmtAcc(acc)}%。${lvLine}\n難しい所のミス（${coachPlan.secs.length}か所）を、0.8倍から等速まで自動で練習します`;
       next = () => omkGo('review');
-    } else { txt = `${fmtAcc(acc)}%。難しい所はミスなし！レベル目安を ${omkLevel(omk.st).toFixed(2)} にして、次の曲へ`; next = omkNextSet; }
+    } else { txt = `${fmtAcc(acc)}%。${lvLine}\n難しい所はミスなし！次の曲へ`; next = omkNextSet; }
   } else if (omk.step === 'review' && r.coach) {
     txt = '復習おわり。もう一度通して、上がったか確かめます';
     next = () => omkGo('check');
