@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v150</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v151</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -477,7 +477,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
           <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
-          <li>「おまかせで上達（やるだけ）」を押すと、ウォームアップ（いちばん苦手な配置の認識トレーニング）→ 課題曲を等速で通す → 難しい所でミスした所を 0.8倍から等速まで自動で復習 → もう一度通して確認 → 次の曲、を自動でくり返します。課題曲は、いまのレベル目安の近く（実力どおり・背のび・精度上げを順に）で、苦手な配置が多い曲・前に復習が残った曲から選びます。レベル目安は、S（97%）以上を取った曲のうちレベルの高い3曲の平均です（例：14.8・14.3・14.0 なら 14.37）。3曲の中でいちばん低い曲より高いレベルの曲で S を取ると上がります。結果画面は6秒で自動で次へ進みます。止めるときは「おまかせを終わる」か曲選択へ。</li>
+          <li>「おまかせで上達（やるだけ）」を押すと、ウォームアップ（いちばん苦手な配置の認識トレーニング）→ 課題曲を等速で通す → 難しい所でミスした所を 0.8倍から等速まで自動で復習 → もう一度通して確認 → 次の曲、を自動でくり返します。課題曲は、いまのレベル目安の近く（実力どおり・背のび・精度上げを順に）で、苦手な配置が多い曲・前に復習が残った曲から選びます。レベル目安は、等速で通すたびに少しずつ測ります。1回の「今回の実力」は、譜面のレベル＋（達成率−97%）×0.1 です（例：14.0 を 99% なら 14.20、94% なら 13.70）。最初の5曲はその平均（測定中）で、そのあとは1曲ごとに今回の実力へ2割ずつ近づきます。おまかせ以外で遊んだ曲も入ります（練習モード・オート・ライフ0は入りません）。結果画面は6秒で自動で次へ進みます。止めるときは「おまかせを終わる」か曲選択へ。</li>
           <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき（BREAK だけは達成率の減り方に合わせて重く数えます。BREAK が少ない譜面ほど1個が重く、ふつうの譜面で GREAT −5〜−11・MISS −20 前後です。CRITICAL 以外の PERFECT も少し減ります。曲選択に、その譜面の BREAK 1個ぶんが出ます）、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも SSS+・SSS・SS・S の目安が付きます。プレイ中は、いま入っているいちばん上のランクの目安が真ん中に出ます（SSS+ の中は水色、S まではピンク、S をこえると赤）。目安は GREAT・GOOD・MISS が混ざる想定の数で、通常の通しプレイをするたびに、自分の結果（マイナスと達成率）に合わせて直っていきます。通常では達成率の記録もそのまま残ります。</li>
           <li>「今週の課題曲」は7曲で、毎週月曜に入れかわります。課題は曲ごとに「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
@@ -3189,6 +3189,7 @@ function showResult(r) {
   const dxMax = r.units * 3; $('#resDx').textContent = `${r.dx} / ${dxMax}`; $('#resStar').textContent = '✦'.repeat(dxStars(r.dx, dxMax));
   $('#resFast').textContent = r.fast; $('#resLate').textContent = r.late;
   let msg;
+  lastRate = null;
   if (r.practice) msg = r.misses.length ? `練習モードの結果は記録されません（この回のミス ${r.cnt[3]} 個）` : '練習モードの結果は記録されません';
   else if (r.auto) msg = 'オートプレイの結果は記録されません';
   else if (r.kata) msg = kataResult(r);
@@ -3197,6 +3198,9 @@ function showResult(r) {
     const prev = getBest(ch.bestKey);
     if (!prev || acc > prev.acc) { setBest(ch.bestKey, { acc, rank: rk }); msg = prev ? `自己ベスト更新（前回 ${fmtAcc(prev.acc)}%）` : '初クリア！記録を保存しました'; }
     else msg = `自己ベスト ${fmtAcc(prev.acc)}%（${prev.rank}）`;
+    // レベル目安を少しずつ測る（おまかせの確認の通しは、復習した直後なので入れない）
+    lastRate = !r.drill && !r.coach && !(omk && omk.step === 'check') ? rateAdd(ch.bestKey, acc) : null;
+    if (lastRate && !omk) msg += ` ／ ${rateMsg(lastRate)}`;
   }
   $('#resBest').textContent = msg;
   lifeResult(r, ch, acc);
@@ -4902,7 +4906,7 @@ function kataSaveBpm() { if (!kataCur) return; try { const st = JSON.parse(local
    ・課題曲：いまのレベル（通しの達成率で自動で上げ下げ）に近く、苦手な配置が多く、復習が残っている曲を選ぶ。
      SSS+ を取った曲や、さっき遊んだ曲は後回し。
    ・苦手な配置：通しのたびに配置（流し・回転・交互・同時押し・スライド…）ごとの PERFECT 率を、古い回を少しずつ薄めて貯める。
-   ・レベル：S（97%）以上を取った譜面のうち、レベルの高い3曲の平均（小数）。 */
+   ・レベル：等速の通しのたびに、譜面のレベルと達成率から少しずつ測る（くわしくは omkLevel の上）。 */
 const OMK_KEY = 'waiwai:omakase', OMK_WAIT = 6;
 const OMK_KATA = { '流し': 'nagashi', '交互': 'alt', '回転': 'rot', '同時押し': 'yose', 'タップ': 'renda', 'スライド': 'starrenda' };
 let omk = null, omkTimer = 0;
@@ -4913,24 +4917,39 @@ function omkCharts() {
   const rows = ROWS && ROWS.length ? ROWS : rowsData();
   return rows.filter(r => r.id !== 'b:basic' && r.id !== 'b:expert' && omkLvNum(r.lv) != null).map(r => ({ id: r.id, title: r.title, label: r.label, lvTxt: r.lv, lv: omkLvNum(r.lv) }));
 }
-/* いまのレベル目安（小数）。譜面のレベル（13.9・14.3…）から計算する。
-   S（97%）以上を取った譜面のうち、レベルの高い3曲の平均。3曲に足りない分は 13.0 として数える。
-   いまの3曲の中でいちばん低い曲より高いレベルの曲で S を取ると上がる。記録から出すので下がらない。 */
-const OMK_CLEAR = 97, OMK_N = 3, OMK_BASE = 13;
+/* レベル目安（v151 から新しく測る。前の版の自己ベストや S の数は使わない）
+   等速の通しを1回遊ぶたびに、少しずつ測る。練習モード・オート・ライフ0・特訓・おまかせの「確認の通し」は入れない。
+   ・1回の通しの「今回の実力」＝譜面のレベル＋（達成率−97）×0.1。上は +0.4、下は −1.0 まで。
+     例：14.0 を 99% → 14.20、14.0 を 94% → 13.70、14.5 を 100.5% → 14.85
+   ・最初の5曲は「今回の実力」の平均（測定中）。そのあとは、1曲ごとに今回の実力へ2割ずつ近づける。 */
+const OMK_RKEY = 'waiwai:rate', OMK_MEAS = 5, OMK_K = .2, OMK_SLOPE = .1, OMK_PRIOR = 14;
 const omkFix = v => (Math.round(v * 100) / 100).toFixed(2);
-function omkTop(st) {
-  return omkCharts().filter(c => { const b = getBest(c.id); return b && b.acc >= OMK_CLEAR; }).sort((a, b) => b.lv - a.lv).slice(0, OMK_N);
+function rateLoad() { try { const v = JSON.parse(localStorage.getItem(OMK_RKEY) || 'null'); return v && Number.isFinite(v.v) && v.n > 0 ? v : { v: OMK_PRIOR, n: 0 }; } catch (e) { return { v: OMK_PRIOR, n: 0 }; } }
+function rateSave(rt) { try { localStorage.setItem(OMK_RKEY, JSON.stringify(rt)); } catch (e) {} }
+const ratePerf = (lv, acc) => lv + clamp((acc - 97) * OMK_SLOPE, -1, .4);
+let lastRate = null;
+// 1回の通しをレベル目安に入れる。レベルのない譜面（内蔵の BASIC など）は入れない
+function rateAdd(id, acc) {
+  const c = omkCharts().find(x => x.id === id);
+  if (!c) return null;
+  const rt = rateLoad(), old = rt.n ? rt.v : null, perf = ratePerf(c.lv, acc);
+  rt.n++;
+  rt.v = rt.n <= OMK_MEAS ? (old == null ? perf : old + (perf - old) / rt.n) : old + (perf - old) * OMK_K;
+  rt.v = Math.round(rt.v * 1000) / 1000;
+  rateSave(rt);
+  return { lv: c.lv, acc, perf, old, v: rt.v, n: rt.n };
 }
-function omkLevel(st) {
-  const t = omkTop(st).map(c => c.lv);
-  while (t.length < OMK_N) t.push(OMK_BASE);
-  return Math.round(t.reduce((a, b) => a + b, 0) / OMK_N * 100) / 100;
+function rateMsg(x) {
+  if (!x) return '';
+  const dd = x.old == null ? 0 : Math.round(x.v * 100) - Math.round(x.old * 100), d = x.old == null ? '' : `（${dd >= 0 ? '+' : '−'}${(Math.abs(dd) / 100).toFixed(2)}）`;
+  return `今回の実力 ${omkFix(x.perf)}（Lv.${x.lv.toFixed(1)} を ${x.acc.toFixed(2)}%）→ レベル目安 ${x.old == null ? '' : omkFix(x.old) + ' → '}${omkFix(x.v)}${d}`;
 }
-// 「レベル目安 14.37（S以上の高い3曲：14.8・14.3・14.0。14.0より高い曲でSを取ると上がる）」
+function omkLevel(st) { const rt = rateLoad(); return rt.n ? rt.v : OMK_PRIOR; }
 function omkProg(st) {
-  const L = omkLevel(st), t = omkTop(st), low = t.length < OMK_N ? null : t[t.length - 1].lv;
-  const lst = t.map(c => c.lv.toFixed(1)).join('・') || 'なし';
-  return `レベル目安 ${omkFix(L)}（S以上の高い${OMK_N}曲：${lst}。${low == null ? `Sを取った曲がまだ足りないので、足りない分は13.0で計算しています。あと${OMK_N - t.length}曲` : `${low.toFixed(1)}より高い曲でSを取ると上がります`}）`;
+  const rt = rateLoad();
+  if (!rt.n) return `レベル目安：測定中（0/${OMK_MEAS}曲。まず ${omkFix(OMK_PRIOR)} 前後の曲から測ります）`;
+  if (rt.n < OMK_MEAS) return `レベル目安 ${omkFix(rt.v)}：測定中（${rt.n}/${OMK_MEAS}曲）`;
+  return `レベル目安 ${omkFix(rt.v)}（${rt.n}曲で測定）`;
 }
 // 苦手な配置（PERFECT 率の低い順。数が少ないもの・95% 以上のものは入れない）
 const omkWeak = st => Object.entries(st.weak || {}).filter(([, v]) => v.n >= 15 && v.ok / v.n < .95).sort((a, b) => a[1].ok / a[1].n - b[1].ok / b[1].n);
@@ -4983,14 +5002,7 @@ function omkLearn(r, acc, first) {
   const st = omk.st, w = st.weak || (st.weak = {});
   for (const k in w) { w[k].n *= .85; w[k].ok *= .85; }
   for (const n of r.notes) { if (!n.pk || n.skip || n.jr == null) continue; const x = w[n.pk] || (w[n.pk] = { n: 0, ok: 0 }); x.n++; if (n.jr === 0) x.ok++; }
-  if (first) {
-    // レベル目安は自己ベストから計算する（くわしくは omkLevel の上）。自己ベストはこの前に保存されている
-    const L = omkLevel(st), was = Number.isFinite(st.lastLv) ? st.lastLv : L;
-    if (L > was + 1e-9) omk.lvMsg = `レベル目安が ${omkFix(was)} → ${omkFix(L)} に上がりました！`;
-    else if (acc >= OMK_CLEAR) omk.lvMsg = 'S！（高い3曲より低いレベルの曲なので、目安は変わりません）';
-    else omk.lvMsg = `S（${OMK_CLEAR}%）まで あと ${(OMK_CLEAR - acc).toFixed(2)}%`;
-    st.lastLv = L;
-  }
+  if (first) omk.lvMsg = lastRate && lastRate.lv === omk.chart.lv ? rateMsg(lastRate) : '';
   (st.seen || (st.seen = {}))[omk.chart.id] = Date.now();
   omkSave(st);
 }
@@ -5014,7 +5026,7 @@ function omkEnd() {
 }
 function omkNextSet() {
   omk.set++; omk.first = null;
-  omk.band = OMK_ORDER[(omk.set - 1) % OMK_ORDER.length];
+  omk.band = rateLoad().n < OMK_MEAS ? 'main' : OMK_ORDER[(omk.set - 1) % OMK_ORDER.length];   // 測定中は実力どおりだけ
   omk.chart = omkPick(omk.st, omk.used, omk.band);
   if (!omk.chart) { toast('おまかせ：遊べる譜面が見つかりませんでした'); setMode('title'); return; }
   omk.used.push(omk.chart.id);
