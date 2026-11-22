@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v154</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v155</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2094,7 +2094,10 @@ function readInput() {
   for (const p of ptrs.values()) {
     const nx = (p.x - cx) / R, ny = (p.y - cy) / R, r = regionAt(nx, ny);
     P.push([nx, ny]);
-    if (p.moved) S.push([nx, ny, p.lt, 1]);     // スライドに使うのは、実際に動かしている指だけ（p.lt：最後に動いた時刻。1 = いま触れている指）
+    // スライドに使う点。動かしている指は今の位置（p.lt：最後に動いた時刻。1 = いま触れている指）。
+    // 押しスラ：動かしていない指（押さえているだけの指・手のひら）も、その場所を触れていることにする（maimai と同じく、経路のセンサーを順に触れれば取れる）。
+    // ただし触れた時刻（p.lt）がスライドを受け付け始めた時刻より前の指（置きっぱなしの指）は数えない（0 = 触れた時刻で区切る）。判定の幅・許容はそのまま
+    S.push(p.moved ? [nx, ny, p.lt, 1] : [nx, ny, p.lt, 0]);
     if (r < 0) continue;
     if (r < 8) h[r] = true; else if (r < 16) h[r - 8] = true;
   }
@@ -4412,6 +4415,8 @@ function fingerDown(id, clientX, clientY, ev, late) {
   if (!run.auto && ev && ev.timeStamp > 0) { const lag = performance.now() - ev.timeStamp; if (lag >= 0 && lag < 5000) { const ic = run.ic || (run.ic = {}); ic.lag = Math.max(ic.lag || 0, Math.round(lag)); if (lag > 150) ic.slow = (ic.slow || 0) + 1; } }
   lagNote(ev);
   const lh0 = run.lastHit;
+  // 押しスラ：押してすぐ離した指（次の画面の更新より前に離した指）も、押した場所をスライドに数える
+  trail.push([nx, ny, t]); if (trail.length > 400) trail.splice(0, trail.length - 400);
   downId = id; hitPointer(nx, ny, t); downId = null;
   if ((run.hitN || 0) === h0) { whiffs.push({ t, x: nx, y: ny, id, used: false }); if (whiffs.length > 64) whiffs.shift(); }
   { const p = ptrs.get(id), lh = run.lastHit; if (p && lh !== lh0 && lh && isTouch(lh)) p.tl = lh.pos; }
