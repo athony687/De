@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v156</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v157</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -472,7 +472,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           </li>
           <li>「＋ simai譜面を追加」から、simai形式の譜面テキスト（maidata.txt も可）を貼り付けて遊べます。音源ファイルは任意で、なければガイド音で再生します。読み込んだ音源はこのブラウザに保存されるので、次からは選び直さなくても遊べます。</li>
           <li>練習モードでは、画面下のバーで好きな位置へ移動、2小節ずつの巻き戻し・早送り、直前のミス地点へ戻る、A〜B区間のくり返し、再生速度の変更（0.1〜1倍）ができます。ミスした位置はバーに赤い線で残ります。音源を使っているときは、スローにすると音程も下がります。</li>
-          <li>判定幅は PERFECT ±65ms（中心の ±22ms は CRITICAL PERFECT）・GREAT ±120ms・GOOD ±200ms。スライドは矢印に沿ってなぞってください（リングのすぐ外側をなぞってもOK）。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチはさらに広めで、指をすべらせて範囲に入れても取れます。</li>
+          <li>判定幅は PERFECT ±65ms（中心の ±22ms は CRITICAL PERFECT）・GREAT ±120ms・GOOD ±200ms。スライドは矢印に沿ってなぞってください（リングのすぐ外側をなぞってもOK）。ボタンはリングの上だけでなく、内側から画面の端まで、その方向ならどこを押しても反応します。タッチは maimai と同じで、0.15秒前から取れて早い側はすべて CRITICAL PERFECT（FAST なし）、遅い側は 0.15秒まで CRITICAL PERFECT・0.20秒まで PERFECT・0.25秒まで GREAT・0.30秒まで GOOD です。指をすべらせて範囲に入れても取れます。</li>
           <li>採点は maimai でらっくす と同じです。達成率は最大 101%（基本点 100% ＋ BREAKボーナス 1%）。重みは TAP・TOUCH 1、HOLD 2、SLIDE 3、BREAK 5 で、BREAK は GREAT・PERFECT がずれの大きさで細かく分かれます。EXノーツは GOOD 以上で CRITICAL PERFECT になります。ランクは SSS+ 100.5%・SSS 100%・SS+ 99.5%・SS 99%・S+ 98%・S 97%・AAA 94%・AA 90%・A 80% から。</li>
           <li>音と譜面がずれて感じたら、詳細設定の「タイミング補正（音）」で調整します（＋にすると譜面が遅れます）。</li>
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
@@ -641,12 +641,21 @@ const laneAng = k => (-67.5 + 45 * k) * D2R;   // lane 0 = ボタン1（1時方�
 const mod8 = k => ((k % 8) + 8) % 8;
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 // 判定幅（秒）。「判定の広さ」の設定で切り替える
+/* タッチ（タッチホールドの始点も）は maimai でらっくす と同じ幅にする（1F = 1/60秒。MajdataPlay と同じ値）
+   ・取れるのは 9F 前（0.15秒前）から 18F 後（0.30秒後）まで。それより早く押した分は数えない（押し直せば取れる）
+   ・早い側はぜんぶ CRITICAL PERFECT（FAST は出ない）
+   ・遅い側：9F まで CRITICAL PERFECT、10.5F・12F まで PERFECT、13F・14F・15F まで GREAT、18F まで GOOD、それより後は MISS
+   タッチは maimai でも判定がやさしい作りなので、「判定の広さ」の設定では変えない */
+const FR = 1 / 60;
+const TOUCH_W = [12 * FR, 15 * FR, 18 * FR];   // PERFECT・GREAT・GOOD の終わり（遅い側）
+const T_E = 9 * FR;                            // 早い側に取れる幅（ここまでは CRITICAL PERFECT）
+const T_SUB = [[9 * FR, 10.5 * FR], [13 * FR, 14 * FR]];   // PERFECT・GREAT の中の区切り（遅い側）
 const JUDGE_PRESETS = {
-  normal: { tap: [.05, .10, .15],  touch: [.08, .13, .20], slide: [.30, .52, .64] },
-  wide:   { tap: [.065, .12, .20],  touch: [.12, .19, .28], slide: [.36, .58, .72] },
-  easy:   { tap: [.11, .18, .26],  touch: [.13, .21, .29], slide: [.46, .68, .82] },
+  normal: { tap: [.05, .10, .15],  touch: TOUCH_W, slide: [.30, .52, .64] },
+  wide:   { tap: [.065, .12, .20],  touch: TOUCH_W, slide: [.36, .58, .72] },
+  easy:   { tap: [.11, .18, .26],  touch: TOUCH_W, slide: [.46, .68, .82] },
 };
-let W_P = .07, W_G = .125, W_D = .18, T_P = .09, T_G = .15, T_D = .22, SL_P = .3, SL_G = .5, SL_M = .6;
+let W_P = .07, W_G = .125, W_D = .18, T_P = TOUCH_W[0], T_G = TOUCH_W[1], T_D = TOUCH_W[2], SL_P = .3, SL_G = .5, SL_M = .6;
 // スライドの経路からどれだけ離れていてもなぞった扱いにするか（リング半径=1）
 const SLIDE_TOL = { normal: .30, wide: .34, easy: .38 };
 let SL_TOL = .44;
@@ -2184,13 +2193,15 @@ function grade(d, touch) {
   return touch ? (ad <= T_P ? 0 : ad <= T_G ? 1 : 2) : (ad <= W_P ? 0 : ad <= W_G ? 1 : 2);
 }
 const winD = n => (n.type === 'touch' || n.type === 'thold') ? T_D : W_D;
+// 時刻 t にそのノーツを取れるか。タッチは早い側が 9F まで・遅い側が 18F まで（maimai と同じ）。タップ・ホールドは前後同じ幅
+const inWin = (n, t) => (n.type === 'touch' || n.type === 'thold') ? (t >= n.t - T_E && t <= n.t + T_D) : Math.abs(t - n.t) <= W_D;
 // 時刻 t に取れるノーツを時間順に集める
 function scanCands(t, pred) {
   const ns = run.notes, out = [];
   for (let i = run.first; i < ns.length; i++) {
     const n = ns[i];
     if (n.t > t + T_D) break;
-    if (n.fin || n.hh || n.type === 'slide' || Math.abs(t - n.t) > winD(n)) continue;
+    if (n.fin || n.hh || n.type === 'slide' || !inWin(n, t)) continue;
     if (pred(n)) out.push(n);
   }
   return out;
@@ -2230,10 +2241,9 @@ function hitTouchGroup(first, t, near) {
 const whiffs = [];
 function rescueWhiff(n) {
   if (!whiffs.length || run.auto) return false;
-  const w0 = winD(n);
   let best = null;
   for (const w of whiffs) {
-    if (w.used || Math.abs(w.t - n.t) > w0) continue;
+    if (w.used || !inWin(n, w.t)) continue;
     let ok;
     if (isTouch(n)) ok = distTo(n.pos, w.x, w.y) < TR;
     else {
@@ -2360,6 +2370,8 @@ function sweepTouch(st, x, y, t) {
 // PERFECT・GREAT の中をずれの大きさで3つに分ける（0 = いちばん内側。PERFECT の 0 が CRITICAL PERFECT）
 function subTier(j, d, kind, n) {
   if (j >= 2 || !Number.isFinite(d)) return 0;
+  // タッチは maimai と同じ区切り（早い側は d = 0 にしてあるので CRITICAL PERFECT）
+  if (kind === 'touch') { const b = T_SUB[j], ad = Math.max(0, d); return ad <= b[0] ? 0 : ad <= b[1] ? 1 : 2; }
   const sw = kind === 'slide' && n && n.type === 'slide' ? slideWin(n) : null;
   const P = sw ? sw.P : kind === 'slide' ? SL_P : kind === 'touch' ? T_P : W_P, G = sw ? sw.G : kind === 'slide' ? SL_G : kind === 'touch' ? T_G : W_G;
   const lo = j === 0 ? 0 : P, hi = j === 0 ? P : G, x = (Math.abs(d) - lo) / Math.max(hi - lo, 1e-6);
