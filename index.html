@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v159</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v160</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -466,7 +466,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
             <span><i class="sw tap"></i>タップ</span>
             <span><i class="sw each"></i>同時押し（金色）</span>
             <span><i class="sw brk"></i>ブレイク（オレンジ）</span>
-            <span><i class="sw hold"></i>ホールド（押したまま終点まで。終点は押しっぱなしでOK、途中で離しても押し直せる。黄色い線がリングに着くまで押していれば、そのあと離しても FAST にならない）</span>
+            <span><i class="sw hold"></i>ホールド（押したまま終点まで。終点は押しっぱなしでOK、途中で離しても押し直せる。お尻側の暗い部分になるまで押していれば、そのあと離しても FAST にならない）</span>
             <span><i class="sw slide"></i>スライド（☆をタップ → 矢印に沿ってなぞる）</span>
             <span><i class="sw touch"></i>タッチ（4つの三角が集まった点をタップ）</span>
           </li>
@@ -2630,18 +2630,22 @@ function drawHold(n, now, pf) {
     lg.addColorStop(0, c.hi); lg.addColorStop(.5, c.main); lg.addColorStop(1, c.lo); g.strokeStyle = lg; }
   g.lineWidth = w * .23; g.stroke();
   g.lineWidth = Math.max(1.5, w * (isBrkC(c) ? .09 : .06)); g.strokeStyle = isBrkC(c) ? (c.rim || BRK_RIM) : '#fff'; g.stroke();
-  // 目印：この線がリングに着くまで押していれば、そのあと離しても FAST にならない
+  // 目印：お尻側の「離してもいい部分」を暗くする。暗くないところがリングを通りきれば、離しても FAST にならない
+  // （線を横に出すと全体が見づらくなるので、帯の中だけで見せる）
   const ts = holdSafeT(n);
   if (ts != null && now < ts) {
     const pm = 1 - (ts - now) / A, rm = pm <= 0 ? R0 : R0 + (R - R0) * Math.min(pm, 1);
     if (rm > rt + 1 && rm < rh - 1) {
-      const a = laneAng(n.lane), ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux, hw = w * .62;
-      const mx = cx + ux * rm, my = cy + uy * rm;
-      g.beginPath(); g.moveTo(mx - vx * hw, my - vy * hw); g.lineTo(mx + vx * hw, my + vy * hw);
-      g.lineCap = 'round';
-      g.lineWidth = Math.max(4, w * .26); g.strokeStyle = 'rgba(0,0,0,.7)'; g.stroke();
-      g.lineWidth = Math.max(2, w * .13); g.strokeStyle = '#ffe14d'; g.stroke();
-      g.lineCap = 'butt';
+      const a = laneAng(n.lane), ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux, hw = w * .5;
+      g.save(); hexPath(n.lane, rt, rh, w / 2 - w * .1, w * .32); g.clip();
+      const r0 = rt - w;
+      g.beginPath();
+      g.moveTo(cx + ux * r0 + vx * hw, cy + uy * r0 + vy * hw); g.lineTo(cx + ux * rm + vx * hw, cy + uy * rm + vy * hw);
+      g.lineTo(cx + ux * rm - vx * hw, cy + uy * rm - vy * hw); g.lineTo(cx + ux * r0 - vx * hw, cy + uy * r0 - vy * hw); g.closePath();
+      g.fillStyle = 'rgba(0,0,0,.55)'; g.fill();
+      g.beginPath(); g.moveTo(cx + ux * rm + vx * hw, cy + uy * rm + vy * hw); g.lineTo(cx + ux * rm - vx * hw, cy + uy * rm - vy * hw);
+      g.lineWidth = Math.max(1.5, w * .05); g.strokeStyle = 'rgba(255,255,255,.75)'; g.stroke();
+      g.restore();
     }
   }
   g.globalAlpha = 1;
@@ -2707,10 +2711,9 @@ function drawTouch(n, now) {
     { const ts = holdSafeT(n);
       if (ts != null && now < ts) {
         const fm = clamp((ts - n.t) / Math.max(n.dur, .05), 0, 1), am = -Math.PI / 2 + TAU * fm, ux = Math.cos(am), uy = Math.sin(am);
-        const r0 = rr - NS * .3, r1 = rr + NS * .3;
-        g.beginPath(); g.moveTo(x + ux * r0, y + uy * r0); g.lineTo(x + ux * r1, y + uy * r1); g.lineCap = 'round';
-        g.lineWidth = Math.max(4, NS * .2); g.strokeStyle = 'rgba(0,0,0,.7)'; g.stroke();
-        g.lineWidth = Math.max(2, NS * .1); g.strokeStyle = '#fff'; g.stroke(); g.lineCap = 'butt';
+        const r0 = rr - NS * .13, r1 = rr + NS * .13;   // ゲージの太さの中だけに細く出す
+        g.beginPath(); g.moveTo(x + ux * r0, y + uy * r0); g.lineTo(x + ux * r1, y + uy * r1);
+        g.lineWidth = Math.max(1.5, NS * .06); g.strokeStyle = 'rgba(255,255,255,.8)'; g.stroke();
       }
     }
     if (!n.hh) {
