@@ -153,7 +153,7 @@ button,label,summary,input[type=range]{touch-action:manipulation}
 .omkbox p{margin:0;color:var(--ink);line-height:1.6;white-space:pre-line}
 #omkBtn{font-size:17px}
 .best.coach{color:var(--ink);text-align:left;line-height:1.7;background:var(--panel-2);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
-.best{margin:0;font-size:13px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
+.best{margin:0;white-space:pre-line;font-size:13px;color:var(--muted);text-align:center;font-variant-numeric:tabular-nums}
 details{font-size:14px;color:var(--muted);line-height:1.65}
 summary{cursor:pointer;color:var(--ink);font-weight:800;list-style-position:inside}
 details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v157</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v158</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -478,6 +478,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
           <li>ノーツに合わせて叩いているのに GREAT や LATE が多いときは「判定タイミング」です。画面の表示や指の反応の遅れの分をずらします（＋にすると、遅めに叩いてもぴったりの判定）。「自動で合わせる」がオンなら、プレイのたびに自動で調整されます。</li>
           <li>「ライフ」モードは、決めたライフ（300・150・50・10・1）を持って通しでプレイします。GREAT で −2、GOOD で −3、MISS で −5。0になるとその場で終了し、記録は残りません。最後まで残せばクリアです。</li>
           <li>「おまかせで上達（やるだけ）」を押すと、すぐに課題曲を等速で通す → 難しい所でミスした所を 0.8倍から等速まで自動で復習 → もう一度通して確認 → 次の曲、を自動でくり返します。課題曲は、いまのレベル目安の近く（実力どおり・背のび・精度上げを順に）で、苦手な配置が多い曲・前に復習が残った曲から選びます。レベル目安は、等速で通すたびに少しずつ測ります。レベル目安は「その定数の曲で SS（99%）がだいたい取れる」定数です。1回の「今回の実力」は、maimai DX NET の記録（定数ごとの達成率）から作った表で出します（例：14.6 を 99% なら 14.60、14.1 を 100% なら 14.63、14.9 を 97% なら 14.63）。始まりは maimai の記録から出した 14.63 で、最初の5曲（測定中）はそれとの平均、そのあとは1曲ごとに今回の実力へ2割ずつ近づきます。おまかせ以外で遊んだ曲も入ります（練習モード・オート・ライフ0は入りません）。結果画面は6秒で自動で次へ進みます。止めるときは「おまかせを終わる」か曲選択へ。</li>
+          <li>通常の通しプレイの結果は、裏で4分割の区間ごとの記録にもなります。区間の自己ベストより良かった区間は、4分割の記録がその結果に書きかわります（リザルトに出ます）。</li>
           <li>「数え方」は、通常・練習・4分割で「達成率」か「マイナス」を選べます。マイナスは0が最高で、GREAT で −2、GOOD で −3、MISS で −5 ずつ減っていき（BREAK だけは達成率の減り方に合わせて重く数えます。BREAK が少ない譜面ほど1個が重く、ふつうの譜面で GREAT −5〜−11・MISS −20 前後です。CRITICAL 以外の PERFECT も少し減ります。曲選択に、その譜面の BREAK 1個ぶんが出ます）、リングの真ん中に出ます（途中で終了はしません）。どの譜面にも SSS+・SSS・SS・S の目安が付きます。プレイ中は、いま入っているいちばん上のランクの目安が真ん中に出ます（SSS+ の中は水色、S まではピンク、S をこえると赤）。目安は GREAT・GOOD・MISS が混ざる想定の数で、通常の通しプレイをするたびに、自分の結果（マイナスと達成率）に合わせて直っていきます。通常では達成率の記録もそのまま残ります。</li>
           <li>「今週の課題曲」は7曲で、毎週月曜に入れかわります。課題は曲ごとに「達成率 97% 以上」と「ライフ150でクリア」の2つです。</li>
           <li>iPhoneで音が出ないときは、本体の消音スイッチを確認してください。</li>
@@ -2387,7 +2388,7 @@ function judge(j, d, px, py, col, kind, n) {
   const r = run;
   let q = subTier(j, d, kind, n);
   if (n && n.ex && j < 3) { j = 0; q = 0; }
-  if (n) n.jr = j;             // EXノーツ
+  if (n) { n.jr = j; n.jq = q; }   // EXノーツは上で PERFECT にしてある。jq は区間ごとの達成率（通常プレイ→4分割の記録）に使う
   const crit = j === 0 && q === 0, w = n ? noteW(n) : 1;
   r.cnt[j]++; r.jn++; r.gotW += w;
   if (r.life && !r.over && LIFE_DMG[j]) { r.life.cur = Math.max(0, r.life.cur - LIFE_DMG[j]); if (!r.life.cur) lifeFail(r); }
@@ -3084,7 +3085,7 @@ function rebase(pos, resetNotes) {
   killBus(bus); bus = makeBus(); stopTrack(false);
   if (resetNotes) {
     for (const n of r.notes) {
-      if (n.t >= pos && !n.skip) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.progT = null; n.rel = 0; n.lastT = null; n.jr = null; n.asRaw = null; n.asInner = false; n.grp = false; }
+      if (n.t >= pos && !n.skip) { n.fin = false; n.hh = false; n.holding = false; n.prog = 0; n.progT = null; n.rel = 0; n.lastT = null; n.jr = null; n.jq = null; n.asRaw = null; n.asInner = false; n.grp = false; }
       else n.fin = true;
     }
     r.first = 0; while (r.first < r.notes.length && r.notes[r.first].fin) r.first++;
@@ -3229,6 +3230,11 @@ function showResult(r) {
     // レベル目安を少しずつ測る（おまかせの確認の通しは、復習した直後なので入れない）
     lastRate = !r.drill && !r.coach && !(omk && omk.step === 'check') ? rateAdd(ch.bestKey, acc) : null;
     if (lastRate && !omk) msg += ` ／ ${rateMsg(lastRate)}`;
+    // 通常の通しプレイは、裏で4分割の区間ごとの記録にもする（区間の自己ベストを上回った区間だけ書きかえる）
+    if (!r.drill && !r.coach && !r.demo) {
+      const up = splitFromFull(r, ch.id);
+      if (up.length) msg += `\n4分割の自己ベスト更新：${up.map(u => `区間${u.k + 1} ${fmtAcc(u.acc)}%`).join('・')}`;
+    }
   }
   $('#resBest').textContent = msg;
   lifeResult(r, ch, acc);
@@ -3511,6 +3517,25 @@ function splitSecs(notes) {
 const splitKey = id => 'ringbeat:split:' + id;
 function getSplitHist(id) { try { const v = JSON.parse(localStorage.getItem(splitKey(id)) || 'null'); return Array.isArray(v) ? v : [null, null, null, null]; } catch (e) { return [null, null, null, null]; } }
 function setSplitHist(id, v) { try { localStorage.setItem(splitKey(id), JSON.stringify(v)); } catch (e) {} }
+// 通常の通しプレイの結果を、4分割の区間ごとに切り出して達成率を出す（区間のプレイと同じく、始まる時刻が区間の中にあるノーツで数える）。
+// 区間の自己ベストより高い区間だけ記録を書きかえ、更新した区間を返す。最後まで判定が出ていない区間（途中でやめた所）は数えない
+function splitFromFull(r, id) {
+  const secs = splitSecs(r.notes), hist = getSplitHist(id), up = [];
+  for (const sc of secs) {
+    const ns = r.notes.filter(n => !n.skip && n.t >= sc.from && n.t < sc.to);
+    if (!ns.length || ns.some(n => n.jr == null)) continue;
+    let tw = 0, got = 0, bonus = 0, nb = 0;
+    for (const n of ns) {
+      const w = noteW(n), j = n.jr, q = n.jq || 0; tw += w;
+      if (n.brk) { got += w * BRK_BASE[j][q]; bonus += BRK_BONUS[j][q]; nb++; }
+      else got += w * NRM_BASE[j];
+    }
+    const acc = (tw ? got / tw * 100 : 0) + (nb ? bonus / nb : 0), prev = hist[sc.k];
+    if (!prev || acc > prev.best + 1e-9) { hist[sc.k] = { best: acc, last: prev ? prev.last : acc, full: true }; up.push({ k: sc.k, acc }); }
+  }
+  if (up.length) setSplitHist(id, hist);
+  return up;
+}
 const splitK = () => clamp(Math.round(+settings.splitK || 0), 0, 3);
 const secRange = s => `${fmtTime(Math.max(0, s.from))}〜${fmtTime(s.to)}`;
 // 曲選択：4分割のときだけ、区間を選ぶボタンを出す
