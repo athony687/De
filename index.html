@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v158</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v159</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -466,7 +466,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
             <span><i class="sw tap"></i>タップ</span>
             <span><i class="sw each"></i>同時押し（金色）</span>
             <span><i class="sw brk"></i>ブレイク（オレンジ）</span>
-            <span><i class="sw hold"></i>ホールド（押したまま終点まで。終点は押しっぱなしでOK、途中で離しても押し直せる）</span>
+            <span><i class="sw hold"></i>ホールド（押したまま終点まで。終点は押しっぱなしでOK、途中で離しても押し直せる。黄色い線がリングに着くまで押していれば、そのあと離しても FAST にならない）</span>
             <span><i class="sw slide"></i>スライド（☆をタップ → 矢印に沿ってなぞる）</span>
             <span><i class="sw touch"></i>タッチ（4つの三角が集まった点をタップ）</span>
           </li>
@@ -2400,6 +2400,7 @@ function judge(j, d, px, py, col, kind, n) {
   if (j < 3) { r.combo++; if (r.combo > r.maxc) r.maxc = r.combo; r.comboAt = performance.now(); } else { r.combo = 0; if (n && r.practice) addMiss(n.type === 'slide' ? n.s1 : n.t); }
   let fl = '';
   if ((j === 1 || j === 2) && Number.isFinite(d)) { if (d < 0) { fl = 'FAST'; r.fast++; } else { fl = 'LATE'; r.late++; } }
+  else if ((j === 1 || j === 2) && n && n.relFast) { fl = 'FAST'; r.fast++; }
   const inner = kind === 'touch';
   if (!(n && n.hid)) r.txt.push({ x: inner ? px : px * .72, y: inner ? py - .17 : py * .72, j, cr: crit, fl, t: performance.now() });
   // 叩いたときの光のエフェクトは出さない（音だけ鳴らす）
@@ -2433,6 +2434,12 @@ function holdGrade(n, dur) {
   if (rr <= .1) return n.hj;               // ほんの一瞬なら減点なし
   if (rr <= .35) return Math.max(n.hj, 1); // 少し離した → GREAT まで
   return Math.max(n.hj, 2);                // 長く離した → GOOD
+}
+// この時刻より後なら、離しても減点されない（FAST にならない）。ホールドの目印に使う。短いホールドは目印なし
+function holdSafeT(n) {
+  const dur = Math.max(n.dur, .05);
+  if (dur < HOLD_SHORT) return null;
+  return n.t + dur - HOLD_GRACE - .1 * Math.max(dur - HOLD_GRACE, .05) + .02;   // 1フレームぶん余裕を見て少し後ろに
 }
 function update(now, pf) {
   const r = run; if (!r || r.paused || r.over) return;
@@ -2476,6 +2483,8 @@ function update(now, pf) {
       // 終点は押しっぱなしで通る（離す操作はいらない）。1本で1コンボ
       if (now >= te) {
         const j = holdGrade(n, dur);
+        // 早く離したせいで落ちたときは maimai と同じく FAST を出す（タッチホールドは FAST を出さない方針なので出さない）
+        n.relFast = j !== n.hj && !held && !isT;
         fin(n); n.holding = false; judge(j, j === n.hj ? n.hd : NaN, px, py, col, kind, n);
       }
       continue;
@@ -2621,6 +2630,20 @@ function drawHold(n, now, pf) {
     lg.addColorStop(0, c.hi); lg.addColorStop(.5, c.main); lg.addColorStop(1, c.lo); g.strokeStyle = lg; }
   g.lineWidth = w * .23; g.stroke();
   g.lineWidth = Math.max(1.5, w * (isBrkC(c) ? .09 : .06)); g.strokeStyle = isBrkC(c) ? (c.rim || BRK_RIM) : '#fff'; g.stroke();
+  // 目印：この線がリングに着くまで押していれば、そのあと離しても FAST にならない
+  const ts = holdSafeT(n);
+  if (ts != null && now < ts) {
+    const pm = 1 - (ts - now) / A, rm = pm <= 0 ? R0 : R0 + (R - R0) * Math.min(pm, 1);
+    if (rm > rt + 1 && rm < rh - 1) {
+      const a = laneAng(n.lane), ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux, hw = w * .62;
+      const mx = cx + ux * rm, my = cy + uy * rm;
+      g.beginPath(); g.moveTo(mx - vx * hw, my - vy * hw); g.lineTo(mx + vx * hw, my + vy * hw);
+      g.lineCap = 'round';
+      g.lineWidth = Math.max(4, w * .26); g.strokeStyle = 'rgba(0,0,0,.7)'; g.stroke();
+      g.lineWidth = Math.max(2, w * .13); g.strokeStyle = '#ffe14d'; g.stroke();
+      g.lineCap = 'butt';
+    }
+  }
   g.globalAlpha = 1;
   if (!n.hh) { const a = laneAng(n.lane); drawHand(cx + Math.cos(a) * rh, cy + Math.sin(a) * rh, NS * .44 * s, n.hand, al); }
 }
@@ -2679,7 +2702,18 @@ function drawTouch(n, now) {
       g.beginPath(); g.arc(x, y, rr, a0, a0 + TAU * f);
       g.lineCap = 'round'; g.lineWidth = NS * .26; g.strokeStyle = n.brk ? brkC(n).main : '#ffe14d'; g.stroke();
       g.lineWidth = Math.max(1.5, NS * .07); g.strokeStyle = '#fff'; g.stroke(); g.lineCap = 'butt';
-    } else {
+    }
+    // 目印：ゲージがこの線まで来たら離しても減点されない
+    { const ts = holdSafeT(n);
+      if (ts != null && now < ts) {
+        const fm = clamp((ts - n.t) / Math.max(n.dur, .05), 0, 1), am = -Math.PI / 2 + TAU * fm, ux = Math.cos(am), uy = Math.sin(am);
+        const r0 = rr - NS * .3, r1 = rr + NS * .3;
+        g.beginPath(); g.moveTo(x + ux * r0, y + uy * r0); g.lineTo(x + ux * r1, y + uy * r1); g.lineCap = 'round';
+        g.lineWidth = Math.max(4, NS * .2); g.strokeStyle = 'rgba(0,0,0,.7)'; g.stroke();
+        g.lineWidth = Math.max(2, NS * .1); g.strokeStyle = '#fff'; g.stroke(); g.lineCap = 'butt';
+      }
+    }
+    if (!n.hh) {
       circle(x, y, rr); g.lineWidth = Math.max(1.5, NS * .07); g.strokeStyle = 'rgba(255,255,255,.8)'; g.stroke();
       // 中は少し明るく塗って「ここに来る」と分かるように。三角が着く位置にも薄い影を出しておく
       circle(x, y, rr - NS * .13); g.fillStyle = `rgba(${c.rgb},.16)`; g.fill();
