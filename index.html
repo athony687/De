@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v160</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v161</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -425,6 +425,10 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
       <div class="field">
         <label for="spd">ノーツ速度</label><output id="spdOut" for="spd">7.0</output>
         <input type="range" id="spd" min="1" max="10" step="0.25" value="7">
+      </div>
+      <div class="field">
+        <label for="nsize">ノーツの大きさ</label><output id="nsizeOut" for="nsize">115%</output>
+        <input type="range" id="nsize" min="80" max="150" step="5" value="115">
       </div>
       <label class="check" for="auto"><input type="checkbox" id="auto">オートプレイでお手本を見る</label>
       <label class="check" for="hands"><input type="checkbox" id="hands" checked><span>運指ガイド <small>ノーツに「左・右」（取る手）を出す</small></span></label>
@@ -1239,7 +1243,7 @@ function buildSong(ex) {
 }
 
 /* ================= charts registry ================= */
-const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true, hands: true, sort: 'lv', sortDesc: false, life: false, lifeN: 150 };
+const settings = { chart: 'b:basic', nspd: 7, ofs: 0, auto: false, guide: true, practice: false, prate: .75, judge: 'wide', nagashi: true, nassist: true, nlv: 100, nauto: true, jofs: 0, jauto: true, hands: true, nsize: 115, sort: 'lv', sortDesc: false, life: false, lifeN: 150 };
 // ノーツ速度 → ノーツが出てからリングに届くまでの秒数（7.0 で約 0.46 秒）
 const approachOf = v => 3.2 / clamp(+v || 7, 1, 10);
 let SONGS = null, IMPORTS = [];
@@ -2657,7 +2661,7 @@ function drawSlidePath(n, now, pf) {
   if (ph < -.25) return;
   const c = colOf(n);
   // 本家と同じく、☆が動き出すまでは薄め、動き出したらはっきり出す
-  let al = now < n.t ? clamp((ph + .25) / 1.25, 0, 1) * .6 : now < n.s0 ? .75 : 1;
+  let al = now < n.t ? clamp((ph + .25) / 1.25, 0, 1) * .8 : now < n.s0 ? .9 : 1;
   const s = NS * .95, hc = handsOn() && n.hand ? HAND_COL[n.hand] : null;
   g.globalAlpha = al; g.lineJoin = 'round';
   for (const ch of n.chev) {
@@ -2733,7 +2737,7 @@ function drawTouch(n, now) {
         }
       }
     }
-  } else { g.strokeStyle = `rgba(${c.rgb},.45)`; g.lineWidth = 2; circle(x, y, NS * 1.05); g.stroke(); }
+  } else { g.strokeStyle = `rgba(${c.rgb},.75)`; g.lineWidth = Math.max(2, NS * .08); circle(x, y, NS * 1.05); g.stroke(); }
   for (let i = 0; i < 4; i++) {
     const a = i * Math.PI / 2 - Math.PI / 2, ux = Math.cos(a), uy = Math.sin(a), vx = -uy, vy = ux;
     const bx = x + ux * dist, by = y + uy * dist;
@@ -2891,10 +2895,10 @@ function draw(now, pf) {
   g.fill();
   circle(cx, cy, R * .62); g.lineWidth = 1; g.strokeStyle = 'rgba(196,178,255,.05)'; g.stroke();
 
-  g.lineWidth = 1; g.strokeStyle = 'rgba(196,178,255,.07)'; g.beginPath();
+  g.lineWidth = Math.max(1, R * .004); g.strokeStyle = 'rgba(196,178,255,.17)'; g.beginPath();
   for (let k = 0; k < 8; k++) { const a = laneAng(k); g.moveTo(cx + Math.cos(a) * R0, cy + Math.sin(a) * R0); g.lineTo(cx + Math.cos(a) * R * .97, cy + Math.sin(a) * R * .97); }
   g.stroke();
-  circle(cx, cy, R0); g.strokeStyle = 'rgba(196,178,255,.14)'; g.stroke();
+  circle(cx, cy, R0); g.strokeStyle = 'rgba(196,178,255,.26)'; g.stroke();
 
   // 判定のリング（光らせない。拍に合わせた発光・ボタンを押したときの光・外周の小節時計はなし）。
   // 白い線の内側にうっすら幅を持たせて、ノーツが重なる位置をはっきりさせる
@@ -2939,7 +2943,9 @@ function draw(now, pf) {
 }
 
 /* ================= layout ================= */
-function setSizes() { R0 = R * .2; NS = R * .1; }
+// ノーツの大きさは見た目だけ（判定の範囲は変わらない）
+const nsizePct = () => clamp(Math.round((settings.nsize == null ? 115 : +settings.nsize) / 5) * 5, 80, 150);
+function setSizes() { R0 = R * .2; NS = R * .1 * nsizePct() / 100; }
 function layoutRing() {
   const top = (mode === 'play' && !practiceEl.hidden) ? Math.max(0, practiceEl.getBoundingClientRect().bottom - ar.top) : 0;
   const HH = Math.max(120, H - top);
@@ -4266,6 +4272,7 @@ function outs() {
   $('#jofsOut').textContent = fmtMs(jofsMs());
   $('#prateOut').textContent = (+settings.prate).toFixed(2).replace(/0$/, '') + 'x';
   $('#nlvOut').textContent = nlvPct() + '%';
+  $('#nsizeOut').textContent = nsizePct() + '%';
 }
 function bestLine() {
   const ch = currentChart(), b = getBest(ch.bestKey);
@@ -4277,7 +4284,7 @@ function syncForm() {
   spdIn.value = settings.nspd; ofsIn.value = settings.ofs; autoIn.checked = !!settings.auto; guideIn.checked = settings.guide !== false;
   $('#nagashi').checked = settings.nagashi !== false;
   $('#nassist').checked = settings.nassist !== false;
-  $('#nlv').value = nlvPct(); $('#nauto').checked = settings.nauto !== false;
+  $('#nlv').value = nlvPct(); $('#nsize').value = nsizePct(); $('#nauto').checked = settings.nauto !== false;
   $('#jofs').value = jofsMs(); $('#jauto').checked = settings.jauto !== false;
   $('#hands').checked = settings.hands !== false;
   ($('#m_' + (settings.practice ? 'prac' : settings.split ? 'split' : settings.life ? 'life' : 'play'))).checked = true;
@@ -4364,6 +4371,7 @@ guideIn.addEventListener('change', () => { settings.guide = guideIn.checked; sav
 $('#nagashi').addEventListener('change', () => { settings.nagashi = $('#nagashi').checked; saveSettings(); updSweepBtn(); });
 $('#nassist').addEventListener('change', () => { settings.nassist = $('#nassist').checked; saveSettings(); });
 $('#nlv').addEventListener('input', () => { settings.nlv = +$('#nlv').value; outs(); saveSettings(); });
+$('#nsize').addEventListener('input', () => { settings.nsize = +$('#nsize').value; setSizes(); outs(); saveSettings(); });
 $('#nauto').addEventListener('change', () => { settings.nauto = $('#nauto').checked; saveSettings(); });
 $('#jofs').addEventListener('input', () => { settings.jofs = +$('#jofs').value; outs(); saveSettings(); });
 $('#jauto').addEventListener('change', () => { settings.jauto = $('#jauto').checked; saveSettings(); });
