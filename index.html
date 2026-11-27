@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v161</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v162</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -2756,6 +2756,39 @@ function drawTouch(n, now) {
   if (n.fw) { g.fillStyle = 'rgba(255,255,255,.85)'; circle(x, y, NS * .08); g.fill(); }
   g.globalAlpha = 1;
 }
+// maimai と同じく、同時に押すノーツ（EACH）をリングに沿った線でつなぐ。どれとどれが同時か一目で分かるように
+function drawEachLines(now, notes, i0, i1, A) {
+  for (let i = i0; i < i1;) {
+    const t = notes[i].t; let j = i; const ls = [];
+    while (j < i1 && Math.abs(notes[j].t - t) < 1e-4) {
+      const n = notes[j];
+      if (!n.fin && (n.type === 'tap' || (n.type === 'hold' && !n.hh)) && !ls.includes(n.lane)) ls.push(n.lane);
+      j++;
+    }
+    i = j;
+    if (ls.length < 2) continue;
+    const ph = 1 - (t - now) / A;
+    if (ph < -.25) continue;
+    let r, s = 1;
+    if (ph < 0) { r = R0; s = (ph + .25) / .25; } else r = R0 + (R - R0) * Math.min(ph, 1);
+    const al = (now > t ? Math.max(0, 1 - (now - t) / W_D) : 1) * s;
+    if (al <= 0) continue;
+    ls.sort((a, b) => a - b);
+    // いちばん離れているすき間は通らない（短い向きでつなぐ）
+    let gi = ls.length - 1, gw = ls[0] + 8 - ls[ls.length - 1];
+    for (let k = 0; k < ls.length - 1; k++) if (ls[k + 1] - ls[k] > gw) { gw = ls[k + 1] - ls[k]; gi = k; }
+    const a0 = laneAng(ls[(gi + 1) % ls.length]), span = (8 - gw) * Q;
+    if (span <= 0) continue;
+    // ノーツの中まで線が入らないように、両端はノーツの大きさぶん短くする
+    const cut = Math.min(span / 2, (NS * s * 1.05) / Math.max(r, 1));
+    if (span - cut * 2 <= 0) continue;
+    g.globalAlpha = al; g.lineCap = 'round';
+    g.beginPath(); g.arc(cx, cy, r, a0 + cut, a0 + span - cut);
+    g.lineWidth = NS * s * .34; g.strokeStyle = 'rgba(0,0,0,.6)'; g.stroke();
+    g.lineWidth = NS * s * .18; g.strokeStyle = C.each.main; g.stroke();
+    g.lineCap = 'butt'; g.globalAlpha = 1;
+  }
+}
 function drawCenter(now, pf) {
   const r = run;
   g.textAlign = 'center'; g.textBaseline = 'middle';
@@ -2771,7 +2804,7 @@ function drawCenter(now, pf) {
     // ライフのときは、達成率のかわりに残りライフを真ん中に出す（達成率は右上に出ている）
     const mn = r.minus, lf = r.life || mn, t = mn ? minusTxt(mn.cur) : lf ? String(lf.cur) : fmtAcc(Math.max(0, achieve(r, true))), unit = lf ? '' : '%';
     g.save(); g.translate(cx, cy - R * .02);
-    g.globalAlpha = .85 * (rd ? clamp(now - .9, 0, .5) / .5 : 1);
+    g.globalAlpha = .5 * (rd ? clamp(now - .9, 0, .5) / .5 : 1);   // ノーツより目立たないように薄め
     if (g.globalAlpha > 0) {
       const big = Math.round(R * (lf ? .16 : .105)), sm = Math.round(R * .05);
       g.font = `900 ${big}px ${DISP}`; const w1 = g.measureText(t).width;
@@ -2796,11 +2829,13 @@ function drawTexts(pf) {
   g.textAlign = 'center'; g.textBaseline = 'middle';
   for (let i = tx.length - 1; i >= 0; i--) {
     const t = tx[i], age = (pf - t.t) / 1000;
-    if (age > .5) { tx.splice(i, 1); continue; }
-    const k = age / .5;
+    // いちばん多い CRITICAL PERFECT は早めに消して薄く出す（次のノーツの邪魔にならないように）。それ以外はふつうに出す
+    const life = t.cr && t.j === 0 && !t.fl ? .3 : .5;
+    if (age > life) { tx.splice(i, 1); continue; }
+    const k = age / life;
     const x = cx + t.x * R, y = cy + t.y * R - (reduceMotion ? 0 : k * R * .04);
     const pop = reduceMotion ? 1 : 1 + .25 * (1 - clamp(age / .08, 0, 1));
-    g.save(); g.translate(x, y); g.scale(pop, pop); g.globalAlpha = 1 - k * k;
+    g.save(); g.translate(x, y); g.scale(pop, pop); g.globalAlpha = (1 - k * k) * (life < .5 ? .7 : 1);
     g.font = `900 ${Math.round(R * .058)}px ${DISP}`;
     g.lineWidth = R * .02; g.lineJoin = 'round'; g.strokeStyle = 'rgba(11,8,20,.85)';
     g.strokeText(J_NAME[t.j], 0, 0); g.fillStyle = J_COL[t.j]; g.fillText(J_NAME[t.j], 0, 0);
@@ -2923,6 +2958,7 @@ function draw(now, pf) {
   const notes = run.notes, A = run.app, vis = now + A * 1.25 + .05;
   let last = run.first; while (last < notes.length && notes[last].t <= vis) last++;
   for (let i = run.first; i < last; i++) { const n = notes[i]; if (n.type === 'slide' && !n.fin) drawSlidePath(n, now, pf); }
+  drawEachLines(now, notes, run.first, last, A);
   for (let i = last - 1; i >= run.first; i--) { const n = notes[i]; if (n.type === 'hold' && !n.fin) drawHold(n, now, pf); }
   for (let i = last - 1; i >= run.first; i--) { const n = notes[i]; if (isTouch(n) && !n.fin && !n.hid) drawTouch(n, now); }
   for (let i = last - 1; i >= run.first; i--) {
