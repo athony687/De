@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v162</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v163</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -762,6 +762,72 @@ function arcPts(from, dir, steps, r = 1) {
   return out;
 }
 const TOP_HALF = new Set([0, 1, 6, 7]);   // ボタン 1,2,7,8
+/* くねくねしたスライド（p・q・pp・qq・s・z）は、本家の形を再現している MajdataPlay（SlideGeo / SlideCodeParser）と
+   同じ作り方で経路を作る。計算は y 上向き・リング半径 1 の座標で行い、最後に画面の向き（y 下向き）に直す。
+   ・p/q：真ん中の円（半径 cos67.5°）に接線で入り、まわって、接線で終点へ
+   ・pp/qq：真ん中を通る「横の円」（中心がリングの中心から 0.46 ずれた所、半径 0.46）をまわる。
+     pp は始点から反時計回りに2つ先、qq は1つ手前の横の円。3つ・4つ先へ行くときはもう1周する
+   ・s/z：始点の左右 90° の B エリアの点を通るジグザグ */
+const MJ = (() => {
+  const CR = Math.cos(Math.PI * 3 / 8), BR = CR / Math.cos(Math.PI / 8), PR = Math.cos(Math.PI / 8) / 2;
+  const pol = (r, a) => [Math.cos(a) * r, Math.sin(a) * r];
+  return {
+    A: i => pol(1, Math.PI * (5 / 8 - i / 4)), B: i => pol(BR, Math.PI * (5 / 8 - i / 4)),
+    circ: i => i === 0 ? { c: [0, 0], r: CR } : { c: pol(PR, Math.PI * (3 / 4 - i / 4)), r: PR },
+  };
+})();
+const remTau = x => x - TAU * Math.round(x / TAU);
+const wrapKey = k => ((k - 1) % 8 + 8) % 8 + 1;
+function mjTangent(p, c, r, ccw) {
+  const hx = p[0] - c[0], hy = p[1] - c[1], d = Math.acos(clamp(r / Math.hypot(hx, hy), -1, 1));
+  return remTau(Math.atan2(hy, hx) + (ccw ? d : -d));
+}
+function majPts(shape, s, e) {
+  const rel = (a, b) => ((b - a) % 8 + 8) % 8;
+  let cmds;   // [種類, 値]：A/B = その点へ直線、O = 円をまわる（値は円の番号）、K = 終点
+  if (shape === 'p' || shape === 'q') cmds = [['O', 0], ['K', e]];
+  else if (shape === 'pp' || shape === 'qq') {
+    const pp = shape === 'pp', ci = wrapKey(pp ? s + 2 : s - 1), tr = pp ? rel(s, e) : rel(e, s);
+    cmds = tr === 3 || tr === 4 ? [['O', ci], ['O', ci], ['K', e]] : [['O', ci], ['K', e]];
+  } else {
+    let b1 = wrapKey(s - 2), b2 = wrapKey(s + 2); if (shape === 'z') [b1, b2] = [b2, b1];
+    cmds = [['B', b1], ['B', b2], ['K', e]];
+  }
+  const ccw = shape[0] === 'p';
+  let cur = MJ.A(s), last = ['A', s];
+  const out = [];
+  const lineTo = q => { out.push(q); cur = q; };
+  const arcTo = (c, endRad, skip) => {
+    const r = Math.hypot(cur[0] - c[0], cur[1] - c[1]);
+    let a0 = Math.atan2(cur[1] - c[1], cur[0] - c[0]), a1 = endRad;
+    if (Math.abs(remTau(a1 - a0)) < .002) { if (skip) return; a1 = ccw ? a0 + TAU : a0 - TAU; }
+    else if (ccw) { if (a0 > a1) a0 -= TAU; } else if (a0 < a1) a0 += TAU;
+    const n = Math.max(4, Math.ceil(Math.abs(a1 - a0) / .06));
+    for (let i = 1; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; out.push([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]); }
+    cur = out[out.length - 1];
+  };
+  for (const cm of cmds) {
+    const [ty, v] = cm;
+    if (ty === 'O') {
+      const { c, r } = MJ.circ(v);
+      if (last[0] === 'O') {   // 同じ円をもう1周
+        const r0 = Math.hypot(cur[0] - c[0], cur[1] - c[1]), a0 = Math.atan2(cur[1] - c[1], cur[0] - c[0]), n = Math.ceil(TAU / .06);
+        for (let i = 1; i <= n; i++) { const a = a0 + (ccw ? 1 : -1) * TAU * i / n; out.push([c[0] + Math.cos(a) * r0, c[1] + Math.sin(a) * r0]); }
+      } else if (Math.abs(Math.hypot(cur[0] - c[0], cur[1] - c[1]) - r) >= .1 / 4.8) {
+        const a = mjTangent(cur, c, r, ccw); lineTo([c[0] + Math.cos(a) * r, c[1] + Math.sin(a) * r]);
+      }
+    } else {
+      const q = ty === 'B' ? MJ.B(v) : MJ.A(v);
+      if (last[0] === 'O') {
+        const { c } = MJ.circ(last[1]), r = Math.hypot(cur[0] - c[0], cur[1] - c[1]), d = Math.hypot(q[0] - c[0], q[1] - c[1]);
+        if (Math.abs(d - r) < .1 / 4.8) arcTo(c, Math.atan2(q[1] - c[1], q[0] - c[0]), false);
+        else { arcTo(c, mjTangent(q, c, r, !ccw), false); lineTo(q); }
+      } else lineTo(q);
+    }
+    last = cm;
+  }
+  return out.map(([x, y]) => [x, -y]);   // 画面の向き（y 下向き）に直す
+}
 function segPoints(s) {
   const { shape, from, to } = s;
   switch (shape) {
@@ -774,20 +840,7 @@ function segPoints(s) {
     }
     case 'v': return [[0, 0], lanePt(to)];
     case 'V': return [lanePt(s.mid), lanePt(to)];
-    case 'p': case 'q': case 'pp': case 'qq': {
-      const dir = shape[0] === 'q' ? 1 : -1, r = shape.length === 2 ? .62 : .42, dl = Math.acos(r);
-      const a1 = laneAng(from) + dir * dl, a2 = laneAng(to) - dir * dl;
-      let span = dir > 0 ? ((a2 - a1) % TAU + TAU) % TAU : -(((a1 - a2) % TAU + TAU) % TAU);
-      if (Math.abs(span) < .15) span += dir * TAU;
-      const n = Math.max(8, Math.ceil(Math.abs(span) / .1)), out = [];
-      for (let i = 0; i <= n; i++) { const a = a1 + span * i / n; out.push([Math.cos(a) * r, Math.sin(a) * r]); }
-      out.push(lanePt(to)); return out;
-    }
-    case 's': case 'z': {
-      const S = lanePt(from), E = lanePt(to); let ux = E[0] - S[0], uy = E[1] - S[1]; const L = Math.hypot(ux, uy) || 1; ux /= L; uy /= L;
-      const nx = -uy, ny = ux, sg = shape === 's' ? 1 : -1;
-      return [[nx * .42 * sg - ux * .08, ny * .42 * sg - uy * .08], [-nx * .42 * sg + ux * .08, -ny * .42 * sg + uy * .08], E];
-    }
+    case 'p': case 'q': case 'pp': case 'qq': case 's': case 'z': return majPts(shape, from + 1, to + 1);
     default: return [lanePt(to)];   // '-' と 'w'
   }
 }
