@@ -368,7 +368,7 @@ details ul{margin:10px 0 0;padding-left:1.1em;display:grid;gap:6px}
   <section id="titleOv" class="overlay title" aria-label="曲選択">
     <button id="fsBtn2" class="icon-btn fs-btn title-fs" type="button" aria-label="全画面表示"></button>
     <header class="brand">
-      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v163</span></p>
+      <p class="eyebrow">8方向・円形リズムゲーム <span id="verTxt">v165</span></p>
       <h1 class="logo">wai<span>wai</span></h1>
     </header>
     <form id="setup" class="card" autocomplete="off">
@@ -657,7 +657,9 @@ const T_E = 9 * FR;                            // 早い側に取れる幅（こ
 const T_SUB = [[9 * FR, 10.5 * FR], [13 * FR, 14 * FR]];   // PERFECT・GREAT の中の区切り（遅い側）
 const JUDGE_PRESETS = {
   normal: { tap: [.05, .10, .15],  touch: TOUCH_W, slide: [.30, .52, .64] },
-  wide:   { tap: [.065, .12, .20],  touch: TOUCH_W, slide: [.36, .58, .72] },
+  // タップ・ホールドの始点は maimai でらっくす と同じ幅（v165）：PERFECT ±3F（CRITICAL ±1F）・GREAT ±6F・GOOD ±9F。
+  // PERFECT・GREAT の中の区切りも 1F ごと（16.7 / 33.3 / 50 ms、66.7 / 83.3 / 100 ms）で maimai と同じ。スライドは今までどおり
+  wide:   { tap: [3 * FR, 6 * FR, 9 * FR],  touch: TOUCH_W, slide: [.36, .58, .72] },
   easy:   { tap: [.11, .18, .26],  touch: TOUCH_W, slide: [.46, .68, .82] },
 };
 let W_P = .07, W_G = .125, W_D = .18, T_P = TOUCH_W[0], T_G = TOUCH_W[1], T_D = TOUCH_W[2], SL_P = .3, SL_G = .5, SL_M = .6;
@@ -2122,7 +2124,8 @@ function songAt(pf) {
   return songRaw(pf) - settings.ofs / 1000;
 }
 const toAC = t => run.acBase + (t - run.base) / run.rate;   // 曲の時刻 t の音を鳴らす AudioContext 時刻
-function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 5 && n - t < 500) ? t : n; }
+// 指の合図は「合図の時刻 + ふだんの遅れ」にしてあるので、今より少し先の時刻になることがある（その分は受け付ける）
+function evTime(e) { const t = e.timeStamp, n = performance.now(); return (t > 0 && t <= n + 80 && n - t < 500) ? t : n; }
 /* 叩いた合図がゲームに届くのが遅れても取りこぼさないよう、MISS の確定だけ少し待つ（判定の幅は変えない） */
 const MISS_LATE = .2;
 // 合図が届くまでの遅れを見張って、遅れが大きいときは MISS の確定をそのぶん待つ（最大 3 秒）。
@@ -3492,7 +3495,7 @@ function timingResult(r) {
   const med = dv[dv.length >> 1] * 1000, am = Math.round(Math.abs(med));
   const tend = am < 6 ? 'ずれはほぼなし' : `平均 ${am}ms ${med > 0 ? '遅め' : '早め'}`;
   if (settings.jauto !== false && am >= 6) {
-    const cur = jofsMs(), nv = clamp(Math.round(cur + clamp(med, -25, 25)), Math.min(cur, -40), Math.max(cur, 60));   // 1回で動かすのは 25ms まで
+    const cur = jofsMs(), nv = clamp(Math.round(cur + clamp(med, -25, 25)), Math.min(cur, -40), Math.max(cur, 120));   // 1回で動かすのは 25ms まで
     if (nv !== cur) { settings.jofs = nv; saveSettings(); outs(); $('#jofs').value = nv; }
     el.textContent = `叩いたタイミング：${tend} → 判定タイミングを ${fmtMs(nv)} に自動で合わせました`;
   } else el.textContent = `叩いたタイミング：${tend}（判定タイミング ${fmtMs(jofsMs())}）`;
@@ -4789,10 +4792,22 @@ if (TOUCH_EV) {
      判定の時刻が数十ms ずれ、同じタイミングで叩いても判定がばらつく。
      プロセカなどのアプリ（Unity）と同じく、すべての指を「ゲームが受け取った時刻」で判定する。
      受け取るまでの一定の遅れは「判定タイミング」の補正（自動で合わせる）で打ち消す */
+  /* v164：受け取った時刻だけで判定すると、ゲームの処理が重い瞬間に合図が届くのが遅れた分、毎回 LATE 側にだけずれる
+     （遅れは必ずプラスなので、平均を補正しても LATE GREAT・LATE GOOD が FAST より多く出る）。
+     そこで、合図の時刻（timeStamp）が新しいとき（前の合図より後で、古い時刻ではないとき）は
+     「合図の時刻 + ふだんの遅れの平均」で判定する。ばらつきだけが消えて、平均の遅れはこれまでと同じなので、
+     判定タイミングの補正（jofs）の意味は変わらない。古い時刻のとき（iPad で指を押したままのとき）は今までどおり受け取った時刻 */
+  let lagM = null, prevTS = 0;
   const touchTime = e => {
     const n = performance.now(), t = e.timeStamp;
     if (t > 0 && n - t >= 120 && e.touches.length > 1) icAdd('stale');
-    return { timeStamp: n };
+    const fresh = t > 0 && t <= n + 5 && t > prevTS && n - t < 300;
+    if (t > prevTS && t <= n + 5) prevTS = t;
+    if (!fresh) return { timeStamp: n };
+    const L = Math.max(0, n - t);
+    if (L < 60) lagM = lagM == null ? L : lagM + (L - lagM) * .05;
+    if (lagM == null) return { timeStamp: n };
+    return { timeStamp: t + lagM };
   };
   const syncTouches = (e, te) => {
     const live = new Set(), ic = icOf();
